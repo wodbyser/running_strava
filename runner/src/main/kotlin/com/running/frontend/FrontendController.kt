@@ -78,19 +78,30 @@ class FrontendController(
                 }
             }
         }
-        val weeklyRuns = allActivities.filter { a ->
-            a.type in runTypes &&
+        val allRuns = allActivities.filter { it.type in runTypes }
+        val weeklyRuns = allRuns.filter { a ->
             (weeklySince == null || !a.startDate.isBefore(weeklySince)) &&
             (weeklyUntil == null || !a.startDate.isAfter(weeklyUntil))
         }
 
-        val weeklyVolume = weeklyRuns
-            .groupBy { it.startDate.toLocalDate().with(DayOfWeek.MONDAY) }
-            .mapValues { (_, activities) -> activities.sumOf { it.distance.toDouble() } / 1000 }
-            .toSortedMap()
-            .entries.toList()
-        model.addAttribute("weeklyLabels", weeklyVolume.map { it.key.format(DateTimeFormatter.ofPattern("dd/MM")) })
-        model.addAttribute("weeklyDistances", weeklyVolume.map { "%.1f".format(it.value).toDouble() })
+        val weekRangeStart = weeklySince ?: (allRuns.minOfOrNull { it.startDate } ?: now)
+        val weekRangeEnd = weeklyUntil ?: now
+        val weeklyVolume = mutableMapOf<LocalDate, Double>()
+        var weekCursor = weekRangeStart.toLocalDate().with(DayOfWeek.MONDAY)
+        val weekEnd = weekRangeEnd.toLocalDate().with(DayOfWeek.MONDAY)
+        while (!weekCursor.isAfter(weekEnd)) {
+            weeklyVolume[weekCursor] = 0.0
+            weekCursor = weekCursor.plusWeeks(1)
+        }
+        weeklyRuns.forEach { a ->
+            val w = a.startDate.toLocalDate().with(DayOfWeek.MONDAY)
+            weeklyVolume[w] = (weeklyVolume[w] ?: 0.0) + a.distance.toDouble() / 1000
+        }
+        val sortedVolume = weeklyVolume.toSortedMap().entries.toList()
+        val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
+        model.addAttribute("weeklyLabels", sortedVolume.map { it.key.format(dateFormatter) })
+        model.addAttribute("weeklyDistances", sortedVolume.map { "%.1f".format(it.value).toDouble() })
+        model.addAttribute("weeklyWeekStarts", sortedVolume.map { it.key.toString() })
 
         model.addAttribute("hasToken", hasToken)
         model.addAttribute("hasData", runs.isNotEmpty())

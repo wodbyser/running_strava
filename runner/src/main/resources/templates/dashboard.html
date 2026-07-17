@@ -171,10 +171,16 @@
     <script th:if="${hasData}" th:inline="javascript">
         const labels = /*[[${weeklyLabels}]]*/ [];
         const data = /*[[${weeklyDistances}]]*/ [];
+        const weekStarts = /*[[${weeklyWeekStarts}]]*/ [];
         if (labels.length > 0) {
             const n = labels.length;
             const canvas = document.getElementById('weeklyChart');
-            canvas.height = Math.max(350, Math.min(600, n * 10));
+            const minBarSpace = 28;
+            const idealWidth = n * minBarSpace;
+            const containerWidth = canvas.parentElement.clientWidth || 800;
+            const chartWidth = Math.max(containerWidth, Math.min(idealWidth, 8000));
+            canvas.style.width = chartWidth + 'px';
+            canvas.style.height = Math.max(350, Math.min(600, n * 6)) + 'px';
             new Chart(canvas, {
                 type: 'bar',
                 data: {
@@ -191,6 +197,21 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
+                    },
+                    onHover: function(e) {
+                        const bars = this.getElementsAtEventForMode(e, 'index', { intersect: true });
+                        e.native.target.style.cursor = bars.length > 0 ? 'pointer' : 'default';
+                    },
+                    onClick: function(e) {
+                        const bars = this.getElementsAtEventForMode(e, 'index', { intersect: true });
+                        if (bars.length > 0) {
+                            const idx = bars[0].index;
+                            const from = weekStarts[idx];
+                            const d = new Date(from);
+                            d.setDate(d.getDate() + 6);
+                            const till = d.toISOString().split('T')[0];
+                            window.location.href = '/activities?from=' + from + '&till=' + till + '&type=run&period=custom';
+                        }
                     },
                     scales: {
                         y: {
@@ -209,8 +230,8 @@
                         },
                         x: {
                             ticks: {
-                                font: { size: 11 },
-                                maxTicksLimit: Math.max(6, Math.min(24, Math.floor(n / 2))),
+                                font: { size: 10 },
+                                maxTicksLimit: Math.max(8, Math.min(36, Math.floor(n / 4))),
                                 autoSkip: true,
                             },
                             grid: { display: false }
