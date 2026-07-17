@@ -153,6 +153,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
@@ -168,6 +169,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
@@ -184,6 +186,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
@@ -199,6 +202,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
@@ -214,6 +218,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
@@ -229,6 +234,7 @@ class FrontendController(
         val type = if (result.errors.isEmpty()) "success" else "warning"
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
         return "redirect:/"
     }
 
