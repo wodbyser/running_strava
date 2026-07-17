@@ -174,7 +174,7 @@
     <a href="/activities">Trainingen</a>
     <a href="/pbs">Persoonlijke Records</a>
 </nav>
-<div th:if="${flashMessage}" class="flash" th:classappend="'flash-' + ${flashType}" th:attr="data-flash">
+<div th:if="${flashMessage}" class="flash" th:classappend="'flash-' + ${flashType}">
     <span th:text="${flashMessage}">melding</span>
     <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
 </div>
