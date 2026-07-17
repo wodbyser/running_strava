@@ -19,7 +19,7 @@
     <div th:if="${hasData}">
         <form method="get" class="filter-bar">
             <div class="filter-row">
-                <select name="period" id="period" onchange="document.getElementById('customDates').style.display=this.value=='custom'?'inline-flex':'none'">
+                <select name="period" id="period" onchange="this.form.submit()">
                     <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
                     <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
                     <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
@@ -29,18 +29,18 @@
                     <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
                 </select>
                 <div class="custom-dates" id="customDates" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                    <input type="date" name="from" th:value="${filterFrom}">
+                    <input type="date" name="from" th:value="${filterFrom}" onchange="this.form.submit()">
                     <span>tot</span>
-                    <input type="date" name="till" th:value="${filterTill}">
+                    <input type="date" name="till" th:value="${filterTill}" onchange="this.form.submit()">
                 </div>
-                <select name="type">
+                <select name="type" onchange="this.form.submit()">
                     <option value="run" th:selected="${filterType == 'run' or filterType == ''}">Lopen</option>
                     <option value="all" th:selected="${filterType == 'all'}">Alle types</option>
                     <option value="ride" th:selected="${filterType == 'ride'}">Fietsen</option>
                     <option value="swim" th:selected="${filterType == 'swim'}">Zwemmen</option>
                     <option value="other" th:selected="${filterType == 'other'}">Overig</option>
                 </select>
-                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                <button type="submit" class="btn btn-primary btn-sm" style="display:none">Filter</button>
                 <a href="?" class="btn btn-sm" style="background:#eee;color:#333;">Reset</a>
             </div>
         </form>
