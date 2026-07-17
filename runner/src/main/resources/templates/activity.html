@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <a href="/activities" class="text-muted" style="text-decoration:none;">&larr; Terug naar overzicht</a>
+
+    <div class="card" style="margin-top:1rem;">
+        <div class="flex" style="justify-content:space-between;align-items:start;">
+            <div>
+                <h1 style="font-size:1.5rem;" th:text="${a.name}">-</h1>
+                <p class="text-muted" th:text="${a.date}">-</p>
+            </div>
+            <span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span>
+        </div>
+
+        <div class="stat-grid" style="margin-top:1.5rem;">
+            <div class="stat">
+                <div class="value" th:text="${a.distance}">-</div>
+                <div class="label">Afstand</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${a.pace}">-</div>
+                <div class="label">Tempo</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${a.duration}">-</div>
+                <div class="label">Duur</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${a.avgHr}">-</div>
+                <div class="label">Gem. HR</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${a.maxHr}">-</div>
+                <div class="label">Max HR</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${a.cadence}">-</div>
+                <div class="label">Cadence</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Details</h2>
+        <table style="width:auto;">
+            <tr><td style="font-weight:600;padding-right:2rem;">Elevatie</td><td th:text="${a.elevation}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Max snelheid</td><td th:text="${a.maxSpeed}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Gem. vermogen</td><td th:text="${a.avgWatts}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Max vermogen</td><td th:text="${a.maxWatts}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Calorieën</td><td th:text="${a.calories}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Suffer Score</td><td th:text="${a.sufferScore}">-</td></tr>
+            <tr><td style="font-weight:600;padding-right:2rem;">Beschrijving</td><td th:text="${a.description}">-</td></tr>
+        </table>
+    </div>
+
+    <div th:if="${a.description}" class="card">
+        <h2>Notities</h2>
+        <p style="white-space:pre-wrap;" th:text="${a.description}">-</p>
+    </div>
+</th:block>
+</html>

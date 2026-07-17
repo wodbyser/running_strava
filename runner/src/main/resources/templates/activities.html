@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="card">
+        <div class="flex" style="justify-content:space-between;">
+            <h2>Alle trainingen</h2>
+            <span class="text-muted" th:text="${total} + ' trainingen'">0</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Naam</th>
+                    <th>Type</th>
+                    <th>Afstand</th>
+                    <th>Tempo</th>
+                    <th>HR gem</th>
+                    <th>HR max</th>
+                    <th>Cadence</th>
+                    <th>Elevatie</th>
+                    <th>Duur</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="a : ${activities}">
+                    <td th:text="${a.date}">-</td>
+                    <td><a th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}" style="color:#1a1a2e;">-</a></td>
+                    <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                    <td th:text="${a.distance}">-</td>
+                    <td th:text="${a.pace}">-</td>
+                    <td th:text="${a.avgHr}">-</td>
+                    <td th:text="${a.maxHr}">-</td>
+                    <td th:text="${a.cadence}">-</td>
+                    <td th:text="${a.elevation}">-</td>
+                    <td th:text="${a.duration}">-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</th:block>
+</html>

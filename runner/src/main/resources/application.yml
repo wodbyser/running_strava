@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: running-coach
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/running
+    username: postgres
+    password: admin
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+
+  thymeleaf:
+    cache: false
+
+server:
+  port: 8080
+
+strava:
+  client-id: ${STRAVA_CLIENT_ID:}
+  client-secret: ${STRAVA_CLIENT_SECRET:}
+  redirect-uri: http://localhost:8080/callback
+  sync:
+    cron: 0 0 6 * * *
+
+logging:
+  level:
+    com.running: DEBUG

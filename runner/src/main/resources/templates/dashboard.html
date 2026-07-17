@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div th:if="${!hasToken}" class="card" style="text-align:center;padding:3rem;">
+        <p style="font-size:1.1rem;color:#666;">Nog niet gekoppeld met Strava.</p>
+        <p class="text-muted mt-2">
+            <a href="/auth/strava" class="btn btn-primary">Koppel Strava account</a>
+        </p>
+    </div>
+
+    <div th:if="${hasToken && !hasData}" class="card" style="text-align:center;padding:3rem;">
+        <p style="font-size:1.1rem;color:#666;">Strava gekoppeld! Nog geen data gesynchroniseerd.</p>
+        <p class="text-muted mt-2">Klik op onderstaande knop om alle historische trainingen op te halen.</p>
+        <p class="mt-2">
+            <a href="/fetch-all" class="btn btn-primary">Alle data ophalen</a>
+        </p>
+    </div>
+
+    <div th:if="${hasData}">
+        <div class="card">
+            <h2>Totaaloverzicht</h2>
+            <div class="stat-grid">
+                <div class="stat">
+                    <div class="value" th:text="${stats.totalRuns}">0</div>
+                    <div class="label">Trainingen</div>
+                </div>
+                <div class="stat">
+                    <div class="value" th:text="${stats.totalDistance}">0</div>
+                    <div class="label">Km totaal</div>
+                </div>
+                <div class="stat">
+                    <div class="value" th:text="${stats.totalTime}">0</div>
+                    <div class="label">Uren</div>
+                </div>
+                <div class="stat">
+                    <div class="value" th:text="${stats.avgPace}">-</div>
+                    <div class="label">Gemiddeld tempo</div>
+                </div>
+                <div class="stat">
+                    <div class="value" th:text="${stats.avgHeartrate}">-</div>
+                    <div class="label">Gem. HR (bpm)</div>
+                </div>
+                <div class="stat">
+                    <div class="value" th:text="${stats.avgCadence}">-</div>
+                    <div class="label">Cadence (spm)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Laatste trainingen</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Naam</th>
+                        <th>Type</th>
+                        <th>Afstand</th>
+                        <th>Tempo</th>
+                        <th>HR</th>
+                        <th>Duur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="a : ${recent}">
+                        <td th:text="${a.date}">-</td>
+                        <td><a th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}" style="color:#1a1a2e;">-</a></td>
+                        <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                        <td th:text="${a.distance}">-</td>
+                        <td th:text="${a.pace}">-</td>
+                        <td th:text="${a.avgHr}">-</td>
+                        <td th:text="${a.duration}">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="mt-2">
+                <a href="/activities" class="btn btn-primary btn-sm">Alle trainingen</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Persoonlijke Records</h2>
+            <div class="stat-grid">
+                <div class="stat" th:each="pb : ${pbs}">
+                    <div class="value" th:text="${pb.time}">-</div>
+                    <div class="label" th:text="${pb.label}">-</div>
+                    <div class="text-muted" th:text="${pb.date}">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:if="${hasToken}" class="card">
+        <h2>Data synchroniseren</h2>
+        <div class="flex gap-1">
+            <a href="/sync" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</a>
+            <a href="/fetch-all" class="btn btn-primary btn-sm">Alle data opnieuw ophalen</a>
+            <a href="/fetch-remaining" class="btn btn-primary btn-sm">Ontbrekende data ophalen</a>
+        </div>
+        <p class="text-muted mt-2">Laatste sync: <span th:text="${stats.lastSync}">nooit</span></p>
+        <p class="text-muted" style="font-size:0.85rem;color:#999;">
+            "Ontbrekende data" haalt alleen activiteiten op die nog niet in de database staan.
+            Gebruik dit als je een "too many requests" fout kreeg bij het ophalen van alle data.
+        </p>
+    </div>
+
+    <div th:if="${hasData}" class="card">
+        <h2>Exporteren</h2>
+        <p class="text-muted">Exporteer alle trainingen als JSON voor AI-analyse.</p>
+        <a href="/export" class="btn btn-primary btn-sm">Exporteer als JSON</a>
+    </div>
+</th:block>
+</html>
