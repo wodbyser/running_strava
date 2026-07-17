@@ -3,6 +3,8 @@
 <th:block th:fragment="content">
     <form method="get" class="filter-bar">
         <div class="filter-row">
+            <input type="hidden" name="sort" th:value="${currentSort}">
+            <input type="hidden" name="order" th:value="${currentOrder}">
             <select name="period" id="period" onchange="document.getElementById('customDates2').style.display=this.value=='custom'?'inline-flex':'none'">
                 <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
                 <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
@@ -36,16 +38,16 @@
         <table>
             <thead>
                 <tr>
-                    <th>Datum</th>
-                    <th>Naam</th>
-                    <th>Type</th>
-                    <th>Afstand</th>
-                    <th>Tempo</th>
-                    <th>HR gem</th>
-                    <th>HR max</th>
-                    <th>Cadence</th>
-                    <th>Elevatie</th>
-                    <th>Duur</th>
+                    <th><a th:href="@{/activities(sort='date', order=(${currentSort == 'date' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'date'} ? 'sort-active' : ''" th:title="'Sorteer op datum'">Datum<span th:if="${currentSort == 'date'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='name', order=(${currentSort == 'name' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'name'} ? 'sort-active' : ''" th:title="'Sorteer op naam'">Naam<span th:if="${currentSort == 'name'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='type', order=(${currentSort == 'type' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'type'} ? 'sort-active' : ''" th:title="'Sorteer op type'">Type<span th:if="${currentSort == 'type'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='distance', order=(${currentSort == 'distance' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'distance'} ? 'sort-active' : ''" th:title="'Sorteer op afstand'">Afstand<span th:if="${currentSort == 'distance'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='pace', order=(${currentSort == 'pace' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'pace'} ? 'sort-active' : ''" th:title="'Sorteer op tempo'">Tempo<span th:if="${currentSort == 'pace'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='avgHr', order=(${currentSort == 'avgHr' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'avgHr'} ? 'sort-active' : ''" th:title="'Sorteer op gemiddelde hartslag'">HR gem<span th:if="${currentSort == 'avgHr'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='maxHr', order=(${currentSort == 'maxHr' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'maxHr'} ? 'sort-active' : ''" th:title="'Sorteer op maximale hartslag'">HR max<span th:if="${currentSort == 'maxHr'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='cadence', order=(${currentSort == 'cadence' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'cadence'} ? 'sort-active' : ''" th:title="'Sorteer op cadans'">Cadans<span th:if="${currentSort == 'cadence'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='elevation', order=(${currentSort == 'elevation' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'elevation'} ? 'sort-active' : ''" th:title="'Sorteer op elevatie'">Elevatie<span th:if="${currentSort == 'elevation'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
+                    <th><a th:href="@{/activities(sort='duration', order=(${currentSort == 'duration' and currentOrder == 'asc'} ? 'desc' : 'asc'), period=${filterPeriod}, from=${filterFrom}, till=${filterTill}, type=${filterType})}" class="sort-link" th:classappend="${currentSort == 'duration'} ? 'sort-active' : ''" th:title="'Sorteer op duur'">Duur<span th:if="${currentSort == 'duration'}" th:text="${currentOrder == 'asc'} ? ' ▲' : ' ▼'"></span></a></th>
                 </tr>
             </thead>
             <tbody>

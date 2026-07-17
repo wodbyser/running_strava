@@ -82,13 +82,39 @@ class FrontendController(
         @RequestParam from: String? = null,
         @RequestParam till: String? = null,
         @RequestParam type: String? = "all",
+        @RequestParam sort: String? = null,
+        @RequestParam order: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
         val filtered = filterActivities(allActivities, period, from, till, type)
-        val sorted = filtered.sortedByDescending { it.startDate }
+
+        val effectiveSort = sort ?: "date"
+        val effectiveOrder = order ?: "desc"
+
+        val comparator: Comparator<Activity> = when (effectiveSort) {
+            "name" -> compareBy { it.name.lowercase() }
+            "type" -> compareBy { it.type }
+            "distance" -> compareBy { it.distance }
+            "pace" -> compareBy { it.averageSpeed }
+            "avgHr" -> compareBy<Activity> { it.averageHeartrate ?: 0f }
+            "maxHr" -> compareBy { it.maxHeartrate ?: 0f }
+            "cadence" -> compareBy { it.averageCadence ?: 0f }
+            "elevation" -> compareBy { it.totalElevationGain }
+            "duration" -> compareBy { it.movingTime }
+            else -> compareBy<Activity> { it.startDate }
+        }
+
+        val sorted = if (effectiveOrder == "asc") {
+            filtered.sortedWith(comparator)
+        } else {
+            filtered.sortedWith(comparator.reversed())
+        }
+
         model.addAttribute("activities", sorted.map { toActivityRow(it) })
         model.addAttribute("total", sorted.size)
         model.addAttribute("title", "Trainingen")
+        model.addAttribute("currentSort", effectiveSort)
+        model.addAttribute("currentOrder", effectiveOrder)
         addFilterAttributes(model, period, from, till, type)
         return "activities"
     }
