@@ -144,6 +144,7 @@ class FrontendController(
         detail["calories"] = a.calories?.let { "%.0f".format(it) } ?: "-"
         detail["sufferScore"] = a.sufferScore?.toString() ?: "-"
         detail["description"] = a.description?.take(500) ?: "-"
+        detail["stravaUrl"] = "https://www.strava.com/activities/${a.id}"
         model.addAttribute("a", detail)
         model.addAttribute("title", a.name)
         return "activity"

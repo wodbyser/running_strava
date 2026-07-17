@@ -15,7 +15,7 @@ tasks.bootJar {
 }
 
 tasks.bootRun {
-    val profiles = project.properties["spring.profiles.active"] ?: "dev"
+    val profiles = project.properties["spring.profiles.active"] ?: ""
     args = listOf("--spring.profiles.active=$profiles")
     jvmArgs = listOf("-server", "-ea", "-Xms256m", "-Xmx1024m")
 

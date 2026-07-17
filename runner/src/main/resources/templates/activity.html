@@ -51,6 +51,9 @@
             <tr><td style="font-weight:600;padding-right:2rem;">Suffer Score</td><td th:text="${a.sufferScore}">-</td></tr>
             <tr><td style="font-weight:600;padding-right:2rem;">Beschrijving</td><td th:text="${a.description}">-</td></tr>
         </table>
+        <div style="margin-top:1rem;">
+            <a th:href="${a.stravaUrl}" target="_blank" class="btn btn-primary btn-sm">Bekijk op Strava &rarr;</a>
+        </div>
     </div>
 
     <div th:if="${a.description}" class="card">

@@ -20,15 +20,15 @@ Or manually: `sdk use java 23-open`. IntelliJ: set Gradle JVM to JDK 23 in Setti
 ## Build & Run
 
 ```bash
-# Dev (H2) — .env auto-loaded by convention plugin
+# Default (PostgreSQL) — .env auto-loaded by convention plugin
+docker compose up -d
 STRAVA_CLIENT_ID=xxx STRAVA_CLIENT_SECRET=xxx ./gradlew :runner:bootRun
 
-# Prod (PostgreSQL)
-docker compose up -d
-./gradlew :runner:bootRun -Dspring.profiles.active=prod
+# Dev (H2)
+./gradlew :runner:bootRun -Dspring.profiles.active=dev
 ```
 
-- `bootRun` defaults to `dev` profile (see `spring-boot-module.gradle.kts:18`).
+- `bootRun` defaults to PostgreSQL (no active profile), see `spring-boot-module.gradle.kts:18`.
 - `.env` from project root is loaded automatically at boot (same convention plugin).
 - PostgreSQL container name: `running-db`, port 5432, volume `pgdata`.
 
