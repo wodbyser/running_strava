@@ -1,6 +1,33 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
+    <form method="get" class="filter-bar">
+        <div class="filter-row">
+            <select name="period" id="period" onchange="document.getElementById('customDates2').style.display=this.value=='custom'?'inline-flex':'none'">
+                <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
+                <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
+                <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
+                <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
+                <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
+                <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
+                <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
+            </select>
+            <div class="custom-dates" id="customDates2" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                <input type="date" name="from" th:value="${filterFrom}">
+                <span>tot</span>
+                <input type="date" name="till" th:value="${filterTill}">
+            </div>
+            <select name="type">
+                <option value="all" th:selected="${filterType == 'all' or filterType == ''}">Alle types</option>
+                <option value="run" th:selected="${filterType == 'run'}">Lopen</option>
+                <option value="ride" th:selected="${filterType == 'ride'}">Fietsen</option>
+                <option value="swim" th:selected="${filterType == 'swim'}">Zwemmen</option>
+                <option value="other" th:selected="${filterType == 'other'}">Overig</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            <a href="?" class="btn btn-sm" style="background:#eee;color:#333;">Reset</a>
+        </div>
+    </form>
     <div class="card">
         <div class="flex" style="justify-content:space-between;">
             <h2>Alle trainingen</h2>

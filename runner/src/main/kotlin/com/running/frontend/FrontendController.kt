@@ -15,7 +15,10 @@ import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestParam
 import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -29,9 +32,16 @@ class FrontendController(
 ) {
 
     @GetMapping("/")
-    fun dashboard(model: Model): String {
+    fun dashboard(
+        model: Model,
+        @RequestParam period: String? = null,
+        @RequestParam from: String? = null,
+        @RequestParam till: String? = null,
+        @RequestParam type: String? = "run",
+    ): String {
         val allActivities = activityRepository.findAll()
-        val runs = allActivities.filter { it.type in runTypes }
+        val filtered = filterActivities(allActivities, period, from, till, type)
+        val runs = filtered.filter { it.type in runTypes }
         val sorted = runs.sortedByDescending { it.startDate }
         val hasToken = tokenRepository.get() != null
         val syncStatus = activityRepository.getSyncStatus()
@@ -59,16 +69,26 @@ class FrontendController(
         model.addAttribute("recent", recentActivities)
         model.addAttribute("pbs", pbs)
         model.addAttribute("title", "Dashboard")
+        addFilterAttributes(model, period, from, till, type)
 
         return "dashboard"
     }
 
     @GetMapping("/activities")
-    fun activities(model: Model): String {
-        val allActivities = activityRepository.findAll().sortedByDescending { it.startDate }
-        model.addAttribute("activities", allActivities.map { toActivityRow(it) })
-        model.addAttribute("total", allActivities.size)
+    fun activities(
+        model: Model,
+        @RequestParam period: String? = null,
+        @RequestParam from: String? = null,
+        @RequestParam till: String? = null,
+        @RequestParam type: String? = "all",
+    ): String {
+        val allActivities = activityRepository.findAll()
+        val filtered = filterActivities(allActivities, period, from, till, type)
+        val sorted = filtered.sortedByDescending { it.startDate }
+        model.addAttribute("activities", sorted.map { toActivityRow(it) })
+        model.addAttribute("total", sorted.size)
         model.addAttribute("title", "Trainingen")
+        addFilterAttributes(model, period, from, till, type)
         return "activities"
     }
 
@@ -103,11 +123,19 @@ class FrontendController(
     }
 
     @GetMapping("/pbs")
-    fun pbs(model: Model): String {
-        val runs = activityRepository.findAll()
-            .filter { it.type in runTypes }
+    fun pbs(
+        model: Model,
+        @RequestParam period: String? = null,
+        @RequestParam from: String? = null,
+        @RequestParam till: String? = null,
+        @RequestParam type: String? = "run",
+    ): String {
+        val allActivities = activityRepository.findAll()
+        val filtered = filterActivities(allActivities, period, from, till, type)
+        val runs = filtered.filter { it.type in runTypes }
         model.addAttribute("pbs", calculatePBs(runs))
         model.addAttribute("title", "Persoonlijke Records")
+        addFilterAttributes(model, period, from, till, type)
         return "pbs"
     }
 
@@ -329,6 +357,56 @@ class FrontendController(
         "Ride", "VirtualRide" -> "ride"
         "Swim" -> "swim"
         else -> "other"
+    }
+
+    private fun addFilterAttributes(model: Model, period: String?, from: String?, till: String?, type: String?) {
+        model.addAttribute("filterPeriod", period ?: "")
+        model.addAttribute("filterFrom", from ?: "")
+        model.addAttribute("filterTill", till ?: "")
+        model.addAttribute("filterType", type ?: "")
+    }
+
+    private fun filterActivities(
+        activities: List<Activity>,
+        period: String?,
+        from: String?,
+        till: String?,
+        type: String?,
+    ): List<Activity> {
+        var result = activities
+        val effectiveType = type?.takeIf { it.isNotBlank() } ?: "all"
+        result = when (effectiveType) {
+            "all" -> result
+            "run" -> result.filter { it.type in runTypes }
+            "ride" -> result.filter { it.type in listOf("Ride", "VirtualRide") }
+            "swim" -> result.filter { it.type == "Swim" }
+            "other" -> result.filter { it.type !in listOf("Run", "TrailRun", "VirtualRun", "Ride", "VirtualRide", "Swim") }
+            else -> result
+        }
+        val effectivePeriod = period?.takeIf { it.isNotBlank() }
+        if (effectivePeriod == null || effectivePeriod == "all") return result
+        val now = ZonedDateTime.now()
+        val (fromDate, tillDate) = when (effectivePeriod) {
+            "last-month" -> now.minusMonths(1) to now
+            "last-year" -> now.minusYears(1) to now
+            "ytd" -> now.withDayOfYear(1) to now
+            "last-2-years" -> now.minusYears(2) to now
+            "last-3-years" -> now.minusYears(3) to now
+            "custom" -> {
+                val f = from?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault())
+                }
+                val t = till?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).plusDays(1).atStartOfDay(ZoneId.systemDefault())
+                }
+                f to t
+            }
+            else -> null to null
+        }
+        return result.filter { a ->
+            (fromDate == null || !a.startDate.isBefore(fromDate)) &&
+            (tillDate == null || !a.startDate.isAfter(tillDate))
+        }
     }
 
     companion object {

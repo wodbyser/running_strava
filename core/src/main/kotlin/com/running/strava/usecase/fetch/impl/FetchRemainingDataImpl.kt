@@ -1,5 +1,6 @@
 package com.running.strava.usecase.fetch.impl
 
+import com.running.strava.domain.RateLimitExceededException
 import com.running.strava.domain.StravaToken
 import com.running.strava.spi.ActivityRepository
 import com.running.strava.spi.StravaApiClient
@@ -59,6 +60,10 @@ class FetchRemainingDataImpl(
                             streamsCount++
 
                             log.info("Fetched details + streams for activity {}", activity.id)
+                        } catch (e: RateLimitExceededException) {
+                            log.warn("Rate limit exceeded while fetching details for activity {}, aborting", activity.id)
+                            errors.add("Activity ${activity.id}: Rate limit exceeded — stopped fetching details")
+                            throw e
                         } catch (e: Exception) {
                             log.warn("Failed to fetch details for activity {}: {}", activity.id, e.message)
                             errors.add("Activity ${activity.id}: ${e.message}")
@@ -72,6 +77,10 @@ class FetchRemainingDataImpl(
                 }
 
                 page++
+            } catch (e: RateLimitExceededException) {
+                log.warn("Rate limit exceeded on page {}, aborting fetch", page)
+                errors.add("Rate limit exceeded — stopped after page $page")
+                break
             } catch (e: Exception) {
                 log.error("Failed to fetch page {}: {}", page, e.message)
                 errors.add("Page $page: ${e.message}")

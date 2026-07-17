@@ -6,10 +6,12 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.running.config.StravaProperties
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
+import com.running.strava.domain.RateLimitExceededException
 import com.running.strava.domain.StravaToken
 import com.running.strava.spi.StravaApiClient
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -80,22 +82,32 @@ class StravaApiClientImpl(
             after?.let { addQueryParam("after", it.toString()) }
         }
 
-        val json = restClient.get()
-            .uri(uri)
-            .header("Authorization", "Bearer ${token.accessToken}")
-            .retrieve()
-            .body(String::class.java)
+        val json = try {
+            restClient.get()
+                .uri(uri)
+                .header("Authorization", "Bearer ${token.accessToken}")
+                .retrieve()
+                .body(String::class.java)
+        } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on page $page: ${e.message}")
+            throw e
+        }
 
         val rawList = mapper.readValue(json, List::class.java) as List<Map<String, Any?>>
         return rawList.map { parseActivity(it) }
     }
 
     override fun getActivity(token: StravaToken, activityId: Long): Activity {
-        val json = restClient.get()
-            .uri("$baseUrl/activities/$activityId")
-            .header("Authorization", "Bearer ${token.accessToken}")
-            .retrieve()
-            .body(String::class.java)
+        val json = try {
+            restClient.get()
+                .uri("$baseUrl/activities/$activityId")
+                .header("Authorization", "Bearer ${token.accessToken}")
+                .retrieve()
+                .body(String::class.java)
+        } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on activity $activityId: ${e.message}")
+            throw e
+        }
 
         val raw = mapper.readValue(json, Map::class.java) as Map<String, Any?>
         return parseActivity(raw)
@@ -107,11 +119,16 @@ class StravaApiClientImpl(
             addQueryParam("key_by_type", "true")
         }
 
-        val json = restClient.get()
-            .uri(uri)
-            .header("Authorization", "Bearer ${token.accessToken}")
-            .retrieve()
-            .body(String::class.java)
+        val json = try {
+            restClient.get()
+                .uri(uri)
+                .header("Authorization", "Bearer ${token.accessToken}")
+                .retrieve()
+                .body(String::class.java)
+        } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on streams for activity $activityId: ${e.message}")
+            throw e
+        }
 
         val raw = mapper.readValue(json, Map::class.java) as Map<String, Any?>
 
