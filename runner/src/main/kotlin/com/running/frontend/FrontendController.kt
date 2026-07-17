@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.servlet.mvc.support.RedirectAttributes
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -140,38 +141,94 @@ class FrontendController(
     }
 
     @PostMapping("/sync")
-    fun sync(): String {
-        syncStravaData.execute()
+    fun sync(ra: RedirectAttributes): String {
+        val result = syncStravaData.execute()
+        val msg = buildString {
+            append("Synchronisatie voltooid. ")
+            append("${result.newActivities} nieuw, ${result.streamsFetched} streams opgehaald")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 
     @PostMapping("/fetch-all")
-    fun fetchAll(): String {
-        fetchAllHistoricalData.execute()
+    fun fetchAll(ra: RedirectAttributes): String {
+        val result = fetchAllHistoricalData.execute()
+        val msg = buildString {
+            append("Alle data opgehaald: ${result.activitiesFetched} activiteiten")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 
     @GetMapping("/sync")
-    fun syncGet(): String {
-        syncStravaData.execute()
+    fun syncGet(ra: RedirectAttributes): String {
+        val result = syncStravaData.execute()
+        val msg = buildString {
+            append("Synchronisatie voltooid. ")
+            append("${result.newActivities} nieuw, ${result.streamsFetched} streams opgehaald")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 
     @GetMapping("/fetch-all")
-    fun fetchAllGet(): String {
-        fetchAllHistoricalData.execute()
+    fun fetchAllGet(ra: RedirectAttributes): String {
+        val result = fetchAllHistoricalData.execute()
+        val msg = buildString {
+            append("Alle data opgehaald: ${result.activitiesFetched} activiteiten")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 
     @PostMapping("/fetch-remaining")
-    fun fetchRemaining(): String {
-        fetchRemainingData.execute()
+    fun fetchRemaining(ra: RedirectAttributes): String {
+        val result = fetchRemainingData.execute()
+        val msg = buildString {
+            append("Ontbrekende data opgehaald: ${result.newActivities} nieuw, ${result.streamsFetched} streams")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 
     @GetMapping("/fetch-remaining")
-    fun fetchRemainingGet(): String {
-        fetchRemainingData.execute()
+    fun fetchRemainingGet(ra: RedirectAttributes): String {
+        val result = fetchRemainingData.execute()
+        val msg = buildString {
+            append("Ontbrekende data opgehaald: ${result.newActivities} nieuw, ${result.streamsFetched} streams")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
         return "redirect:/"
     }
 

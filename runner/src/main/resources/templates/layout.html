@@ -138,6 +138,28 @@
             gap: 0.5rem;
             align-items: center;
         }
+        .flash {
+            max-width: 1100px;
+            margin: 1rem auto 0;
+            padding: 0.8rem 1.2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .flash-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        .flash-warning { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+        .flash-error { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .flash-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0.6;
+            padding: 0 0.25rem;
+        }
+        .flash-close:hover { opacity: 1; }
         @media (max-width: 600px) {
             .container { padding: 1rem; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -152,6 +174,10 @@
     <a href="/activities">Trainingen</a>
     <a href="/pbs">Persoonlijke Records</a>
 </nav>
+<div th:if="${flashMessage}" class="flash" th:classappend="'flash-' + ${flashType}" th:attr="data-flash">
+    <span th:text="${flashMessage}">melding</span>
+    <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+</div>
 <div class="container">
     <th:block th:insert="~{${view} :: content}" />
 </div>
