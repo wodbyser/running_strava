@@ -9,6 +9,14 @@ Multi-module Kotlin + Spring Boot 3.4 (Java 23, Kotlin 2.1.20)
 - Adapters in `runner` implement SPI interfaces from `core`. Use cases wired via `@Configuration` (`AppConfig.kt`).
 - Module build files follow `{module}.gradle.kts` convention (`core.gradle.kts`, `runner.gradle.kts`).
 
+## Java Setup
+
+Project targets **Java 23**. SDKMAN users: `.sdkmanrc` auto-switches on `cd`. Enable with:
+```
+sdk config  # set sdkman_auto_env=true
+```
+Or manually: `sdk use java 23-open`. IntelliJ: set Gradle JVM to JDK 23 in Settings → Build Tools → Gradle.
+
 ## Build & Run
 
 ```bash
