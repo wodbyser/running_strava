@@ -39,6 +39,9 @@ class FrontendController(
         @RequestParam from: String? = null,
         @RequestParam till: String? = null,
         @RequestParam type: String? = "run",
+        @RequestParam(name = "weekly") weeklyPeriod: String? = null,
+        @RequestParam(name = "weeklyFrom") weeklyFrom: String? = null,
+        @RequestParam(name = "weeklyTill") weeklyTill: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
         val filtered = filterActivities(allActivities, period, from, till, type)
@@ -56,6 +59,39 @@ class FrontendController(
         val pbs = calculatePBs(runs)
         val lastSync = syncStatus.lastSyncAt?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) ?: "nooit"
 
+        val now = ZonedDateTime.now()
+        var weeklySince: ZonedDateTime? = null
+        var weeklyUntil: ZonedDateTime? = null
+        when (weeklyPeriod?.takeIf { it.isNotBlank() }) {
+            "3m" -> weeklySince = now.minusMonths(3)
+            "6m" -> weeklySince = now.minusMonths(6)
+            "ytd" -> weeklySince = now.withDayOfYear(1)
+            "1y" -> weeklySince = now.minusYears(1)
+            "2y" -> weeklySince = now.minusYears(2)
+            "3y" -> weeklySince = now.minusYears(3)
+            "custom" -> {
+                weeklySince = weeklyFrom?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault())
+                }
+                weeklyUntil = weeklyTill?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).plusDays(1).atStartOfDay(ZoneId.systemDefault())
+                }
+            }
+        }
+        val weeklyRuns = allActivities.filter { a ->
+            a.type in runTypes &&
+            (weeklySince == null || !a.startDate.isBefore(weeklySince)) &&
+            (weeklyUntil == null || !a.startDate.isAfter(weeklyUntil))
+        }
+
+        val weeklyVolume = weeklyRuns
+            .groupBy { it.startDate.toLocalDate().with(DayOfWeek.MONDAY) }
+            .mapValues { (_, activities) -> activities.sumOf { it.distance.toDouble() } / 1000 }
+            .toSortedMap()
+            .entries.toList()
+        model.addAttribute("weeklyLabels", weeklyVolume.map { it.key.format(DateTimeFormatter.ofPattern("dd/MM")) })
+        model.addAttribute("weeklyDistances", weeklyVolume.map { "%.1f".format(it.value).toDouble() })
+
         model.addAttribute("hasToken", hasToken)
         model.addAttribute("hasData", runs.isNotEmpty())
         model.addAttribute("stats", mapOf<String, Any>(
@@ -70,6 +106,9 @@ class FrontendController(
         model.addAttribute("recent", recentActivities)
         model.addAttribute("pbs", pbs)
         model.addAttribute("title", "Dashboard")
+        model.addAttribute("filterWeekly", weeklyPeriod ?: "all")
+        model.addAttribute("filterWeeklyFrom", weeklyFrom ?: "")
+        model.addAttribute("filterWeeklyTill", weeklyTill ?: "")
         addFilterAttributes(model, period, from, till, type)
 
         return "dashboard"

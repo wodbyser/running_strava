@@ -17,7 +17,7 @@
     </div>
 
     <div th:if="${hasData}">
-        <form method="get" class="filter-bar">
+        <form method="get" class="filter-bar" id="mainFilter">
             <div class="filter-row">
                 <select name="period" id="period" onchange="this.form.submit()">
                     <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
@@ -71,6 +71,30 @@
                     <div class="value" th:text="${stats.avgCadence}">-</div>
                     <div class="label">Cadence (spm)</div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Wekelijkse volume (km)</h2>
+            <div class="filter-row" style="margin-bottom:1rem;">
+                <select name="weekly" onchange="this.form.submit()" form="mainFilter">
+                    <option value="3m" th:selected="${filterWeekly == '3m'}">Laatste 3 maanden</option>
+                    <option value="6m" th:selected="${filterWeekly == '6m'}">Laatste 6 maanden</option>
+                    <option value="ytd" th:selected="${filterWeekly == 'ytd'}">Dit jaar (YTD)</option>
+                    <option value="1y" th:selected="${filterWeekly == '1y'}">Laatste jaar</option>
+                    <option value="2y" th:selected="${filterWeekly == '2y'}">Laatste 2 jaar</option>
+                    <option value="3y" th:selected="${filterWeekly == '3y'}">Laatste 3 jaar</option>
+                    <option value="custom" th:selected="${filterWeekly == 'custom'}">Aangepast</option>
+                    <option value="all" th:selected="${filterWeekly == 'all'}">Altijd</option>
+                </select>
+                <div class="custom-dates" th:style="${filterWeekly == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                    <input type="date" name="weeklyFrom" th:value="${filterWeeklyFrom}" onchange="this.form.submit()" form="mainFilter">
+                    <span>tot</span>
+                    <input type="date" name="weeklyTill" th:value="${filterWeeklyTill}" onchange="this.form.submit()" form="mainFilter">
+                </div>
+            </div>
+            <div style="position:relative;overflow-x:auto;">
+                <canvas id="weeklyChart" height="100"></canvas>
             </div>
         </div>
 
@@ -143,5 +167,58 @@
         <p class="text-muted">Exporteer alle trainingen als JSON voor AI-analyse.</p>
         <a href="/export" class="btn btn-primary btn-sm">Exporteer als JSON</a>
     </div>
+
+    <script th:if="${hasData}" th:inline="javascript">
+        const labels = /*[[${weeklyLabels}]]*/ [];
+        const data = /*[[${weeklyDistances}]]*/ [];
+        if (labels.length > 0) {
+            const n = labels.length;
+            const canvas = document.getElementById('weeklyChart');
+            canvas.height = Math.max(350, Math.min(600, n * 10));
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Km',
+                        data: data,
+                        backgroundColor: '#1a1a2e',
+                        borderRadius: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 12, weight: 'bold' },
+                                padding: 8,
+                            },
+                            grid: { color: '#eee' },
+                            title: {
+                                display: true,
+                                text: 'km',
+                                font: { size: 11 },
+                                color: '#888',
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: { size: 11 },
+                                maxTicksLimit: Math.max(6, Math.min(24, Math.floor(n / 2))),
+                                autoSkip: true,
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </th:block>
 </html>
