@@ -355,6 +355,7 @@ class FrontendController(
         val pace: String,
         val date: String,
         val name: String,
+        val activityId: Long?,
     )
 
     private fun calculatePBs(runs: List<Activity>): List<PB> {
@@ -381,9 +382,10 @@ class FrontendController(
                     pace = pace,
                     date = best.startDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     name = best.name,
+                    activityId = best.id,
                 )
             } else {
-                PB(label = label, time = "-", pace = "-", date = "-", name = "-")
+                PB(label = label, time = "-", pace = "-", date = "-", name = "-", activityId = null)
             }
         }
     }

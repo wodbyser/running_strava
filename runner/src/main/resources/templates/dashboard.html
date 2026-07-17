@@ -109,9 +109,16 @@
             <h2>Persoonlijke Records</h2>
             <div class="stat-grid">
                 <div class="stat" th:each="pb : ${pbs}">
-                    <div class="value" th:text="${pb.time}">-</div>
-                    <div class="label" th:text="${pb.label}">-</div>
-                    <div class="text-muted" th:text="${pb.date}">-</div>
+                    <a th:if="${pb.activityId != null}" th:href="@{'/activity/' + ${pb.activityId}}" style="text-decoration:none;color:inherit;display:block;">
+                        <div class="value" th:text="${pb.time}">-</div>
+                        <div class="label" th:text="${pb.label}">-</div>
+                        <div class="text-muted" th:text="${pb.date}">-</div>
+                    </a>
+                    <div th:if="${pb.activityId == null}">
+                        <div class="value" th:text="${pb.time}">-</div>
+                        <div class="label" th:text="${pb.label}">-</div>
+                        <div class="text-muted" th:text="${pb.date}">-</div>
+                    </div>
                 </div>
             </div>
         </div>
