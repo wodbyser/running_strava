@@ -38,13 +38,12 @@ class FrontendController(
         @RequestParam period: String? = null,
         @RequestParam from: String? = null,
         @RequestParam till: String? = null,
-        @RequestParam type: String? = "run",
         @RequestParam(name = "weekly") weeklyPeriod: String? = null,
         @RequestParam(name = "weeklyFrom") weeklyFrom: String? = null,
         @RequestParam(name = "weeklyTill") weeklyTill: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
-        val filtered = filterActivities(allActivities, period, from, till, type)
+        val filtered = filterActivities(allActivities, period, from, till, null)
         val runs = filtered.filter { it.type in runTypes }
         val sorted = runs.sortedByDescending { it.startDate }
         val hasToken = tokenRepository.get() != null
@@ -120,7 +119,7 @@ class FrontendController(
         model.addAttribute("filterWeekly", weeklyPeriod ?: "all")
         model.addAttribute("filterWeeklyFrom", weeklyFrom ?: "")
         model.addAttribute("filterWeeklyTill", weeklyTill ?: "")
-        addFilterAttributes(model, period, from, till, type)
+        addFilterAttributes(model, period, from, till, null)
 
         return "dashboard"
     }
@@ -134,9 +133,14 @@ class FrontendController(
         @RequestParam type: String? = "all",
         @RequestParam sort: String? = null,
         @RequestParam order: String? = null,
+        @RequestParam(name = "distanceMin") distanceMin: String? = null,
+        @RequestParam(name = "distanceMax") distanceMax: String? = null,
+        @RequestParam(name = "durationMin") durationMin: String? = null,
+        @RequestParam(name = "durationMax") durationMax: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
-        val filtered = filterActivities(allActivities, period, from, till, type)
+        var filtered = filterActivities(allActivities, period, from, till, type)
+        filtered = filterByDistanceAndDuration(filtered, distanceMin, distanceMax, durationMin, durationMax)
 
         val effectiveSort = sort ?: "date"
         val effectiveOrder = order ?: "desc"
@@ -151,6 +155,7 @@ class FrontendController(
             "cadence" -> compareBy { it.averageCadence ?: 0f }
             "elevation" -> compareBy { it.totalElevationGain }
             "duration" -> compareBy { it.movingTime }
+            "sufferScore" -> compareBy<Activity> { it.sufferScore ?: 0 }
             else -> compareBy<Activity> { it.startDate }
         }
 
@@ -165,6 +170,10 @@ class FrontendController(
         model.addAttribute("title", "Trainingen")
         model.addAttribute("currentSort", effectiveSort)
         model.addAttribute("currentOrder", effectiveOrder)
+        model.addAttribute("filterDistanceMin", distanceMin ?: "")
+        model.addAttribute("filterDistanceMax", distanceMax ?: "")
+        model.addAttribute("filterDurationMin", durationMin ?: "")
+        model.addAttribute("filterDurationMax", durationMax ?: "")
         addFilterAttributes(model, period, from, till, type)
         return "activities"
     }
@@ -454,6 +463,7 @@ class FrontendController(
         val cadence: String?,
         val elevation: String?,
         val duration: String,
+        val sufferScore: String?,
     )
 
     private fun toActivityRow(a: Activity) = ActivityRow(
@@ -469,6 +479,7 @@ class FrontendController(
         cadence = a.averageCadence?.let { "%.0f".format(it) },
         elevation = "%.0f m".format(a.totalElevationGain),
         duration = formatDuration(a.movingTime),
+        sufferScore = a.sufferScore?.toString(),
     )
 
     private fun calculatePace(speedMs: Double): String {
@@ -549,6 +560,25 @@ class FrontendController(
             (fromDate == null || !a.startDate.isBefore(fromDate)) &&
             (tillDate == null || !a.startDate.isAfter(tillDate))
         }
+    }
+
+    private fun filterByDistanceAndDuration(
+        activities: List<Activity>,
+        distanceMin: String?,
+        distanceMax: String?,
+        durationMin: String?,
+        durationMax: String?,
+    ): List<Activity> {
+        var result = activities
+        val distMin = distanceMin?.takeIf { it.isNotBlank() }?.toFloatOrNull()?.let { it * 1000 }
+        val distMax = distanceMax?.takeIf { it.isNotBlank() }?.toFloatOrNull()?.let { it * 1000 }
+        val durMin = durationMin?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { it * 60 }
+        val durMax = durationMax?.takeIf { it.isNotBlank() }?.toIntOrNull()?.let { it * 60 }
+        if (distMin != null) result = result.filter { it.distance >= distMin }
+        if (distMax != null) result = result.filter { it.distance <= distMax }
+        if (durMin != null) result = result.filter { it.movingTime >= durMin }
+        if (durMax != null) result = result.filter { it.movingTime <= durMax }
+        return result
     }
 
     companion object {

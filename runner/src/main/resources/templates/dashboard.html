@@ -33,13 +33,7 @@
                     <span>tot</span>
                     <input type="date" name="till" th:value="${filterTill}" onchange="this.form.submit()">
                 </div>
-                <select name="type" onchange="this.form.submit()">
-                    <option value="run" th:selected="${filterType == 'run' or filterType == ''}">Lopen</option>
-                    <option value="all" th:selected="${filterType == 'all'}">Alle types</option>
-                    <option value="ride" th:selected="${filterType == 'ride'}">Fietsen</option>
-                    <option value="swim" th:selected="${filterType == 'swim'}">Zwemmen</option>
-                    <option value="other" th:selected="${filterType == 'other'}">Overig</option>
-                </select>
+
                 <button type="submit" class="btn btn-primary btn-sm" style="display:none">Filter</button>
                 <a href="?" class="btn btn-sm" style="background:#eee;color:#333;">Reset</a>
             </div>
@@ -210,7 +204,7 @@
                             const d = new Date(from);
                             d.setDate(d.getDate() + 6);
                             const till = d.toISOString().split('T')[0];
-                            window.location.href = '/activities?from=' + from + '&till=' + till + '&type=run&period=custom';
+                            window.location.href = '/activities?from=' + from + '&till=' + till + '&type=all&period=custom';
                         }
                     },
                     scales: {

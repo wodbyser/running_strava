@@ -135,12 +135,33 @@
             align-items: center;
             flex-wrap: wrap;
         }
-        .filter-row select, .filter-row input[type="date"] {
+        .filter-row select, .filter-row input[type="date"], .filter-row input[type="number"] {
             padding: 0.4rem 0.6rem;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 0.85rem;
             background: #fff;
+        }
+        .filter-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .filter-group label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .filter-group input[type="number"] {
+            width: 90px;
+        }
+        .filter-divider {
+            width: 1px;
+            height: 28px;
+            background: #e0e0e0;
+            margin: 0 0.25rem;
         }
         .custom-dates {
             display: inline-flex;
