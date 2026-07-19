@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+
+<div th:if="${!hasToken}" class="card" style="text-align:center;padding:3rem;">
+    <p style="font-size:1.1rem;color:#666;">Je moet eerst je Strava account koppelen om de coach te gebruiken.</p>
+    <p class="text-muted mt-2"><a href="/auth/strava" class="btn btn-primary">Strava Authoriseren</a></p>
+</div>
+
+<div th:if="${hasToken && !hasData}" class="card" style="text-align:center;padding:3rem;">
+    <p style="font-size:1.1rem;color:#666;">Geen trainingsdata gevonden.</p>
+    <p class="text-muted mt-2">Synchroniseer of haal je data op via het Dashboard.</p>
+    <p class="mt-2">
+        <form method="post" action="/coach/sync">
+            <button type="submit" class="btn btn-primary">Synchroniseer nu</button>
+        </form>
+    </p>
+</div>
+
+<div th:if="${hasToken && hasData && coachData != null}">
+
+    <!-- Sync -->
+    <div class="card">
+        <h2>Data synchroniseren</h2>
+        <form method="post" action="/coach/sync" id="syncForm">
+            <button type="submit" class="btn btn-primary">Nieuwe trainingen syncen</button>
+        </form>
+        <p class="text-muted mt-2" style="font-size:0.8rem;">Haalt de nieuwste activiteiten van Strava op en herberekent alle coach analyses.</p>
+    </div>
+
+    <!-- HR Zones -->
+    <div class="card">
+        <h2>Hartslagzones</h2>
+        <p class="text-muted mb-2" th:if="${coachData.maxHr != null}">
+            Maximale hartslag: <strong th:text="${coachData.maxHr} + ' bpm'">180 bpm</strong>
+            <span th:if="${coachData.restingHr != null}">
+                &middot; Rust-HR: <strong th:text="${coachData.restingHr} + ' bpm'">60 bpm</strong>
+                (<span th:text="${coachData.restingHrSource}">ingesteld</span>)
+            </span>
+            &mdash; gebaseerd op <span th:text="${coachData.maxHrSource}">laatste 12 maanden</span>.
+        </p>
+
+        <div style="margin-bottom:1rem;padding:0.75rem;background:#f5f5ff;border-radius:8px;font-size:0.85rem;">
+            <form method="post" action="/coach/rhr" style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <label style="font-weight:600;color:#444;">Je rusthartslag (bpm):</label>
+                <input type="number" name="rhr" min="30" max="100" required
+                       th:value="${savedRhr}" placeholder="bv. 43"
+                       style="width:80px;padding:0.3rem 0.5rem;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
+                <button type="submit" class="btn btn-primary btn-sm">Opslaan</button>
+                <span class="text-muted" style="font-size:0.75rem;">
+                    Meet 's ochtends voor het opstaan, 3 dagen gemiddeld.
+                </span>
+            </form>
+        </div>
+
+        <div th:each="method : ${coachData.hrZoneMethods}" style="margin-bottom:1.5rem;">
+            <p class="text-muted" style="font-size:0.8rem;font-weight:600;margin-bottom:0.5rem;" th:text="${method.label}">Methode</p>
+
+            <!-- Visual bar -->
+            <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:0.75rem;">
+                <div th:each="z : ${method.zones}"
+                     th:style="'flex:' + (${z.maxBpm} - ${z.minBpm}) + ';'"
+                     th:classappend="'zone-bg-' + ${z.zone}"
+                     th:title="${z.name} + ': ' + ${z.minBpm} + '-' + ${z.maxBpm} + ' bpm'">
+                </div>
+            </div>
+
+            <!-- Zone details table -->
+            <table style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Zone</th>
+                        <th>Naam</th>
+                        <th>Bereik</th>
+                        <th>Doel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="z : ${method.zones}">
+                        <td style="font-weight:700;" th:text="'Z' + ${z.zone}">Z1</td>
+                        <td th:text="${z.name}">Herstel</td>
+                        <td style="font-family:'Courier New',monospace;font-weight:600;" th:text="${z.minBpm} + '-' + ${z.maxBpm} + ' bpm'">120-140 bpm</td>
+                        <td style="font-size:0.8rem;color:#666;" th:text="${z.description}">Beschrijving</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <details style="margin-top:0.75rem;font-size:0.8rem;color:#666;cursor:pointer;">
+            <summary style="font-weight:600;">Hoe werkt de Karvonen methode? (HR-reserve)</summary>
+            <div style="margin-top:0.5rem;line-height:1.6;padding:0.75rem;background:#f9f9f9;border-radius:8px;">
+                <p><strong>Waarom is dit nauwkeuriger?</strong><br>
+                De standaard "% van max. HR" methode gebruikt alleen je maximum. Maar twee lopers met dezelfde max HR kunnen een heel
+                andere conditie hebben. De Karvonen methode kijkt ook naar je <strong>rust-HR</strong> (HR<sub>rust</sub>) en berekent
+                je <strong>hartslagreserve (HRR)</strong>: het verschil tussen je max en rust-HR.</p>
+
+                <p style="margin-top:0.5rem;"><strong>Formule:</strong><br>
+                <code>Doel-HR = (HRR × % intensiteit) + HR<sub>rust</sub></code><br>
+                waarbij <code>HRR = HR<sub>max</sub> &minus; HR<sub>rust</sub></code></p>
+
+                <p style="margin-top:0.5rem;"><strong>Voorbeeld:</strong><br>
+                Loper A (rust-HR 45) en loper B (rust-HR 70) hebben beide max HR 180.<br>
+                Voor zone 2 (60-70%):<br>
+                &bull; Loper A: 126-140 bpm &nbsp;|&nbsp; &bull; Loper B: 136-147 bpm<br>
+                Loper B heeft een smallere reserve door hogere rust-HR, dus zijn zones liggen hoger &mdash;
+                precies wat fysiologisch correct is.</p>
+
+                <p style="margin-top:0.5rem;color:#999;font-size:0.75rem;" th:inline="text">
+                    <span th:if="${coachData.restingHr != null}">
+                        Jouw rust-HR is <strong>[[${coachData.restingHr}]] bpm</strong> ([[${coachData.restingHrSource}]]).
+                    </span>
+                </p>
+            </div>
+        </details>
+    </div>
+
+    <!-- Runner Profile -->
+    <div class="card">
+        <h2>Hardloopprofiel</h2>
+        <div style="font-size:0.9rem;line-height:1.7;margin-bottom:0.5rem;" th:utext="${coachData.runnerProfile.description}">Profiel</div>
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.weeklyVolume}">30 km</div>
+                <div class="label">Weekvolume</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.frequency}">3x</div>
+                <div class="label">Frequentie /week</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.avgPace}">5:00</div>
+                <div class="label">Gem. tempo</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.avgHr}">150</div>
+                <div class="label">Gem. HR (bpm)</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.avgCadence}">170</div>
+                <div class="label">Cadence (spm)</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.totalRuns}">100</div>
+                <div class="label">Totaal runs</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.totalDistance}">800</div>
+                <div class="label">Totale afstand</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.totalTime}">200</div>
+                <div class="label">Totale tijd (uren)</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.longestRun}">21</div>
+                <div class="label">Langste run</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.terrainPreference}">Vlak</div>
+                <div class="label">Terrein</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Race Predictions -->
+    <div class="card">
+        <h2>Wedstrijdvoorspellingen</h2>
+        <p class="text-muted mb-2">Beste schatting op basis van PR's en beste inspanningen (Riegel formule).</p>
+        <div style="overflow-x:auto;">
+            <table style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Afstand</th>
+                        <th>Verwachte tijd</th>
+                        <th>Tempo</th>
+                        <th>Gebaseerd op</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="p : ${coachData.racePredictions}">
+                        <td style="font-weight:600;" th:text="${p.distance}">10 km</td>
+                        <td style="font-family:'Courier New',monospace;font-weight:600;" th:text="${p.predictedTime}">45:00</td>
+                        <td style="font-family:'Courier New',monospace;" th:text="${p.predictedPace}">4:30</td>
+                        <td style="font-size:0.8rem;color:#888;" th:text="${p.basedOn != null} ? ${p.basedOn} : '-'">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Form Predictions -->
+    <div class="card">
+        <h2>Vormvoorspelling</h2>
+        <p class="text-muted mb-2">Beste recente run als basis, met Riegel formule voor overige afstanden.</p>
+        <div style="overflow-x:auto;">
+            <table style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Afstand</th>
+                        <th>Verwachte tijd</th>
+                        <th>Tempo</th>
+                        <th>Gebaseerd op</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="p : ${coachData.recentFormPredictions}">
+                        <td style="font-weight:600;" th:text="${p.distance}">10 km</td>
+                        <td style="font-family:'Courier New',monospace;font-weight:600;" th:text="${p.predictedTime}">45:00</td>
+                        <td style="font-family:'Courier New',monospace;" th:text="${p.predictedPace}">4:30</td>
+                        <td style="font-size:0.8rem;color:#888;" th:text="${p.basedOn != null} ? ${p.basedOn} : '-'">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .zone-bg-1 { background: #4a90d9; }
+    .zone-bg-2 { background: #50b86c; }
+    .zone-bg-3 { background: #f5c842; }
+    .zone-bg-4 { background: #e88934; }
+    .zone-bg-5 { background: #e04545; }
+    .zone-bg-1, .zone-bg-2, .zone-bg-3, .zone-bg-4, .zone-bg-5 { min-width: 4px; }
+    table td:first-child { white-space: nowrap; }
+</style>
+
+<script>
+    document.getElementById('syncForm')?.addEventListener('submit', function() {
+        document.getElementById('loadingSpinner').classList.add('active');
+    });
+</script>
+
+</th:block>
+</html>

@@ -13,13 +13,12 @@ class StravaTokenRepositoryImpl(
 ) : StravaTokenRepository {
 
     override fun save(token: StravaToken) {
-        jpaRepository.save(StravaTokenEntity(
-            id = 1,
-            accessToken = token.accessToken,
-            refreshToken = token.refreshToken,
-            expiresAt = token.expiresAt,
-            athleteId = token.athleteId,
-        ))
+        val entity = jpaRepository.findById(1).orElse(StravaTokenEntity())
+        entity.accessToken = token.accessToken
+        entity.refreshToken = token.refreshToken
+        entity.expiresAt = token.expiresAt
+        entity.athleteId = token.athleteId
+        jpaRepository.save(entity)
     }
 
     override fun get(): StravaToken? {
@@ -35,5 +34,15 @@ class StravaTokenRepositoryImpl(
 
     override fun delete() {
         jpaRepository.deleteById(1)
+    }
+
+    fun getRestingHr(): Int? {
+        return jpaRepository.findById(1).map { it.restingHr }.orElse(null)
+    }
+
+    fun saveRestingHr(rhr: Int) {
+        val entity = jpaRepository.findById(1).orElse(StravaTokenEntity())
+        entity.restingHr = rhr
+        jpaRepository.save(entity)
     }
 }

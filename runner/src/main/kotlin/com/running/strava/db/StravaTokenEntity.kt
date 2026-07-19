@@ -18,4 +18,6 @@ class StravaTokenEntity(
     var expiresAt: Long = 0,
     @Column(name = "athlete_id")
     var athleteId: Long = 0,
+    @Column(name = "resting_hr")
+    var restingHr: Int? = null,
 )

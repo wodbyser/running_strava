@@ -226,6 +226,7 @@
     <a href="/">Dashboard</a>
     <a href="/activities">Trainingen</a>
     <a href="/pbs">Persoonlijke Records</a>
+    <a href="/coach">Coach</a>
 </nav>
 <div th:if="${flashMessage}" class="flash" th:classappend="'flash-' + ${flashType}">
     <div>
@@ -249,6 +250,9 @@
 <script>
     document.querySelectorAll('a[href*="sync"], a[href*="fetch-all"], a[href*="fetch-remaining"]').forEach(function(link) {
         link.addEventListener('click', function() { document.getElementById('loadingSpinner').classList.add('active'); });
+    });
+    document.querySelectorAll('form[action*="sync"]').forEach(function(form) {
+        form.addEventListener('submit', function() { document.getElementById('loadingSpinner').classList.add('active'); });
     });
 </script>
 </body>
