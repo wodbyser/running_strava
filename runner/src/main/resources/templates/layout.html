@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- ♥ Wout houdt van Zoë, zijn prinses ♥ -->
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
@@ -212,6 +213,20 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spinner-text { color: #1a1a2e; font-weight: 600; font-size: 0.95rem; }
+        .prompt-box {
+            width: 100%;
+            min-height: 480px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            line-height: 1.45;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+            white-space: pre;
+            resize: vertical;
+        }
+        .prompt-box:focus { outline: none; border-color: #1a1a2e; }
         @media (max-width: 600px) {
             .container { padding: 1rem; }
             .stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -222,11 +237,12 @@
 </head>
 <body>
 <nav>
-    <span class="brand">🏃 Running Coach</span>
+    <span class="brand" title="voor Zoë ♥">🏃 Running Coach</span>
     <a href="/">Dashboard</a>
     <a href="/activities">Trainingen</a>
     <a href="/pbs">Persoonlijke Records</a>
     <a href="/coach">Coach</a>
+    <a href="/ai">AI-analyse</a>
 </nav>
 <div th:if="${flashMessage}" class="flash" th:classappend="'flash-' + ${flashType}">
     <div>
@@ -248,6 +264,7 @@
     <th:block th:insert="~{${view} :: content}" />
 </div>
 <script>
+    console.log('%c♥ Wout houdt van Zoë, zijn prinses ♥', 'color:#e91e63;font-size:14px;font-weight:bold;');
     document.querySelectorAll('a[href*="sync"], a[href*="fetch-all"], a[href*="fetch-remaining"]').forEach(function(link) {
         link.addEventListener('click', function() { document.getElementById('loadingSpinner').classList.add('active'); });
     });

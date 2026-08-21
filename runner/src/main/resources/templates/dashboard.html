@@ -162,6 +162,12 @@
         <a href="/export" class="btn btn-primary btn-sm">Exporteer als JSON</a>
     </div>
 
+    <div th:if="${hasData}" class="card">
+        <h2>AI-analyse</h2>
+        <p class="text-muted">Genereer een prompt met je volledige trainingshistoriek om te plakken in een AI-chatbot (ChatGPT, Claude, Gemini, ...).</p>
+        <a href="/ai" class="btn btn-primary btn-sm">AI-prompt genereren</a>
+    </div>
+
     <script th:if="${hasData}" th:inline="javascript">
         const labels = /*[[${weeklyLabels}]]*/ [];
         const data = /*[[${weeklyDistances}]]*/ [];

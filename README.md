@@ -57,6 +57,7 @@ De app haalt dan al je historische activiteiten, details en GPS-streams op.
 | `GET /sync` | Nieuwe trainingen syncen |
 | `GET /fetch-all` | Alle data opnieuw ophalen |
 | `GET /auth/strava` | Strava OAuth login |
+| `GET /ai` | AI-prompt genereren (kopieerbaar) |
 
 De geplande sync draait elke dag om 06:00 (aanpasbaar via `strava.sync.cron`).
 
@@ -75,9 +76,10 @@ In dev mode wordt H2 gebruikt (bestand `data/running.mv.db`).
 
 ## Uitbreiden met AI
 
-De `AiAnalysisService.buildTrainingContext()` genereert een complete context-string
-met al je trainingsdata. Stuur die naar een AI-model (bijv. via LangChain4j, OpenAI, Gemini)
-en vraag om analyse, planning, voorspellingen.
+Open **`GET /ai`** (knop "AI-prompt genereren" op de dashboard) om automatisch een prompt
+te genereren. `AiAnalysisService.buildTrainingContext()` genereert een complete context-string
+met al je trainingsdata, `buildAiPrompt()` wrapping die in een coach-instructie.
+Kopieer de prompt naar een AI-chatbot (ChatGPT, Claude, Gemini) voor analyse, planning, voorspellingen.
 
 Voorbeeldvragen die de AI kan beantwoorden:
 - Ben ik aan het overtrainen?

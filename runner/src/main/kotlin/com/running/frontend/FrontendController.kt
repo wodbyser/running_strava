@@ -1,5 +1,6 @@
 package com.running.frontend
 
+import com.running.analysis.AiAnalysisService
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
 import com.running.strava.spi.ActivityRepository
@@ -30,6 +31,7 @@ class FrontendController(
     private val syncStravaData: SyncStravaData,
     private val fetchAllHistoricalData: FetchAllHistoricalData,
     private val fetchRemainingData: FetchRemainingData,
+    private val aiAnalysisService: AiAnalysisService,
 ) {
 
     @GetMapping("/")
@@ -380,6 +382,22 @@ class FrontendController(
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"training-data.json\"")
             .contentType(MediaType.APPLICATION_JSON)
+            .body(bytes)
+    }
+
+    @GetMapping("/ai")
+    fun aiPrompt(model: Model): String {
+        model.addAttribute("title", "AI-analyse")
+        model.addAttribute("prompt", aiAnalysisService.buildAiPrompt())
+        return "ai"
+    }
+
+    @GetMapping("/ai/download")
+    fun aiPromptDownload(): ResponseEntity<ByteArray> {
+        val bytes = aiAnalysisService.buildAiPrompt().toByteArray()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"ai-prompt.txt\"")
+            .contentType(MediaType.TEXT_PLAIN)
             .body(bytes)
     }
 

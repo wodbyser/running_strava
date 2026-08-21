@@ -57,6 +57,27 @@ class AiAnalysisService(
         }
     }
 
+    fun buildAiPrompt(): String {
+        val context = buildTrainingContext()
+        if (context == "No training data available.") return context
+
+        return """
+            |Je bent een ervaren hardloopcoach. Analyseer onderstaande trainingshistoriek en geef concreet advies.
+            |Behandel minimaal deze punten:
+            |1. Ben ik aan het overtrainen?
+            |2. Hoe evolueert mijn lactaatdrempel?
+            |3. Wat is mijn ideale trainingsweek?
+            |4. Voorspelling voor halve marathon / marathon
+            |5. Blessurerisico op basis van mijn trainingsbelasting
+            |
+            |Geef je antwoord in het Nederlands, met concrete cijfers en per punt een duidelijk actieplan.
+            |
+            |<trainingshistoriek>
+            |$context
+            |</trainingshistoriek>
+        """.trimMargin()
+    }
+
     private fun calculatePace(speedMs: Double): String {
         if (speedMs <= 0) return "-"
         val paceSeconds = (1000 / speedMs).toInt()
