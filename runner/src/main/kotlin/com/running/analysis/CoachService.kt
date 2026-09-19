@@ -1,6 +1,8 @@
 package com.running.analysis
 
 import com.running.strava.domain.Activity
+import com.running.strava.domain.Lap
+import com.running.strava.domain.LapClassifier
 import com.running.strava.spi.ActivityRepository
 import org.springframework.stereotype.Service
 import java.time.Duration
@@ -49,6 +51,8 @@ class CoachService(
         val longestRun: String,
         val terrainPreference: String,
         val classification: String,
+        val intervalFrequency: String,
+        val avgIntervalPace: String,
     )
 
     data class CoachData(
@@ -66,6 +70,11 @@ class CoachService(
         val now = ZonedDateTime.now()
         val lastYear = runs.filter { it.startDate.isAfter(now.minusYears(1)) }.takeIf { it.isNotEmpty() } ?: runs
         val allRuns = runs
+
+        // Bulk-fetch lap data once so we can use interval reps (fast laps within a session) as extra,
+        // more accurate anchors for race predictions and to enrich the runner profile — instead of only
+        // relying on whole-activity averages / Strava-detected best efforts.
+        val lapsByActivity = activityRepository.findLapsForActivities(allRuns.map { it.id })
 
         val sortedHr = lastYear.mapNotNull { it.maxHeartrate?.toInt() }.sorted()
         val maxHr = if (sortedHr.size >= 5) {
@@ -112,9 +121,9 @@ class CoachService(
             maxHrSource = maxHrSource,
             restingHr = effectiveRhr,
             restingHrSource = rhrLabel,
-            runnerProfile = buildRunnerProfile(lastYear, allRuns),
-            racePredictions = calculateRacePredictions(lastYear),
-            recentFormPredictions = calculateRecentFormPredictions(lastYear),
+            runnerProfile = buildRunnerProfile(lastYear, allRuns, lapsByActivity),
+            racePredictions = calculateRacePredictions(lastYear, lapsByActivity, maxHr),
+            recentFormPredictions = calculateRecentFormPredictions(lastYear, lapsByActivity, maxHr),
         )
     }
 
@@ -172,13 +181,14 @@ class CoachService(
         return resting.coerceIn(40, 85)
     }
 
-    private fun buildRunnerProfile(recent: List<Activity>, all: List<Activity>): RunnerProfile {
+    private fun buildRunnerProfile(recent: List<Activity>, all: List<Activity>, lapsByActivity: Map<Long, List<Lap>>): RunnerProfile {
         if (recent.isEmpty()) {
             return RunnerProfile(
                 type = "Onbekend", description = "Geen trainingsdata beschikbaar.",
                 weeklyVolume = "-", frequency = "-", avgPace = "-", avgHr = "-", avgCadence = "-",
                 totalDistance = "-", totalTime = "-", totalRuns = 0, trainingSince = "-",
                 longestRun = "-", terrainPreference = "-", classification = "-",
+                intervalFrequency = "-", avgIntervalPace = "-",
             )
         }
 
@@ -230,8 +240,24 @@ class CoachService(
             "${p / 60}:${(p % 60).toString().padStart(2, '0')} /km"
         } else "-"
 
+        // Structured interval training is a strong signal of how a runner trains, independent of raw
+        // volume or average pace — someone doing regular quality sessions trains very differently from
+        // someone who just accumulates easy mileage, even at similar weekly volume.
+        val intervalSessionCount = recent.count { LapClassifier.hasIntervals(lapsByActivity[it.id].orEmpty()) }
+        val intervalSessionsPerWeek = intervalSessionCount / recentWeeks.coerceAtLeast(1.0)
+        val allIntervalReps = recent.flatMap { intervalReps(it.id, lapsByActivity) }
+        val avgIntervalSpeed = allIntervalReps.map { it.averageSpeed.toDouble() }.average().takeIf { !it.isNaN() } ?: 0.0
+        val intervalPaceStr = if (avgIntervalSpeed > 0) {
+            val p = (1000 / avgIntervalSpeed).toInt()
+            "${p / 60}:${(p % 60).toString().padStart(2, '0')} /km"
+        } else "-"
+        val intervalFrequencyStr = if (intervalSessionCount > 0) {
+            "%.1fx/week".format(intervalSessionsPerWeek)
+        } else "Geen"
+
         val profileType = when {
             avgElevPerKm >= 15 -> "Berggeit"
+            intervalSessionsPerWeek >= 0.4 && avgIntervalSpeed > 0 -> "Intervaltrainer"
             avgSpeed > 4.5 -> "Snelheidsduivel"
             avgSpeed > 3.5 -> "Tempoloper"
             weeklyKm >= 40 -> "Uithoudingsatleet"
@@ -253,6 +279,14 @@ class CoachService(
             append("met <strong>${all.size} runs</strong>, ")
             append("<strong>${"%.0f".format(totalDistance / 1000)} km</strong> ")
             append("en <strong>${totalTime / 3600}u ${(totalTime % 3600) / 60}m</strong> totaal.</p>")
+            if (intervalSessionCount > 0) {
+                append("<p>Je doet gemiddeld <strong>${"%.1f".format(intervalSessionsPerWeek)}x</strong> per week ")
+                append("een training met intervallen, aan een gemiddeld intervaltempo van <strong>$intervalPaceStr</strong>. ")
+                append("Deze data wordt gebruikt om je wedstrijd- en vormvoorspellingen nauwkeuriger te maken.</p>")
+            } else {
+                append("<p class=\"text-muted\">Geen intervaltrainingen gedetecteerd in de laatste 12 maanden — ")
+                append("voorspellingen zijn daardoor gebaseerd op hele runs en PR-segmenten.</p>")
+            }
             append("<p class=\"text-muted\">Classificatie: <strong>$classification</strong> &mdash; ")
             append("profiel gebaseerd op laatste 12 maanden.</p>")
         }
@@ -272,98 +306,177 @@ class CoachService(
             longestRun = longestRunStr,
             terrainPreference = terrainPref,
             classification = classification,
+            intervalFrequency = intervalFrequencyStr,
+            avgIntervalPace = intervalPaceStr,
         )
     }
 
-    private fun calculateRacePredictions(runs: List<Activity>): List<RacePrediction> {
-        val distances = listOf(
-            "1 km" to 1000f,
-            "3 km" to 3000f,
-            "5 km" to 5000f,
-            "10 km" to 10000f,
-            "15 km" to 15000f,
-            "21,1 km (HM)" to 21097f,
-            "42,2 km (M)" to 42195f,
+    /** Minimum lap distance/duration for an interval rep to be trusted as a prediction anchor — short
+     * or very brief "reps" (e.g. strides, GPS glitches) are too noisy to extrapolate from reliably. */
+    private val MIN_REP_DISTANCE_METERS = 150f
+    private val MIN_REP_DURATION_SECONDS = 30
+
+    /** Returns the laps of an activity that [LapClassifier] flagged as fast interval reps (as opposed
+     * to recovery/jog laps), filtered to those substantial enough to be a trustworthy pace anchor. */
+    private fun intervalReps(activityId: Long, lapsByActivity: Map<Long, List<Lap>>): List<Lap> {
+        val laps = lapsByActivity[activityId].orEmpty()
+        if (laps.size < 2) return emptyList()
+        val flags = LapClassifier.classifyIntervals(laps)
+        return laps.filterIndexed { i, lap ->
+            flags[i] && lap.distance >= MIN_REP_DISTANCE_METERS && lap.movingTime >= MIN_REP_DURATION_SECONDS
+        }
+    }
+
+    /** A known performance (distance + time) that can be used as a starting point for a Riegel
+     * extrapolation to another distance. */
+    private data class Anchor(
+        val distanceMeters: Float,
+        val timeSeconds: Float,
+        val source: String,
+    )
+
+    /** Riegel's exponent for translating a known performance at one distance to a predicted time at
+     * another distance: predictedTime = knownTime * (targetDistance / knownDistance)^1.06. The formula
+     * is most reliable when the two distances aren't too far apart, so callers should prefer anchors
+     * whose distance is reasonably close to the target. */
+    private val RIEGEL_EXPONENT = 1.06
+
+    /** Builds a prediction for [dist] from the given pool of [anchors]. Anchors whose distance is
+     * within a 0.4x-2.5x window of the target are strongly preferred (Riegel's exponent becomes
+     * unreliable over larger extrapolations — e.g. projecting a 400m interval rep all the way up to
+     * marathon distance). If no anchor falls in that window we still fall back to the full pool so a
+     * prediction is always returned when *some* data exists. */
+    private fun predictFromAnchors(dist: Float, anchors: List<Anchor>): RacePrediction? {
+        if (anchors.isEmpty()) return null
+
+        data class Scored(val anchor: Anchor, val ratio: Double, val predictedSeconds: Double)
+
+        val scored = anchors.mapNotNull { anchor ->
+            if (anchor.distanceMeters <= 0 || anchor.timeSeconds <= 0) return@mapNotNull null
+            val ratio = dist / anchor.distanceMeters.toDouble()
+            val predictedSeconds = anchor.timeSeconds * Math.pow(ratio, RIEGEL_EXPONENT)
+            Scored(anchor, ratio, predictedSeconds)
+        }
+        if (scored.isEmpty()) return null
+
+        val reliable = scored.filter { it.ratio in 0.4..2.5 }
+        val pool = reliable.ifEmpty { scored }
+        val best = pool.minByOrNull { it.predictedSeconds } ?: return null
+
+        val paceSeconds = best.predictedSeconds / (dist / 1000)
+        val extrapolationNote = if (reliable.isEmpty()) " (verre extrapolatie)" else ""
+        return RacePrediction(
+            distance = formatDistanceLabel(dist),
+            distanceMeters = dist,
+            predictedTime = formatDuration(best.predictedSeconds.toInt()),
+            predictedPace = formatPace(paceSeconds),
+            basedOn = "${best.anchor.source}$extrapolationNote",
         )
+    }
 
-        val performances = mutableMapOf<Float, Float>()
+    private fun formatDistanceLabel(dist: Float): String = when (dist) {
+        1000f -> "1 km"
+        3000f -> "3 km"
+        5000f -> "5 km"
+        10000f -> "10 km"
+        15000f -> "15 km"
+        21097f -> "21,1 km (HM)"
+        42195f -> "42,2 km (M)"
+        else -> formatDistance(dist)
+    }
 
+
+    /** A whole training run is normally *not* a reliable race-pace anchor: most runs (including the
+     * "recent run" that used to drive Vormvoorspelling) are easy/moderate efforts, not all-out
+     * attempts, so extrapolating from their pace with Riegel just predicts "you can race at your jogging
+     * pace" — which is what made predictions like "3 km in 15:53, based on a recent 6 km run" nonsensical.
+     * We only trust a whole-run anchor when there's actual evidence it was a hard effort:
+     *   - Strava marked it as a race (workoutType == 1), or
+     *   - its average HR was close to the runner's max HR, or
+     *   - it was notably faster than the runner's own typical pace (top ~15% of their runs).
+     * Best-efforts segments and classified interval reps are always near-maximal by construction, so
+     * they don't need this filter. */
+    private fun hardEffortWholeRunAnchors(runs: List<Activity>, maxHr: Int?): List<Anchor> {
+        val speeds = runs.mapNotNull { if (it.averageSpeed > 0) it.averageSpeed.toDouble() else null }.sorted()
+        val fastThreshold = if (speeds.size >= 5) speeds[(speeds.size * 0.85).toInt().coerceAtMost(speeds.size - 1)] else null
+
+        return runs.mapNotNull { a ->
+            if (a.distance <= 0 || a.movingTime <= 0) return@mapNotNull null
+            val label = when {
+                a.workoutType == 1 -> "wedstrijd van ${formatDistance(a.distance)}"
+                maxHr != null && a.averageHeartrate != null && a.averageHeartrate!! >= maxHr * 0.85 ->
+                    "harde inspanning (HR) van ${formatDistance(a.distance)}"
+                fastThreshold != null && a.averageSpeed >= fastThreshold ->
+                    "snelle training van ${formatDistance(a.distance)}"
+                else -> null
+            } ?: return@mapNotNull null
+            Anchor(a.distance, a.movingTime.toFloat(), label)
+        }
+    }
+
+    private fun bestEffortAndIntervalAnchors(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>): List<Anchor> {
+        val anchors = mutableListOf<Anchor>()
         for (a in runs) {
             a.bestEfforts?.forEach { e ->
                 if (e.distance > 0 && e.movingTime > 0) {
-                    performances.merge(e.distance, e.movingTime.toFloat()) { old, new -> minOf(old, new) }
+                    anchors += Anchor(e.distance, e.movingTime.toFloat(), "PR-segment van ${formatDistance(e.distance)}")
                 }
             }
-        }
-
-        for ((_, dist) in distances) {
-            val best = runs
-                .filter { it.distance >= dist * 0.95 && it.distance <= dist * 1.05 && it.averageSpeed > 0 }
-                .minByOrNull { it.movingTime.toFloat() / it.distance }
-            if (best != null) {
-                performances.merge(dist, best.movingTime.toFloat()) { old, new -> minOf(old, new) }
+            intervalReps(a.id, lapsByActivity).forEach { lap ->
+                anchors += Anchor(lap.distance, lap.movingTime.toFloat(), "intervalrep van ${formatDistance(lap.distance)}")
             }
         }
+        return anchors
+    }
 
-        return distances.map { (label, dist) ->
-            val best = performances
-                .filter { it.key > 0 && it.value > 0 }
-                .mapNotNull { (knownDist, knownTime) ->
-                    val predictedSeconds = knownTime * Math.pow((dist / knownDist).toDouble(), 1.06)
-                    val paceSeconds = predictedSeconds / (dist / 1000)
-                    Triple(predictedSeconds, paceSeconds, formatDistance(knownDist))
-                }
-                .filter { it.first > 0 }
-                .minByOrNull { it.first }
+    private fun calculateRacePredictions(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, maxHr: Int?): List<RacePrediction> {
+        val distances = listOf(1000f, 3000f, 5000f, 10000f, 15000f, 21097f, 42195f)
+        val anchors = hardEffortWholeRunAnchors(runs, maxHr) + bestEffortAndIntervalAnchors(runs, lapsByActivity)
 
-            if (best != null) {
-                RacePrediction(
-                    distance = label,
-                    distanceMeters = dist,
-                    predictedTime = formatDuration(best.first.toInt()),
-                    predictedPace = formatPace(best.second),
-                    basedOn = best.third,
-                )
-            } else {
-                RacePrediction(label, dist, "-", "-", null)
-            }
+        return distances.map { dist ->
+            predictFromAnchors(dist, anchors) ?: RacePrediction(formatDistanceLabel(dist), dist, "-", "-", null)
         }
     }
 
-    private fun calculateRecentFormPredictions(runs: List<Activity>): List<RacePrediction> {
-        val distances = listOf(
-            "1 km" to 1000f,
-            "3 km" to 3000f,
-            "5 km" to 5000f,
-            "10 km" to 10000f,
-            "21,1 km (HM)" to 21097f,
-            "42,2 km (M)" to 42195f,
-        )
+    /** Recent-form predictions should reflect current fitness, not the whole training history. We look
+     * at the last 6 weeks of data and — crucially — also draw on interval reps and hard efforts run in
+     * that window, not just any recent whole run. Without this filter, a runner whose last activities
+     * were all easy jogs would get a "form" prediction that's really just their jogging pace re-labelled
+     * as a race prediction. */
+    private fun calculateRecentFormPredictions(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, maxHr: Int?): List<RacePrediction> {
+        val distances = listOf(1000f, 3000f, 5000f, 10000f, 21097f, 42195f)
+        val now = ZonedDateTime.now()
+        val recentWindow = runs.filter { it.startDate.isAfter(now.minusWeeks(6)) }
+        val recent = recentWindow.takeIf { it.isNotEmpty() }
+            ?: runs.sortedByDescending { it.startDate }.take(5)
 
-        val recent = runs.sortedByDescending { it.startDate }
-            .take(5)
-            .filter { it.averageSpeed > 0 && it.distance > 0 }
-
-        if (recent.isEmpty()) {
-            return distances.map { (label, dist) -> RacePrediction(label, dist, "-", "-", null) }
+        // The "hard effort" pace threshold is computed against the runner's whole recent history (not
+        // just this narrow window), otherwise a window with only easy runs would have no real fast/slow
+        // contrast to compare against and everything would look "fast" relative to itself.
+        val anchors = hardEffortWholeRunAnchors(recent, maxHr).ifEmpty {
+            // No clearly hard whole-run effort in the window — still compare recent pace against the
+            // full history's threshold so a genuinely solid recent run isn't discarded.
+            val referencePool = runs.takeIf { it.size > recent.size } ?: recent
+            val speeds = referencePool.mapNotNull { if (it.averageSpeed > 0) it.averageSpeed.toDouble() else null }.sorted()
+            val fastThreshold = if (speeds.size >= 5) speeds[(speeds.size * 0.85).toInt().coerceAtMost(speeds.size - 1)] else null
+            recent.mapNotNull { a ->
+                if (a.distance <= 0 || a.movingTime <= 0) return@mapNotNull null
+                if (fastThreshold == null || a.averageSpeed < fastThreshold) return@mapNotNull null
+                Anchor(a.distance, a.movingTime.toFloat(), "snelle recente training van ${formatDistance(a.distance)}")
+            }
+        } + bestEffortAndIntervalAnchors(recent, lapsByActivity).map {
+            it.copy(source = "recente ${it.source}")
         }
 
-        val best = recent.maxByOrNull { it.averageSpeed }!!
-        val anchorDist = best.distance.coerceAtLeast(1000f)
-        val anchorTime = best.movingTime.toFloat()
+        if (anchors.isEmpty()) {
+            return distances.map { dist -> RacePrediction(formatDistanceLabel(dist), dist, "-", "-", null) }
+        }
 
-        return distances.map { (label, dist) ->
-            val predictedSeconds = anchorTime * Math.pow((dist / anchorDist).toDouble(), 1.06)
-            val paceSeconds = predictedSeconds / (dist / 1000)
-            RacePrediction(
-                distance = label,
-                distanceMeters = dist,
-                predictedTime = formatDuration(predictedSeconds.toInt()),
-                predictedPace = formatPace(paceSeconds),
-                basedOn = "Beste recente run: ${"%.2f".format(best.distance / 1000)} km in ${formatDuration(best.movingTime)}",
-            )
+        return distances.map { dist ->
+            predictFromAnchors(dist, anchors) ?: RacePrediction(formatDistanceLabel(dist), dist, "-", "-", null)
         }
     }
+
 
     private fun formatDuration(totalSeconds: Int): String {
         val h = totalSeconds / 3600

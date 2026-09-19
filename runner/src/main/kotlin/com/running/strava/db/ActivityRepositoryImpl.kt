@@ -18,6 +18,7 @@ interface ActivityJpaRepository : JpaRepository<ActivityEntity, Long> {
 interface ActivityStreamJpaRepository : JpaRepository<ActivityStreamEntity, Long>
 interface LapJpaRepository : JpaRepository<LapEntity, Long> {
     fun findByActivityIdOrderByLapIndexAsc(activityId: Long): List<LapEntity>
+    fun findByActivityIdInOrderByActivityIdAscLapIndexAsc(activityIds: Collection<Long>): List<LapEntity>
     fun deleteByActivityId(activityId: Long)
 }
 interface SyncStatusJpaRepository : JpaRepository<SyncStatusEntity, Long>
@@ -63,6 +64,12 @@ class ActivityRepositoryImpl(
 
     override fun findLaps(activityId: Long): List<Lap> {
         return lapJpaRepository.findByActivityIdOrderByLapIndexAsc(activityId).map { toDomainLap(it) }
+    }
+
+    override fun findLapsForActivities(activityIds: Collection<Long>): Map<Long, List<Lap>> {
+        if (activityIds.isEmpty()) return emptyMap()
+        return lapJpaRepository.findByActivityIdInOrderByActivityIdAscLapIndexAsc(activityIds)
+            .groupBy({ it.activityId }, { toDomainLap(it) })
     }
 
     override fun findAllIds(): Set<Long> {

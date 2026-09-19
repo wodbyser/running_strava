@@ -14,6 +14,7 @@ interface ActivityRepository {
     fun findById(id: Long): Activity?
     fun findStreams(activityId: Long): ActivityStream?
     fun findLaps(activityId: Long): List<Lap>
+    fun findLapsForActivities(activityIds: Collection<Long>): Map<Long, List<Lap>>
     fun findAll(after: ZonedDateTime? = null): List<Activity>
     fun findAllIds(): Set<Long>
     fun findLatestActivityTimestamp(): ZonedDateTime?

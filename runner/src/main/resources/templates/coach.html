@@ -159,13 +159,21 @@
                 <div class="value" th:text="${coachData.runnerProfile.terrainPreference}">Vlak</div>
                 <div class="label">Terrein</div>
             </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.intervalFrequency}">-</div>
+                <div class="label">Intervaltrainingen /week</div>
+            </div>
+            <div class="stat">
+                <div class="value" th:text="${coachData.runnerProfile.avgIntervalPace}">-</div>
+                <div class="label">Gem. intervaltempo</div>
+            </div>
         </div>
     </div>
 
     <!-- Race Predictions -->
     <div class="card">
         <h2>Wedstrijdvoorspellingen</h2>
-        <p class="text-muted mb-2">Beste schatting op basis van PR's en beste inspanningen (Riegel formule).</p>
+        <p class="text-muted mb-2">Beste schatting op basis van PR's, beste inspanningen én je interval-reps (Riegel formule).</p>
         <div style="overflow-x:auto;">
             <table style="font-size:0.85rem;">
                 <thead>
@@ -191,7 +199,7 @@
     <!-- Recent Form Predictions -->
     <div class="card">
         <h2>Vormvoorspelling</h2>
-        <p class="text-muted mb-2">Beste recente run als basis, met Riegel formule voor overige afstanden.</p>
+        <p class="text-muted mb-2">Gebaseerd op je beste runs en intervalreps van de laatste 6 weken, met Riegel formule voor overige afstanden.</p>
         <div style="overflow-x:auto;">
             <table style="font-size:0.85rem;">
                 <thead>
