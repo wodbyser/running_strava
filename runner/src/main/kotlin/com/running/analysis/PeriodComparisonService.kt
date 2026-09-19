@@ -213,7 +213,7 @@ class PeriodComparisonService(
             })
         }
         if (parts.isEmpty()) return "Onvoldoende data (HR + pace) in een van beide periodes om te vergelijken."
-        return "Vergeleken met de eerste periode " + parts.joinToString(" en ") + "."
+        return "Vergeleken met de eerste periode: " + parts.joinToString(" en ") + "."
     }
 
     private fun formatPaceFromSpeed(speedMs: Double?): String {
