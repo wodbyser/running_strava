@@ -69,6 +69,35 @@
         </div>
 
         <div class="card">
+            <h2>Evolutie loopniveau</h2>
+            <p class="text-muted" style="font-size:0.85rem;">
+                Efficiëntiefactor per maand (snelheid / hartslag) — een stijgende lijn betekent dat je sneller
+                loopt bij dezelfde hartslag, dus verbeterende conditie. Zo zie je meteen wanneer je loopniveau
+                het hoogst was en waar je nu staat.
+            </p>
+            <div class="filter-row" style="margin-bottom:1rem;">
+                <select name="evolution" onchange="this.form.submit()" form="mainFilter">
+                    <option value="3m" th:selected="${filterEvolution == '3m'}">Laatste 3 maanden</option>
+                    <option value="6m" th:selected="${filterEvolution == '6m'}">Laatste 6 maanden</option>
+                    <option value="ytd" th:selected="${filterEvolution == 'ytd'}">Dit jaar (YTD)</option>
+                    <option value="1y" th:selected="${filterEvolution == '1y'}">Laatste jaar</option>
+                    <option value="2y" th:selected="${filterEvolution == '2y'}">Laatste 2 jaar</option>
+                    <option value="3y" th:selected="${filterEvolution == '3y'}">Laatste 3 jaar</option>
+                    <option value="custom" th:selected="${filterEvolution == 'custom'}">Aangepast</option>
+                    <option value="all" th:selected="${filterEvolution == 'all'}">Altijd</option>
+                </select>
+                <div class="custom-dates" th:style="${filterEvolution == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                    <input type="date" name="evolutionFrom" th:value="${filterEvolutionFrom}" onchange="this.form.submit()" form="mainFilter">
+                    <span>tot</span>
+                    <input type="date" name="evolutionTill" th:value="${filterEvolutionTill}" onchange="this.form.submit()" form="mainFilter">
+                </div>
+            </div>
+            <div style="position:relative;overflow-x:auto;height:600px;">
+                <canvas id="evolutionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>Wekelijkse volume (km)</h2>
             <div class="filter-row" style="margin-bottom:1rem;">
                 <select name="weekly" onchange="this.form.submit()" form="mainFilter">
@@ -178,6 +207,99 @@
     </div>
 
     <script th:if="${hasData}" th:inline="javascript">
+        const evolutionMonths = /*[[${evolutionMonths}]]*/ [];
+        const evolutionEasyEf = /*[[${evolutionEasyEf}]]*/ [];
+        const evolutionIntervalEf = /*[[${evolutionIntervalEf}]]*/ [];
+        const evolutionEasyRunCount = /*[[${evolutionEasyRunCount}]]*/ [];
+        const evolutionIntervalRepCount = /*[[${evolutionIntervalRepCount}]]*/ [];
+        if (evolutionMonths.length > 0) {
+            const canvas = document.getElementById('evolutionChart');
+            new Chart(canvas, {
+                data: {
+                    labels: evolutionMonths,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Rustige lopen (EF)',
+                            data: evolutionEasyEf,
+                            borderColor: '#1a1a2e',
+                            backgroundColor: 'rgba(26,26,46,0.1)',
+                            spanGaps: true,
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            order: 1,
+                        },
+                        {
+                            type: 'line',
+                            label: 'Intervallen (EF)',
+                            data: evolutionIntervalEf,
+                            borderColor: '#e88934',
+                            backgroundColor: 'rgba(232,137,52,0.1)',
+                            spanGaps: true,
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            order: 1,
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Aantal rustige lopen',
+                            data: evolutionEasyRunCount,
+                            backgroundColor: 'rgba(26,26,46,0.12)',
+                            yAxisID: 'yCount',
+                            order: 3,
+                            barPercentage: 0.5,
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Aantal interval-reps',
+                            data: evolutionIntervalRepCount,
+                            backgroundColor: 'rgba(232,137,52,0.15)',
+                            yAxisID: 'yCount',
+                            order: 3,
+                            barPercentage: 0.5,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: function(items) {
+                                    if (!items.length) return [];
+                                    const idx = items[0].dataIndex;
+                                    const easyN = evolutionEasyRunCount[idx] ?? 0;
+                                    const intN = evolutionIntervalRepCount[idx] ?? 0;
+                                    return [
+                                        '',
+                                        `Gebaseerd op: ${easyN} rustige loop(en), ${intN} interval-rep(s)`,
+                                        (easyN < 3 && intN < 3) ? '⚠ weinig data deze maand — neem met een korrel zout' : '',
+                                    ].filter(l => l !== '');
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            position: 'left',
+                            title: { display: true, text: 'Efficiëntiefactor (m/s per bpm)', font: { size: 11 }, color: '#888' },
+                            grid: { color: '#eee' },
+                        },
+                        yCount: {
+                            position: 'right',
+                            title: { display: true, text: 'Aantal lopen/reps', font: { size: 11 }, color: '#bbb' },
+                            grid: { display: false },
+                            ticks: { color: '#bbb', font: { size: 10 } },
+                            beginAtZero: true,
+                        },
+                        x: { ticks: { font: { size: 11 } } },
+                    }
+                }
+            });
+        }
+
         const labels = /*[[${weeklyLabels}]]*/ [];
         const data = /*[[${weeklyDistances}]]*/ [];
         const weekStarts = /*[[${weeklyWeekStarts}]]*/ [];

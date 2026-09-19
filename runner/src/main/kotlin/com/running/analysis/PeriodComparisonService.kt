@@ -48,6 +48,8 @@ class PeriodComparisonService(
         val month: String,
         val easyEf: Double?,
         val intervalEf: Double?,
+        val easyRunCount: Int,
+        val intervalRepCount: Int,
     )
 
     data class ComparisonResult(
@@ -138,7 +140,7 @@ class PeriodComparisonService(
         )
     }
 
-    private fun buildMonthlyTrend(allRuns: List<Activity>): List<MonthlyPoint> {
+    fun buildMonthlyTrend(allRuns: List<Activity>): List<MonthlyPoint> {
         val byMonth = allRuns.groupBy { YearMonth.from(it.startDate) }.toSortedMap()
 
         return byMonth.map { (month, runs) ->
@@ -162,6 +164,8 @@ class PeriodComparisonService(
                 month = month.toString(),
                 easyEf = easyEf,
                 intervalEf = intervalEf,
+                easyRunCount = easyActivities.size,
+                intervalRepCount = intervalLaps.size,
             )
         }
     }

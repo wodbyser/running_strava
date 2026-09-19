@@ -47,6 +47,9 @@ class FrontendController(
         @RequestParam(name = "weekly") weeklyPeriod: String? = null,
         @RequestParam(name = "weeklyFrom") weeklyFrom: String? = null,
         @RequestParam(name = "weeklyTill") weeklyTill: String? = null,
+        @RequestParam(name = "evolution") evolutionPeriod: String? = null,
+        @RequestParam(name = "evolutionFrom") evolutionFrom: String? = null,
+        @RequestParam(name = "evolutionTill") evolutionTill: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
         val filtered = filterActivities(allActivities, period, from, till, null)
@@ -107,6 +110,38 @@ class FrontendController(
         model.addAttribute("weeklyLabels", sortedVolume.map { it.key.format(dateFormatter) })
         model.addAttribute("weeklyDistances", sortedVolume.map { "%.1f".format(it.value).toDouble() })
         model.addAttribute("weeklyWeekStarts", sortedVolume.map { it.key.toString() })
+
+        var evolutionSince: ZonedDateTime? = null
+        var evolutionUntil: ZonedDateTime? = null
+        when (evolutionPeriod?.takeIf { it.isNotBlank() }) {
+            "3m" -> evolutionSince = now.minusMonths(3)
+            "6m" -> evolutionSince = now.minusMonths(6)
+            "ytd" -> evolutionSince = now.withDayOfYear(1)
+            "1y" -> evolutionSince = now.minusYears(1)
+            "2y" -> evolutionSince = now.minusYears(2)
+            "3y" -> evolutionSince = now.minusYears(3)
+            "custom" -> {
+                evolutionSince = evolutionFrom?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault())
+                }
+                evolutionUntil = evolutionTill?.takeIf { it.isNotBlank() }?.let {
+                    LocalDate.parse(it).plusDays(1).atStartOfDay(ZoneId.systemDefault())
+                }
+            }
+        }
+        val evolutionRuns = allRuns.filter { a ->
+            (evolutionSince == null || !a.startDate.isBefore(evolutionSince)) &&
+            (evolutionUntil == null || !a.startDate.isAfter(evolutionUntil))
+        }
+        val monthlyTrend = periodComparisonService.buildMonthlyTrend(evolutionRuns)
+        model.addAttribute("evolutionMonths", monthlyTrend.map { it.month })
+        model.addAttribute("evolutionEasyEf", monthlyTrend.map { it.easyEf })
+        model.addAttribute("evolutionIntervalEf", monthlyTrend.map { it.intervalEf })
+        model.addAttribute("evolutionEasyRunCount", monthlyTrend.map { it.easyRunCount })
+        model.addAttribute("evolutionIntervalRepCount", monthlyTrend.map { it.intervalRepCount })
+        model.addAttribute("filterEvolution", evolutionPeriod ?: "all")
+        model.addAttribute("filterEvolutionFrom", evolutionFrom ?: "")
+        model.addAttribute("filterEvolutionTill", evolutionTill ?: "")
 
         model.addAttribute("hasToken", hasToken)
         model.addAttribute("hasData", runs.isNotEmpty())
