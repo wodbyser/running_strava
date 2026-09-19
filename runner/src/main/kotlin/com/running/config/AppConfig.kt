@@ -3,6 +3,8 @@ package com.running.config
 import com.running.strava.spi.ActivityRepository
 import com.running.strava.spi.StravaApiClient
 import com.running.strava.spi.StravaTokenRepository
+import com.running.strava.usecase.backfill.BackfillLapsData
+import com.running.strava.usecase.backfill.impl.BackfillLapsDataImpl
 import com.running.strava.usecase.exchange.ExchangeStravaCode
 import com.running.strava.usecase.exchange.impl.ExchangeStravaCodeImpl
 import com.running.strava.usecase.fetch.FetchAllHistoricalData
@@ -49,4 +51,11 @@ class AppConfig {
         tokenRepository: StravaTokenRepository,
         activityRepository: ActivityRepository,
     ): FetchRemainingData = FetchRemainingDataImpl(stravaApiClient, tokenRepository, activityRepository)
+
+    @Bean
+    fun backfillLapsData(
+        stravaApiClient: StravaApiClient,
+        tokenRepository: StravaTokenRepository,
+        activityRepository: ActivityRepository,
+    ): BackfillLapsData = BackfillLapsDataImpl(stravaApiClient, tokenRepository, activityRepository)
 }

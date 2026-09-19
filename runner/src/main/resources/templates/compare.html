@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+
+    <div class="card">
+        <h2>Periodes vergelijken</h2>
+        <p class="text-muted">
+            Vergelijk je loopniveau tussen twee periodes: rustige/duurlopen en intervaltrainingen worden apart
+            geanalyseerd op basis van tempo en hartslag (efficiëntiefactor = snelheid / hartslag — hoger is beter).
+        </p>
+        <form method="get" action="/compare" class="filter-bar mt-2">
+            <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;">
+                <label style="font-weight:600;">Periode A (vroeger):</label>
+                <input type="date" name="fromA" th:value="${fromA}">
+                <span>t/m</span>
+                <input type="date" name="tillA" th:value="${tillA}">
+                <span class="filter-divider"></span>
+                <label style="font-weight:600;">Periode B (recenter):</label>
+                <input type="date" name="fromB" th:value="${fromB}">
+                <span>t/m</span>
+                <input type="date" name="tillB" th:value="${tillB}">
+                <button type="submit" class="btn btn-primary btn-sm">Vergelijk</button>
+            </div>
+        </form>
+    </div>
+
+    <div th:if="${!hasData}" class="card" style="text-align:center;padding:3rem;">
+        <p style="font-size:1.1rem;color:#666;">Nog geen trainingsdata beschikbaar.</p>
+    </div>
+
+    <th:block th:if="${hasData}">
+
+        <div class="card">
+            <h2>Samenvatting</h2>
+            <p th:text="${result.verdict}">-</p>
+        </div>
+
+        <div class="card">
+            <h2>Rustige / duurlopen</h2>
+            <table style="width:100%;">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th th:text="${result.periodA.label}">Periode A</th>
+                        <th th:text="${result.periodB.label}">Periode B</th>
+                        <th>Verandering</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:600;">Aantal rustige lopen</td>
+                        <td th:text="${result.periodA.easyRunCount}">-</td>
+                        <td th:text="${result.periodB.easyRunCount}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Gem. tempo</td>
+                        <td th:text="${result.periodA.easyAvgPace}">-</td>
+                        <td th:text="${result.periodB.easyAvgPace}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Gem. hartslag</td>
+                        <td th:text="${result.periodA.easyAvgHr != null ? #numbers.formatDecimal(result.periodA.easyAvgHr,1,0) + ' bpm' : '-'}">-</td>
+                        <td th:text="${result.periodB.easyAvgHr != null ? #numbers.formatDecimal(result.periodB.easyAvgHr,1,0) + ' bpm' : '-'}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Efficiëntiefactor</td>
+                        <td th:text="${result.periodA.easyEf != null ? #numbers.formatDecimal(result.periodA.easyEf,1,4) : '-'}">-</td>
+                        <td th:text="${result.periodB.easyEf != null ? #numbers.formatDecimal(result.periodB.easyEf,1,4) : '-'}">-</td>
+                        <td th:text="${result.easyEfChangePct != null ? (#numbers.formatDecimal(result.easyEfChangePct,1,1) + '%') : '-'}"
+                            th:style="${result.easyEfChangePct != null && result.easyEfChangePct > 0} ? 'color:#2a8f4d;font-weight:700;' : (${result.easyEfChangePct != null && result.easyEfChangePct < 0} ? 'color:#c0392b;font-weight:700;' : '')">-</td>
+                    </tr>
+                    <tr th:if="${result.easyPaceAtRefHr != null}">
+                        <td style="font-weight:600;">Tempo bij gelijke inspanning (150 bpm)</td>
+                        <td th:text="${result.easyPaceAtRefHr?.first}">-</td>
+                        <td th:text="${result.easyPaceAtRefHr?.second}">-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Intervaltrainingen</h2>
+            <p class="text-muted" style="font-size:0.85rem;">
+                Gebaseerd op rondes/laps met je lap-knop tijdens intervalreps. Activiteiten waarvan de rondes
+                duidelijk in twee snelheidsgroepen uiteenvallen (bv. snelle herhalingen + rustige recuperatie)
+                worden als intervalsessie meegeteld.
+            </p>
+            <table style="width:100%;">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th th:text="${result.periodA.label}">Periode A</th>
+                        <th th:text="${result.periodB.label}">Periode B</th>
+                        <th>Verandering</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="font-weight:600;">Aantal intervalsessies</td>
+                        <td th:text="${result.periodA.intervalSessionCount}">-</td>
+                        <td th:text="${result.periodB.intervalSessionCount}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Aantal reps</td>
+                        <td th:text="${result.periodA.intervalRepCount}">-</td>
+                        <td th:text="${result.periodB.intervalRepCount}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Gem. tempo per rep</td>
+                        <td th:text="${result.periodA.intervalAvgPace}">-</td>
+                        <td th:text="${result.periodB.intervalAvgPace}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Gem. hartslag per rep</td>
+                        <td th:text="${result.periodA.intervalAvgHr != null ? #numbers.formatDecimal(result.periodA.intervalAvgHr,1,0) + ' bpm' : '-'}">-</td>
+                        <td th:text="${result.periodB.intervalAvgHr != null ? #numbers.formatDecimal(result.periodB.intervalAvgHr,1,0) + ' bpm' : '-'}">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight:600;">Efficiëntiefactor</td>
+                        <td th:text="${result.periodA.intervalEf != null ? #numbers.formatDecimal(result.periodA.intervalEf,1,4) : '-'}">-</td>
+                        <td th:text="${result.periodB.intervalEf != null ? #numbers.formatDecimal(result.periodB.intervalEf,1,4) : '-'}">-</td>
+                        <td th:text="${result.intervalEfChangePct != null ? (#numbers.formatDecimal(result.intervalEfChangePct,1,1) + '%') : '-'}"
+                            th:style="${result.intervalEfChangePct != null && result.intervalEfChangePct > 0} ? 'color:#2a8f4d;font-weight:700;' : (${result.intervalEfChangePct != null && result.intervalEfChangePct < 0} ? 'color:#c0392b;font-weight:700;' : '')">-</td>
+                    </tr>
+                    <tr th:if="${result.intervalPaceAtRefHr != null}">
+                        <td style="font-weight:600;">Tempo bij gelijke inspanning (150 bpm)</td>
+                        <td th:text="${result.intervalPaceAtRefHr?.first}">-</td>
+                        <td th:text="${result.intervalPaceAtRefHr?.second}">-</td>
+                        <td>-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Evolutie doorheen de tijd</h2>
+            <p class="text-muted" style="font-size:0.85rem;">
+                Efficiëntiefactor per maand (snelheid / hartslag) — een stijgende lijn betekent dat je sneller
+                loopt bij dezelfde hartslag, dus verbeterende conditie.
+            </p>
+            <div style="overflow-x:auto;">
+                <canvas id="trendChart" style="max-height:400px;"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>AI-analyse van deze vergelijking</h2>
+            <p class="text-muted">Genereer een prompt met deze twee periodes om te plakken in een AI-chatbot.</p>
+            <a th:href="@{/compare/prompt(fromA=${fromA},tillA=${tillA},fromB=${fromB},tillB=${tillB})}" class="btn btn-primary btn-sm">Vergelijk-prompt genereren</a>
+        </div>
+
+        <script th:inline="javascript">
+            const months = /*[[${trendMonths}]]*/ [];
+            const easyEf = /*[[${trendEasyEf}]]*/ [];
+            const intervalEf = /*[[${trendIntervalEf}]]*/ [];
+            if (months.length > 0) {
+                const canvas = document.getElementById('trendChart');
+                new Chart(canvas, {
+                    type: 'line',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            {
+                                label: 'Rustige lopen (EF)',
+                                data: easyEf,
+                                borderColor: '#1a1a2e',
+                                backgroundColor: 'rgba(26,26,46,0.1)',
+                                spanGaps: true,
+                                tension: 0.3,
+                            },
+                            {
+                                label: 'Intervallen (EF)',
+                                data: intervalEf,
+                                borderColor: '#e88934',
+                                backgroundColor: 'rgba(232,137,52,0.1)',
+                                spanGaps: true,
+                                tension: 0.3,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true } },
+                        scales: {
+                            y: {
+                                title: { display: true, text: 'Efficiëntiefactor (m/s per bpm)', font: { size: 11 }, color: '#888' },
+                                grid: { color: '#eee' },
+                            },
+                            x: { ticks: { font: { size: 11 } } },
+                        }
+                    }
+                });
+            }
+        </script>
+    </th:block>
+</th:block>
+</html>

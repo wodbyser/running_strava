@@ -60,5 +60,39 @@
         <h2>Notities</h2>
         <p style="white-space:pre-wrap;" th:text="${a.description}">-</p>
     </div>
+
+    <div th:if="${hasLaps}" class="card">
+        <div class="flex" style="justify-content:space-between;align-items:center;">
+            <h2>Intervallen / rondes</h2>
+            <a th:href="@{'/activity/' + ${a.id} + '/export'}" class="btn btn-sm" style="background:#eee;color:#333;">Exporteer CSV</a>
+        </div>
+        <table style="width:100%;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Afstand</th>
+                    <th>Duur</th>
+                    <th>Tempo</th>
+                    <th>Gem. HR</th>
+                    <th>Max HR</th>
+                    <th>Cadans</th>
+                    <th>Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="lap : ${laps}"
+                    th:style="${lap.type == 'interval'} ? 'background:#fff4e5;font-weight:600;' : ''">
+                    <td th:text="${lap.index}">-</td>
+                    <td th:text="${lap.distance}">-</td>
+                    <td th:text="${lap.duration}">-</td>
+                    <td th:text="${lap.pace}">-</td>
+                    <td th:text="${lap.avgHr}">-</td>
+                    <td th:text="${lap.maxHr}">-</td>
+                    <td th:text="${lap.cadence}">-</td>
+                    <td th:text="${lap.type}">-</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </th:block>
 </html>

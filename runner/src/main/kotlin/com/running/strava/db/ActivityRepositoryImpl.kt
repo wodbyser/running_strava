@@ -3,6 +3,7 @@ package com.running.strava.db
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
+import com.running.strava.domain.Lap
 import com.running.strava.domain.SyncStatus
 import com.running.strava.spi.ActivityRepository
 import org.springframework.data.jpa.repository.JpaRepository
@@ -15,22 +16,29 @@ interface ActivityJpaRepository : JpaRepository<ActivityEntity, Long> {
     fun findAllIds(): List<Long>
 }
 interface ActivityStreamJpaRepository : JpaRepository<ActivityStreamEntity, Long>
+interface LapJpaRepository : JpaRepository<LapEntity, Long> {
+    fun findByActivityIdOrderByLapIndexAsc(activityId: Long): List<LapEntity>
+    fun deleteByActivityId(activityId: Long)
+}
 interface SyncStatusJpaRepository : JpaRepository<SyncStatusEntity, Long>
 
 @Repository
 class ActivityRepositoryImpl(
     private val activityJpaRepository: ActivityJpaRepository,
     private val streamJpaRepository: ActivityStreamJpaRepository,
+    private val lapJpaRepository: LapJpaRepository,
     private val syncStatusJpaRepository: SyncStatusJpaRepository,
     private val mapper: ObjectMapper,
 ) : ActivityRepository {
 
     override fun save(activity: Activity) {
         activityJpaRepository.save(toEntity(activity))
+        activity.laps?.let { saveLaps(activity.id, it) }
     }
 
     override fun saveAll(activities: List<Activity>) {
         activityJpaRepository.saveAll(activities.map { toEntity(it) })
+        activities.forEach { activity -> activity.laps?.let { saveLaps(activity.id, it) } }
     }
 
     override fun saveStreams(activityId: Long, streams: ActivityStream) {
@@ -46,6 +54,15 @@ class ActivityRepositoryImpl(
             gradeSmooth = toJson(streams.gradeSmooth),
             temp = toJson(streams.temp),
         ))
+    }
+
+    override fun saveLaps(activityId: Long, laps: List<Lap>) {
+        lapJpaRepository.deleteByActivityId(activityId)
+        lapJpaRepository.saveAll(laps.map { toLapEntity(activityId, it) })
+    }
+
+    override fun findLaps(activityId: Long): List<Lap> {
+        return lapJpaRepository.findByActivityIdOrderByLapIndexAsc(activityId).map { toDomainLap(it) }
     }
 
     override fun findAllIds(): Set<Long> {
@@ -183,6 +200,43 @@ class ActivityRepositoryImpl(
         velocitySmooth = fromJson(entity.velocitySmooth),
         gradeSmooth = fromJson(entity.gradeSmooth),
         temp = fromJson(entity.temp),
+    )
+
+    private fun toLapEntity(activityId: Long, lap: Lap) = LapEntity(
+        id = lap.id,
+        activityId = activityId,
+        name = lap.name,
+        elapsedTime = lap.elapsedTime,
+        movingTime = lap.movingTime,
+        startDate = lap.startDate,
+        startIndex = lap.startIndex,
+        endIndex = lap.endIndex,
+        distance = lap.distance,
+        averageSpeed = lap.averageSpeed,
+        maxSpeed = lap.maxSpeed,
+        averageHeartrate = lap.averageHeartrate,
+        maxHeartrate = lap.maxHeartrate,
+        averageCadence = lap.averageCadence,
+        lapIndex = lap.lapIndex,
+        split = lap.split,
+    )
+
+    private fun toDomainLap(entity: LapEntity) = Lap(
+        id = entity.id,
+        name = entity.name,
+        elapsedTime = entity.elapsedTime,
+        movingTime = entity.movingTime,
+        startDate = entity.startDate,
+        startIndex = entity.startIndex,
+        endIndex = entity.endIndex,
+        distance = entity.distance,
+        averageSpeed = entity.averageSpeed,
+        maxSpeed = entity.maxSpeed,
+        averageHeartrate = entity.averageHeartrate,
+        maxHeartrate = entity.maxHeartrate,
+        averageCadence = entity.averageCadence,
+        lapIndex = entity.lapIndex,
+        split = entity.split,
     )
 
     private fun toJson(value: Any?): String? {

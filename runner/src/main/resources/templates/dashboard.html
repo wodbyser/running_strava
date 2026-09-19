@@ -148,11 +148,14 @@
             <a href="/sync" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</a>
             <a href="/fetch-all" class="btn btn-primary btn-sm">Alle data opnieuw ophalen</a>
             <a href="/fetch-remaining" class="btn btn-primary btn-sm">Ontbrekende data ophalen</a>
+            <a href="/backfill-laps" class="btn btn-primary btn-sm">Intervallen ophalen voor bestaande trainingen</a>
         </div>
         <p class="text-muted mt-2">Laatste sync: <span th:text="${stats.lastSync}">nooit</span></p>
         <p class="text-muted" style="font-size:0.85rem;color:#999;">
             "Ontbrekende data" haalt alleen activiteiten op die nog niet in de database staan.
             Gebruik dit als je een "too many requests" fout kreeg bij het ophalen van alle data.
+            "Intervallen ophalen" haalt de ronde/lap-data (voor interval-analyse) op voor bestaande trainingen die dit nog missen.
+            Kan meerdere keren aangeklikt worden — al verwerkte trainingen worden overgeslagen.
         </p>
     </div>
 
@@ -166,6 +169,12 @@
         <h2>AI-analyse</h2>
         <p class="text-muted">Genereer een prompt met je volledige trainingshistoriek om te plakken in een AI-chatbot (ChatGPT, Claude, Gemini, ...).</p>
         <a href="/ai" class="btn btn-primary btn-sm">AI-prompt genereren</a>
+    </div>
+
+    <div th:if="${hasData}" class="card">
+        <h2>Periodes vergelijken</h2>
+        <p class="text-muted">Vergelijk je loopniveau (tempo &amp; hartslag, rustig en intervallen) tussen twee periodes en zie je evolutie in een grafiek.</p>
+        <a href="/compare" class="btn btn-primary btn-sm">Periodes vergelijken</a>
     </div>
 
     <script th:if="${hasData}" th:inline="javascript">

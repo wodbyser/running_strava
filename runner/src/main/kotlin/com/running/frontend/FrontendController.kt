@@ -1,10 +1,12 @@
 package com.running.frontend
 
 import com.running.analysis.AiAnalysisService
+import com.running.analysis.PeriodComparisonService
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
 import com.running.strava.spi.ActivityRepository
 import com.running.strava.spi.StravaTokenRepository
+import com.running.strava.usecase.backfill.BackfillLapsData
 import com.running.strava.usecase.fetch.FetchAllHistoricalData
 import com.running.strava.usecase.fetch.FetchRemainingData
 import com.running.strava.usecase.sync.SyncStravaData
@@ -31,7 +33,9 @@ class FrontendController(
     private val syncStravaData: SyncStravaData,
     private val fetchAllHistoricalData: FetchAllHistoricalData,
     private val fetchRemainingData: FetchRemainingData,
+    private val backfillLapsData: BackfillLapsData,
     private val aiAnalysisService: AiAnalysisService,
+    private val periodComparisonService: PeriodComparisonService,
 ) {
 
     @GetMapping("/")
@@ -208,7 +212,77 @@ class FrontendController(
         detail["stravaUrl"] = "https://www.strava.com/activities/${a.id}"
         model.addAttribute("a", detail)
         model.addAttribute("title", a.name)
+
+        val laps = activityRepository.findLaps(a.id)
+        model.addAttribute("laps", buildLapRows(laps))
+        model.addAttribute("hasLaps", laps.size > 1)
+
         return "activity"
+    }
+
+    @GetMapping("/activity/{id}/export")
+    fun exportActivity(@PathVariable id: Long): ResponseEntity<ByteArray> {
+        val activity = activityRepository.findById(id)
+            ?: return ResponseEntity.notFound().build()
+        val laps = activityRepository.findLaps(id)
+
+        val csv = buildString {
+            appendLine("lap,distance_m,duration_s,pace_min_per_km,avg_hr,max_hr,cadence,type")
+            laps.forEach { lap ->
+                val paceSecPerKm = if (lap.averageSpeed > 0) (1000 / lap.averageSpeed) else 0f
+                appendLine(listOf(
+                    lap.lapIndex,
+                    "%.0f".format(lap.distance),
+                    lap.movingTime,
+                    "%.0f".format(paceSecPerKm),
+                    lap.averageHeartrate?.let { "%.0f".format(it) } ?: "",
+                    lap.maxHeartrate?.let { "%.0f".format(it) } ?: "",
+                    lap.averageCadence?.let { "%.0f".format(it) } ?: "",
+                    classifyLap(lap, laps),
+                ).joinToString(","))
+            }
+        }
+
+        val bytes = csv.toByteArray()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"activity-${id}-intervals.csv\"")
+            .contentType(MediaType.parseMediaType("text/csv"))
+            .body(bytes)
+    }
+
+    data class LapRow(
+        val index: Int,
+        val distance: String,
+        val duration: String,
+        val pace: String,
+        val avgHr: String,
+        val maxHr: String,
+        val cadence: String,
+        val type: String,
+    )
+
+    private fun buildLapRows(laps: List<com.running.strava.domain.Lap>): List<LapRow> {
+        val flags = com.running.strava.domain.LapClassifier.classifyIntervals(laps)
+        return laps.zip(flags).map { (lap, isInterval) ->
+            LapRow(
+                index = lap.lapIndex,
+                distance = "%.0f m".format(lap.distance),
+                duration = formatDuration(lap.movingTime),
+                pace = calculatePace(lap.averageSpeed.toDouble()),
+                avgHr = lap.averageHeartrate?.let { "%.0f".format(it) } ?: "-",
+                maxHr = lap.maxHeartrate?.let { "%.0f".format(it) } ?: "-",
+                cadence = lap.averageCadence?.let { "%.0f".format(it) } ?: "-",
+                type = if (laps.size < 2) "-" else if (isInterval) "interval" else "rust/herstel",
+            )
+        }
+    }
+
+    private fun classifyLap(lap: com.running.strava.domain.Lap, laps: List<com.running.strava.domain.Lap>): String {
+        if (laps.size < 2) return "-"
+        val flags = com.running.strava.domain.LapClassifier.classifyIntervals(laps)
+        val idx = laps.indexOf(lap)
+        if (idx < 0) return "-"
+        return if (flags[idx]) "interval" else "rust/herstel"
     }
 
     @GetMapping("/pbs")
@@ -326,6 +400,38 @@ class FrontendController(
         return "redirect:/"
     }
 
+    @PostMapping("/backfill-laps")
+    fun backfillLaps(ra: RedirectAttributes): String {
+        val result = backfillLapsData.execute()
+        val msg = buildString {
+            append("Intervallen gecontroleerd: ${result.checked} activiteiten, ${result.updated} bijgewerkt met rondes, ${result.skipped} al in orde")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
+        return "redirect:/"
+    }
+
+    @GetMapping("/backfill-laps")
+    fun backfillLapsGet(ra: RedirectAttributes): String {
+        val result = backfillLapsData.execute()
+        val msg = buildString {
+            append("Intervallen gecontroleerd: ${result.checked} activiteiten, ${result.updated} bijgewerkt met rondes, ${result.skipped} al in orde")
+            if (result.errors.isNotEmpty()) {
+                append(", ${result.errors.size} fout(en)")
+            }
+        }
+        val type = if (result.errors.isEmpty()) "success" else "warning"
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", type)
+        ra.addFlashAttribute("flashErrors", result.errors.take(20))
+        return "redirect:/"
+    }
+
     @GetMapping("/export")
     fun export(): ResponseEntity<ByteArray> {
         val activities = activityRepository.findAll().sortedBy { it.startDate }
@@ -370,6 +476,7 @@ class FrontendController(
                 appendLine("      \"isTrainer\": ${a.isTrainer},")
                 appendLine("      \"isCommute\": ${a.isCommute},")
                 appendLine("      \"workoutType\": ${a.workoutType ?: "null"},")
+                appendLaps(this, activityRepository.findLaps(a.id))
                 appendStreams(this, streams)
                 append("    }")
                 if (i < activities.size - 1) appendLine(",") else appendLine()
@@ -401,8 +508,134 @@ class FrontendController(
             .body(bytes)
     }
 
+    @GetMapping("/compare")
+    fun compare(
+        model: Model,
+        @RequestParam fromA: String? = null,
+        @RequestParam tillA: String? = null,
+        @RequestParam fromB: String? = null,
+        @RequestParam tillB: String? = null,
+    ): String {
+        val now = ZonedDateTime.now()
+        val zone = ZoneId.systemDefault()
+
+        val defaultTillB = now
+        val defaultFromB = now.minusMonths(2)
+        val defaultTillA = now.minusMonths(6)
+        val defaultFromA = now.minusMonths(8)
+
+        val parsedFromA = parseDateParam(fromA, zone) ?: defaultFromA
+        val parsedTillA = parseDateParam(tillA, zone, endOfDay = true) ?: defaultTillA
+        val parsedFromB = parseDateParam(fromB, zone) ?: defaultFromB
+        val parsedTillB = parseDateParam(tillB, zone, endOfDay = true) ?: defaultTillB
+
+        model.addAttribute("title", "Periodes vergelijken")
+        model.addAttribute("fromA", parsedFromA.toLocalDate().toString())
+        model.addAttribute("tillA", parsedTillA.toLocalDate().toString())
+        model.addAttribute("fromB", parsedFromB.toLocalDate().toString())
+        model.addAttribute("tillB", parsedTillB.toLocalDate().toString())
+
+        val hasData = activityRepository.findAll().isNotEmpty()
+        model.addAttribute("hasData", hasData)
+        if (!hasData) return "compare"
+
+        val result = periodComparisonService.compare(
+            fromA = parsedFromA,
+            tillA = parsedTillA,
+            fromB = parsedFromB,
+            tillB = parsedTillB,
+            labelA = "Periode A (${parsedFromA.toLocalDate()} t/m ${parsedTillA.toLocalDate()})",
+            labelB = "Periode B (${parsedFromB.toLocalDate()} t/m ${parsedTillB.toLocalDate()})",
+        )
+        model.addAttribute("result", result)
+
+        model.addAttribute("trendMonths", result.monthlyTrend.map { it.month })
+        model.addAttribute("trendEasyEf", result.monthlyTrend.map { it.easyEf })
+        model.addAttribute("trendIntervalEf", result.monthlyTrend.map { it.intervalEf })
+
+        return "compare"
+    }
+
+    @GetMapping("/compare/prompt")
+    fun comparePrompt(
+        model: Model,
+        @RequestParam fromA: String? = null,
+        @RequestParam tillA: String? = null,
+        @RequestParam fromB: String? = null,
+        @RequestParam tillB: String? = null,
+    ): String {
+        val (a1, a2, b1, b2) = resolveComparisonDates(fromA, tillA, fromB, tillB)
+        model.addAttribute("title", "Vergelijk-prompt")
+        model.addAttribute("prompt", aiAnalysisService.buildComparisonPrompt(
+            a1, a2, b1, b2,
+            labelA = "Periode A (${a1.toLocalDate()} t/m ${a2.toLocalDate()})",
+            labelB = "Periode B (${b1.toLocalDate()} t/m ${b2.toLocalDate()})",
+        ))
+        return "ai"
+    }
+
+    @GetMapping("/compare/prompt/download")
+    fun comparePromptDownload(
+        @RequestParam fromA: String? = null,
+        @RequestParam tillA: String? = null,
+        @RequestParam fromB: String? = null,
+        @RequestParam tillB: String? = null,
+    ): ResponseEntity<ByteArray> {
+        val (a1, a2, b1, b2) = resolveComparisonDates(fromA, tillA, fromB, tillB)
+        val bytes = aiAnalysisService.buildComparisonPrompt(
+            a1, a2, b1, b2,
+            labelA = "Periode A (${a1.toLocalDate()} t/m ${a2.toLocalDate()})",
+            labelB = "Periode B (${b1.toLocalDate()} t/m ${b2.toLocalDate()})",
+        ).toByteArray()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"vergelijk-prompt.txt\"")
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(bytes)
+    }
+
+    private data class ComparisonDates(val fromA: ZonedDateTime, val tillA: ZonedDateTime, val fromB: ZonedDateTime, val tillB: ZonedDateTime)
+
+    private fun resolveComparisonDates(fromA: String?, tillA: String?, fromB: String?, tillB: String?): ComparisonDates {
+        val now = ZonedDateTime.now()
+        val zone = ZoneId.systemDefault()
+        val a1 = parseDateParam(fromA, zone) ?: now.minusMonths(8)
+        val a2 = parseDateParam(tillA, zone, endOfDay = true) ?: now.minusMonths(6)
+        val b1 = parseDateParam(fromB, zone) ?: now.minusMonths(2)
+        val b2 = parseDateParam(tillB, zone, endOfDay = true) ?: now
+        return ComparisonDates(a1, a2, b1, b2)
+    }
+
+    private fun parseDateParam(value: String?, zone: ZoneId, endOfDay: Boolean = false): ZonedDateTime? {
+        val v = value?.takeIf { it.isNotBlank() } ?: return null
+        val date = LocalDate.parse(v)
+        return if (endOfDay) date.plusDays(1).atStartOfDay(zone) else date.atStartOfDay(zone)
+    }
+
     private fun jsonStr(value: Any?): String {
         return if (value == null) "null" else "\"${value.toString().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")}\""
+    }
+
+    private fun appendLaps(sb: StringBuilder, laps: List<com.running.strava.domain.Lap>) {
+        if (laps.isEmpty()) {
+            sb.appendLine("      \"laps\": [],")
+            return
+        }
+        sb.appendLine("      \"laps\": [")
+        laps.forEachIndexed { i, lap ->
+            sb.appendLine("        {")
+            sb.appendLine("          \"lapIndex\": ${lap.lapIndex},")
+            sb.appendLine("          \"name\": ${jsonStr(lap.name)},")
+            sb.appendLine("          \"distanceM\": ${lap.distance},")
+            sb.appendLine("          \"movingTimeS\": ${lap.movingTime},")
+            sb.appendLine("          \"averageSpeedMs\": ${lap.averageSpeed},")
+            sb.appendLine("          \"averageHeartrate\": ${lap.averageHeartrate ?: "null"},")
+            sb.appendLine("          \"maxHeartrate\": ${lap.maxHeartrate ?: "null"},")
+            sb.appendLine("          \"averageCadence\": ${lap.averageCadence ?: "null"},")
+            sb.appendLine("          \"type\": ${jsonStr(classifyLap(lap, laps))}")
+            sb.append("        }")
+            if (i < laps.size - 1) sb.appendLine(",") else sb.appendLine()
+        }
+        sb.appendLine("      ],")
     }
 
     private fun appendStreams(sb: StringBuilder, streams: ActivityStream?) {

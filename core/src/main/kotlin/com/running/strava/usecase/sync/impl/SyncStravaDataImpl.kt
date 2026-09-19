@@ -73,6 +73,9 @@ class SyncStravaDataImpl(
                                 endLatlng = detail.endLatlng,
                                 elevHigh = detail.elevHigh,
                                 elevLow = detail.elevLow,
+                                laps = detail.laps,
+                                splits = detail.splits,
+                                bestEfforts = detail.bestEfforts,
                             )
                             activityRepository.save(fullActivity)
 

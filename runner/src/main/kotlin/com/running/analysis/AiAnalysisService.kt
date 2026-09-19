@@ -4,10 +4,12 @@ import com.running.strava.domain.Activity
 import com.running.strava.spi.ActivityRepository
 import org.springframework.stereotype.Service
 import java.time.DayOfWeek
+import java.time.ZonedDateTime
 
 @Service
 class AiAnalysisService(
     private val activityRepository: ActivityRepository,
+    private val periodComparisonService: PeriodComparisonService,
 ) {
 
     fun buildTrainingContext(): String {
@@ -82,5 +84,66 @@ class AiAnalysisService(
         if (speedMs <= 0) return "-"
         val paceSeconds = (1000 / speedMs).toInt()
         return "${paceSeconds / 60}:${(paceSeconds % 60).toString().padStart(2, '0')} /km"
+    }
+
+    fun buildComparisonPrompt(
+        fromA: ZonedDateTime,
+        tillA: ZonedDateTime,
+        fromB: ZonedDateTime,
+        tillB: ZonedDateTime,
+        labelA: String,
+        labelB: String,
+    ): String {
+        val result = periodComparisonService.compare(fromA, tillA, fromB, tillB, labelA, labelB)
+
+        val context = buildString {
+            appendLine("VERGELIJKING TRAININGSPERIODES")
+            appendLine("=".repeat(50))
+            appendLine()
+            listOf(result.periodA, result.periodB).forEach { p ->
+                appendLine("## ${p.label}")
+                appendLine("Aantal trainingen: ${p.activityCount}")
+                appendLine("Totale afstand: ${"%.1f".format(p.totalDistanceKm)} km")
+                appendLine("Totale tijd: ${"%.1f".format(p.totalTimeHours)} uur")
+                appendLine()
+                appendLine("Rustige/duurlopen (${p.easyRunCount}x):")
+                appendLine("  Gem. tempo: ${p.easyAvgPace}")
+                appendLine("  Gem. HR: ${p.easyAvgHr?.let { "%.0f bpm".format(it) } ?: "-"}")
+                appendLine("  Efficiëntiefactor (snelheid/HR): ${p.easyEf?.let { "%.4f".format(it) } ?: "-"}")
+                appendLine()
+                appendLine("Intervaltrainingen (${p.intervalSessionCount} sessies, ${p.intervalRepCount} reps):")
+                appendLine("  Gem. tempo per rep: ${p.intervalAvgPace}")
+                appendLine("  Gem. HR per rep: ${p.intervalAvgHr?.let { "%.0f bpm".format(it) } ?: "-"}")
+                appendLine("  Efficiëntiefactor (snelheid/HR): ${p.intervalEf?.let { "%.4f".format(it) } ?: "-"}")
+                appendLine()
+            }
+            appendLine("## Berekende verandering (${result.periodA.label} -> ${result.periodB.label})")
+            appendLine("Verandering efficiëntie rustige lopen: ${result.easyEfChangePct?.let { "%.1f%%".format(it) } ?: "onbekend"}")
+            appendLine("Verandering efficiëntie intervallen: ${result.intervalEfChangePct?.let { "%.1f%%".format(it) } ?: "onbekend"}")
+            result.easyPaceAtRefHr?.let { (a, b) ->
+                appendLine("Geschat tempo bij gelijke inspanning (150 bpm) rustige lopen: $a -> $b")
+            }
+            result.intervalPaceAtRefHr?.let { (a, b) ->
+                appendLine("Geschat tempo bij gelijke inspanning (150 bpm) intervallen: $a -> $b")
+            }
+            appendLine()
+            appendLine("Automatische conclusie van de app: ${result.verdict}")
+        }
+
+        return """
+            |Je bent een ervaren hardloopcoach. Vergelijk onderstaande twee trainingsperiodes en analyseer
+            |of het loopniveau van de gebruiker vooruit- of achteruitgaat.
+            |Behandel minimaal deze punten:
+            |1. Is de aerobe efficiëntie (tempo per hartslag) bij rustige lopen verbeterd of verslechterd?
+            |2. Is de kwaliteit van de intervaltrainingen (tempo & hartslag per herhaling) verbeterd?
+            |3. Welke concrete verklaring kan er zijn voor de verandering (trainingsvolume, intensiteit, rust)?
+            |4. Wat zou de gebruiker moeten aanpassen om verder te verbeteren richting de volgende vergelijkingsperiode?
+            |
+            |Geef je antwoord in het Nederlands, met concrete cijfers en een duidelijk eindoordeel.
+            |
+            |<trainingsvergelijking>
+            |$context
+            |</trainingsvergelijking>
+        """.trimMargin()
     }
 }

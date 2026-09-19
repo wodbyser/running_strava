@@ -97,6 +97,40 @@ class ActivityStreamEntity(
 )
 
 @Entity
+@Table(name = "activity_laps")
+class LapEntity(
+    @Id
+    var id: Long = 0,
+    @Column(name = "activity_id")
+    var activityId: Long = 0,
+    var name: String? = null,
+    @Column(name = "elapsed_time")
+    var elapsedTime: Int = 0,
+    @Column(name = "moving_time")
+    var movingTime: Int = 0,
+    @Column(name = "start_date", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    var startDate: ZonedDateTime = ZonedDateTime.now(),
+    @Column(name = "start_index")
+    var startIndex: Int = 0,
+    @Column(name = "end_index")
+    var endIndex: Int = 0,
+    var distance: Float = 0f,
+    @Column(name = "average_speed")
+    var averageSpeed: Float = 0f,
+    @Column(name = "max_speed")
+    var maxSpeed: Float = 0f,
+    @Column(name = "average_heartrate")
+    var averageHeartrate: Float? = null,
+    @Column(name = "max_heartrate")
+    var maxHeartrate: Float? = null,
+    @Column(name = "average_cadence")
+    var averageCadence: Float? = null,
+    @Column(name = "lap_index")
+    var lapIndex: Int = 0,
+    var split: Int = 0,
+)
+
+@Entity
 @Table(name = "sync_status")
 class SyncStatusEntity(
     @Id

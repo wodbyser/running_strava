@@ -6,7 +6,10 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.running.config.StravaProperties
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
+import com.running.strava.domain.BestEffort
+import com.running.strava.domain.Lap
 import com.running.strava.domain.RateLimitExceededException
+import com.running.strava.domain.Split
 import com.running.strava.domain.StravaToken
 import com.running.strava.spi.StravaApiClient
 import org.springframework.stereotype.Component
@@ -200,10 +203,70 @@ class StravaApiClientImpl(
         isFlagged = raw["flagged"] as? Boolean ?: false,
         workoutType = (raw["workout_type"] as? Number)?.toInt(),
         originalStartDate = raw["start_date"]?.let { parseStravaDate(it as? String) },
-        laps = null,
-        splits = null,
-        bestEfforts = null,
+        laps = parseLaps(raw["laps"]),
+        splits = parseSplits(raw["splits_metric"]),
+        bestEfforts = parseBestEfforts(raw["best_efforts"]),
     )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseLaps(raw: Any?): List<Lap>? {
+        val list = raw as? List<Map<String, Any?>> ?: return null
+        return list.map { l ->
+            Lap(
+                id = (l["id"] as? Number)?.toLong() ?: 0L,
+                name = l["name"] as? String,
+                elapsedTime = (l["elapsed_time"] as? Number)?.toInt() ?: 0,
+                movingTime = (l["moving_time"] as? Number)?.toInt() ?: 0,
+                startDate = parseStravaDate(l["start_date"] as? String),
+                startIndex = (l["start_index"] as? Number)?.toInt() ?: 0,
+                endIndex = (l["end_index"] as? Number)?.toInt() ?: 0,
+                distance = (l["distance"] as? Number)?.toFloat() ?: 0f,
+                averageSpeed = (l["average_speed"] as? Number)?.toFloat() ?: 0f,
+                maxSpeed = (l["max_speed"] as? Number)?.toFloat() ?: 0f,
+                averageHeartrate = (l["average_heartrate"] as? Number)?.toFloat(),
+                maxHeartrate = (l["max_heartrate"] as? Number)?.toFloat(),
+                averageCadence = (l["average_cadence"] as? Number)?.toFloat(),
+                lapIndex = (l["lap_index"] as? Number)?.toInt() ?: 0,
+                split = (l["split"] as? Number)?.toInt() ?: 0,
+            )
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseSplits(raw: Any?): List<Split>? {
+        val list = raw as? List<Map<String, Any?>> ?: return null
+        return list.map { s ->
+            Split(
+                distance = (s["distance"] as? Number)?.toFloat() ?: 0f,
+                elapsedTime = (s["elapsed_time"] as? Number)?.toInt() ?: 0,
+                movingTime = (s["moving_time"] as? Number)?.toInt() ?: 0,
+                averageSpeed = (s["average_speed"] as? Number)?.toFloat() ?: 0f,
+                averageHeartrate = (s["average_heartrate"] as? Number)?.toFloat(),
+                averageCadence = (s["average_cadence"] as? Number)?.toFloat(),
+                averageGradeAdjustedSpeed = (s["average_grade_adjusted_speed"] as? Number)?.toFloat(),
+                paceZone = (s["pace_zone"] as? Number)?.toInt(),
+                splits = (s["split"] as? Number)?.toInt() ?: 0,
+            )
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parseBestEfforts(raw: Any?): List<BestEffort>? {
+        val list = raw as? List<Map<String, Any?>> ?: return null
+        return list.map { b ->
+            BestEffort(
+                id = (b["id"] as? Number)?.toLong() ?: 0L,
+                name = b["name"] as? String ?: "",
+                elapsedTime = (b["elapsed_time"] as? Number)?.toInt() ?: 0,
+                movingTime = (b["moving_time"] as? Number)?.toInt() ?: 0,
+                distance = (b["distance"] as? Number)?.toFloat() ?: 0f,
+                startDate = parseStravaDate(b["start_date"] as? String),
+                startIndex = (b["start_index"] as? Number)?.toInt() ?: 0,
+                endIndex = (b["end_index"] as? Number)?.toInt() ?: 0,
+                isUserBestEffort = b["pr_rank"] != null,
+            )
+        }
+    }
 
     private fun parseStravaDate(dateStr: String?): ZonedDateTime {
         if (dateStr == null) return ZonedDateTime.now()
