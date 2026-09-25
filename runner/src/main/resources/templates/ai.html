@@ -11,7 +11,9 @@
         <textarea id="aiPrompt" class="prompt-box mt-2" readonly th:text="${prompt}"></textarea>
         <div class="flex gap-1 mt-2">
             <button id="copyPromptBtn" class="btn btn-primary btn-sm">Kopieer prompt</button>
-            <a href="/ai/download" class="btn btn-sm" style="background:#eee;color:#333;">Download als .txt</a>
+            <a href="/ai/download" class="btn btn-sm" style="background:#eee;color:#333;" th:if="${downloadUrl == null}">Download als .txt</a>
+            <a th:if="${downloadUrl != null}" th:href="${downloadUrl}" class="btn btn-sm" style="background:#eee;color:#333;">Download als .txt</a>
+            <a th:if="${backUrl != null}" th:href="${backUrl}" class="btn btn-sm" style="background:#eee;color:#333;">&larr; Aanpassen</a>
             <span class="filter-divider"></span>
             <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT &rarr;</a>
             <a href="https://claude.ai/" target="_blank" rel="noopener">Claude &rarr;</a>

@@ -1,6 +1,7 @@
 package com.running.frontend
 
 import com.running.analysis.AiAnalysisService
+import com.running.analysis.NextTrainingParams
 import com.running.analysis.PeriodComparisonService
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
@@ -297,8 +298,8 @@ class FrontendController(
     )
 
     private fun buildLapRows(laps: List<com.running.strava.domain.Lap>): List<LapRow> {
-        val flags = com.running.strava.domain.LapClassifier.classifyIntervals(laps)
-        return laps.zip(flags).map { (lap, isInterval) ->
+        val kinds = com.running.strava.domain.LapClassifier.classify(laps)
+        return laps.zip(kinds).map { (lap, kind) ->
             LapRow(
                 index = lap.lapIndex,
                 distance = "%.0f m".format(lap.distance),
@@ -307,17 +308,24 @@ class FrontendController(
                 avgHr = lap.averageHeartrate?.let { "%.0f".format(it) } ?: "-",
                 maxHr = lap.maxHeartrate?.let { "%.0f".format(it) } ?: "-",
                 cadence = lap.averageCadence?.let { "%.0f".format(it) } ?: "-",
-                type = if (laps.size < 2) "-" else if (isInterval) "interval" else "rust/herstel",
+                type = if (laps.size < 2) "-" else lapKindLabel(kind),
             )
         }
     }
 
+    private fun lapKindLabel(kind: com.running.strava.domain.LapKind): String = when (kind) {
+        com.running.strava.domain.LapKind.REP -> "interval"
+        com.running.strava.domain.LapKind.FLOAT -> "float/matig"
+        com.running.strava.domain.LapKind.EASY -> "rust/herstel"
+        com.running.strava.domain.LapKind.NOISE -> "ruis"
+    }
+
     private fun classifyLap(lap: com.running.strava.domain.Lap, laps: List<com.running.strava.domain.Lap>): String {
         if (laps.size < 2) return "-"
-        val flags = com.running.strava.domain.LapClassifier.classifyIntervals(laps)
+        val kinds = com.running.strava.domain.LapClassifier.classify(laps)
         val idx = laps.indexOf(lap)
         if (idx < 0) return "-"
-        return if (flags[idx]) "interval" else "rust/herstel"
+        return lapKindLabel(kinds[idx])
     }
 
     @GetMapping("/pbs")
@@ -543,6 +551,143 @@ class FrontendController(
             .body(bytes)
     }
 
+    @GetMapping("/next-training")
+    fun nextTraining(
+        model: Model,
+        @RequestParam(name = "distanceKm") distanceKm: String? = null,
+        @RequestParam(name = "trainingType") trainingType: String? = null,
+        @RequestParam(name = "goalRace") goalRace: String? = null,
+        @RequestParam(name = "raceDate") raceDate: String? = null,
+        @RequestParam(name = "goalTime") goalTime: String? = null,
+        @RequestParam(name = "trainingDate") trainingDate: String? = null,
+        @RequestParam(name = "notes") notes: String? = null,
+    ): String {
+        model.addAttribute("title", "Volgende training")
+        model.addAttribute("distanceKm", distanceKm ?: "")
+        model.addAttribute("trainingType", trainingType ?: "")
+        model.addAttribute("goalRace", goalRace ?: "Halve marathon")
+        model.addAttribute("raceDate", raceDate ?: "")
+        model.addAttribute("goalTime", goalTime ?: "")
+        model.addAttribute("trainingDate", trainingDate ?: "")
+        model.addAttribute("notes", notes ?: "")
+        return "next-training"
+    }
+
+    @GetMapping("/next-training/prompt")
+    fun nextTrainingPrompt(
+        model: Model,
+        @RequestParam(name = "distanceKm") distanceKm: String? = null,
+        @RequestParam(name = "trainingType") trainingType: String? = null,
+        @RequestParam(name = "goalRace") goalRace: String? = null,
+        @RequestParam(name = "raceDate") raceDate: String? = null,
+        @RequestParam(name = "goalTime") goalTime: String? = null,
+        @RequestParam(name = "trainingDate") trainingDate: String? = null,
+        @RequestParam(name = "notes") notes: String? = null,
+    ): String {
+        model.addAttribute("title", "Volgende training-prompt")
+        model.addAttribute("prompt", aiAnalysisService.buildNextTrainingPrompt(resolveNextTrainingParams(
+            distanceKm, trainingType, goalRace, raceDate, goalTime, trainingDate, notes,
+        )))
+        model.addAttribute("backUrl", "/next-training")
+        model.addAttribute("downloadUrl", buildNextTrainingQuery(
+            "/next-training/prompt/download", distanceKm, trainingType, goalRace, raceDate, goalTime, trainingDate, notes,
+        ))
+        return "ai"
+    }
+
+    @GetMapping("/next-training/prompt/download")
+    fun nextTrainingPromptDownload(
+        @RequestParam(name = "distanceKm") distanceKm: String? = null,
+        @RequestParam(name = "trainingType") trainingType: String? = null,
+        @RequestParam(name = "goalRace") goalRace: String? = null,
+        @RequestParam(name = "raceDate") raceDate: String? = null,
+        @RequestParam(name = "goalTime") goalTime: String? = null,
+        @RequestParam(name = "trainingDate") trainingDate: String? = null,
+        @RequestParam(name = "notes") notes: String? = null,
+    ): ResponseEntity<ByteArray> {
+        val bytes = aiAnalysisService.buildNextTrainingPrompt(resolveNextTrainingParams(
+            distanceKm, trainingType, goalRace, raceDate, goalTime, trainingDate, notes,
+        )).toByteArray()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"volgende-training-prompt.txt\"")
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(bytes)
+    }
+
+    private fun buildNextTrainingQuery(
+        path: String,
+        distanceKm: String?,
+        trainingType: String?,
+        goalRace: String?,
+        raceDate: String?,
+        goalTime: String?,
+        trainingDate: String?,
+        notes: String?,
+    ): String {
+        val enc = { v: String -> java.net.URLEncoder.encode(v, "UTF-8") }
+        val params = listOfNotNull(
+            distanceKm?.takeIf { it.isNotBlank() }?.let { "distanceKm=${enc(it)}" },
+            trainingType?.takeIf { it.isNotBlank() }?.let { "trainingType=${enc(it)}" },
+            goalRace?.takeIf { it.isNotBlank() }?.let { "goalRace=${enc(it)}" },
+            raceDate?.takeIf { it.isNotBlank() }?.let { "raceDate=${enc(it)}" },
+            goalTime?.takeIf { it.isNotBlank() }?.let { "goalTime=${enc(it)}" },
+            trainingDate?.takeIf { it.isNotBlank() }?.let { "trainingDate=${enc(it)}" },
+            notes?.takeIf { it.isNotBlank() }?.let { "notes=${enc(it)}" },
+        )
+        return if (params.isEmpty()) path else "$path?${params.joinToString("&")}"
+    }
+
+    private fun resolveNextTrainingParams(
+        distanceKm: String?,
+        trainingType: String?,
+        goalRace: String?,
+        raceDate: String?,
+        goalTime: String?,
+        trainingDate: String?,
+        notes: String?,
+    ) = NextTrainingParams(
+        distanceKm = distanceKm?.takeIf { it.isNotBlank() }?.replace(",", ".")?.toDoubleOrNull(),
+        trainingType = trainingType,
+        goalRace = goalRace,
+        raceDate = raceDate,
+        goalTime = goalTime,
+        trainingDate = trainingDate,
+        notes = notes,
+    )
+
+    @GetMapping("/rate-training")
+    fun rateTraining(model: Model): String {
+        val runs = activityRepository.findAll()
+            .filter { it.type in runTypes }
+            .sortedByDescending { it.startDate }
+            .take(50)
+        model.addAttribute("title", "Training beoordelen")
+        model.addAttribute("recentRuns", runs.map { toActivityRow(it) })
+        return "rate-training"
+    }
+
+    @GetMapping("/rate-training/prompt")
+    fun rateTrainingPrompt(model: Model, @RequestParam activityId: Long): String {
+        val prompt = aiAnalysisService.buildActivityRatingPrompt(activityId)
+            ?: return "redirect:/rate-training"
+        model.addAttribute("title", "Training-beoordeling-prompt")
+        model.addAttribute("prompt", prompt)
+        model.addAttribute("backUrl", "/rate-training")
+        model.addAttribute("downloadUrl", "/rate-training/prompt/download?activityId=$activityId")
+        return "ai"
+    }
+
+    @GetMapping("/rate-training/prompt/download")
+    fun rateTrainingPromptDownload(@RequestParam activityId: Long): ResponseEntity<ByteArray> {
+        val prompt = aiAnalysisService.buildActivityRatingPrompt(activityId)
+            ?: return ResponseEntity.notFound().build()
+        val bytes = prompt.toByteArray()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"training-beoordeling-$activityId.txt\"")
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(bytes)
+    }
+
     @GetMapping("/compare")
     fun compare(
         model: Model,
@@ -606,6 +751,8 @@ class FrontendController(
             labelA = "Periode A (${a1.toLocalDate()} t/m ${a2.toLocalDate()})",
             labelB = "Periode B (${b1.toLocalDate()} t/m ${b2.toLocalDate()})",
         ))
+        model.addAttribute("downloadUrl", "/compare/prompt/download?fromA=${a1.toLocalDate()}&tillA=${a2.toLocalDate()}&fromB=${b1.toLocalDate()}&tillB=${b2.toLocalDate()}")
+        model.addAttribute("backUrl", "/compare")
         return "ai"
     }
 
