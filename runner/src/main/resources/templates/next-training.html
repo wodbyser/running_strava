@@ -2,26 +2,25 @@
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
 
-    <div class="card">
-        <h2>Volgende training</h2>
-        <p class="text-muted">
+    <div class="page-head">
+        <h1>Volgende training</h1>
+        <p>
             Vul de details in van je geplande training (bv. uit je Runna-schema) en genereer een AI-prompt die,
             samen met je recente trainingshistoriek (incl. intervalstatistieken), concreet advies geeft over
             tempo, hartslagzones en aanpak om deze training optimaal uit te voeren richting je doel.
         </p>
     </div>
 
-    <form method="get" action="/next-training/prompt" class="filter-bar">
+    <form method="get" action="/next-training/prompt" class="card" aria-labelledby="h-plan">
+        <h2 id="h-plan">Geplande training</h2>
         <div class="filter-row">
             <span class="filter-group">
-                <label>Afstand</label>
-                <input type="number" step="0.1" min="0" name="distanceKm" th:value="${distanceKm}" placeholder="bv. 22" style="width:90px;">
-                <span style="font-size:0.75rem;color:#888;">km</span>
+                <label for="distanceKm">Afstand (km)</label>
+                <input type="number" step="0.1" min="0" id="distanceKm" name="distanceKm" th:value="${distanceKm}" placeholder="bv. 22">
             </span>
-            <span class="filter-divider"></span>
             <span class="filter-group">
-                <label>Type training</label>
-                <select name="trainingType">
+                <label for="trainingType">Type training</label>
+                <select id="trainingType" name="trainingType">
                     <option value="" th:selected="${trainingType == ''}">-- kies type --</option>
                     <option value="Lange duurloop" th:selected="${trainingType == 'Lange duurloop'}">Lange duurloop</option>
                     <option value="Rustige duurloop" th:selected="${trainingType == 'Rustige duurloop'}">Rustige duurloop</option>
@@ -33,15 +32,16 @@
                 </select>
             </span>
             <span class="filter-group">
-                <label>Datum training</label>
-                <input type="date" name="trainingDate" th:value="${trainingDate}">
+                <label for="trainingDate">Datum training</label>
+                <input type="date" id="trainingDate" name="trainingDate" th:value="${trainingDate}">
             </span>
         </div>
 
-        <div class="filter-row mt-1">
+        <h2 class="mt-2">Doel</h2>
+        <div class="filter-row">
             <span class="filter-group">
-                <label>Doelwedstrijd</label>
-                <select name="goalRace">
+                <label for="goalRace">Doelwedstrijd</label>
+                <select id="goalRace" name="goalRace">
                     <option value="5 km" th:selected="${goalRace == '5 km'}">5 km</option>
                     <option value="10 km" th:selected="${goalRace == '10 km'}">10 km</option>
                     <option value="Halve marathon" th:selected="${goalRace == 'Halve marathon'}">Halve marathon</option>
@@ -50,24 +50,23 @@
                 </select>
             </span>
             <span class="filter-group">
-                <label>Datum wedstrijd</label>
-                <input type="date" name="raceDate" th:value="${raceDate}">
+                <label for="raceDate">Datum wedstrijd</label>
+                <input type="date" id="raceDate" name="raceDate" th:value="${raceDate}">
             </span>
             <span class="filter-group">
-                <label>Doeltijd</label>
-                <input type="text" name="goalTime" th:value="${goalTime}" placeholder="bv. 1:45:00" style="width:90px;">
+                <label for="goalTime">Doeltijd (u:mm:ss)</label>
+                <input type="text" id="goalTime" name="goalTime" th:value="${goalTime}" placeholder="bv. 1:45:00" inputmode="numeric" style="width:120px;">
             </span>
         </div>
 
-        <div class="mt-1">
-            <label style="font-size:0.7rem;color:#888;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:0.3rem;">
-                Extra opmerkingen
-            </label>
-            <textarea name="notes" rows="3" style="width:100%;font-family:inherit;font-size:0.9rem;padding:0.6rem;border:1px solid #ddd;border-radius:6px;resize:vertical;" placeholder="bv. schema-details, hoe je je voelt, blessures, weersomstandigheden, ..." th:text="${notes}"></textarea>
+        <div class="field-block">
+            <label for="notes" class="field-label">Extra opmerkingen</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="bv. schema-details, hoe je je voelt, blessures, weersomstandigheden, ..." th:text="${notes}" aria-describedby="notes-hint"></textarea>
+            <span class="field-hint" id="notes-hint">Weer, slaap en klachten zitten niet in de Strava-data. Wat je hier invult, gaat mee in de prompt.</span>
         </div>
 
-        <div class="mt-2">
-            <button type="submit" class="btn btn-primary btn-sm">Prompt genereren</button>
+        <div class="card-foot">
+            <button type="submit" class="btn btn-primary">Prompt genereren</button>
         </div>
     </form>
 </th:block>

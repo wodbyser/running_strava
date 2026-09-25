@@ -1,45 +1,51 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <div th:if="${!hasToken}" class="card" style="text-align:center;padding:3rem;">
-        <p style="font-size:1.1rem;color:#666;">Nog niet gekoppeld met Strava.</p>
-        <p class="text-muted mt-2">
-            <a href="/auth/strava" class="btn btn-primary">Koppel Strava account</a>
-        </p>
+    <div th:if="${!hasToken}" class="card empty-state">
+        <h2>Koppel je Strava-account</h2>
+        <p>De app leest je activiteiten, rondes en GPS-streams uit Strava. Zonder koppeling is er niets om te analyseren.</p>
+        <div class="actions"><a href="/auth/strava" class="btn btn-primary btn-lg">Koppel Strava account</a></div>
     </div>
 
-    <div th:if="${hasToken && !hasData}" class="card" style="text-align:center;padding:3rem;">
-        <p style="font-size:1.1rem;color:#666;">Strava gekoppeld! Nog geen data gesynchroniseerd.</p>
-        <p class="text-muted mt-2">Klik op onderstaande knop om alle historische trainingen op te halen.</p>
-        <p class="mt-2">
-            <a href="/fetch-all" class="btn btn-primary">Alle data ophalen</a>
-        </p>
+    <div th:if="${hasToken && !hasData}" class="card empty-state">
+        <h2>Strava gekoppeld, nog geen data</h2>
+        <p>Haal je volledige trainingshistoriek op. Afhankelijk van het aantal activiteiten duurt dit enkele minuten.</p>
+        <div class="actions">
+            <form method="post" action="/fetch-all" data-loading="Alle trainingen ophalen..."><button type="submit" class="btn btn-primary btn-lg">Alle data ophalen</button></form>
+        </div>
     </div>
 
     <div th:if="${hasData}">
-        <form method="get" class="filter-bar" id="mainFilter">
-            <div class="filter-row">
-                <select name="period" id="period" onchange="this.form.submit()">
-                    <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
-                    <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
-                    <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
-                    <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
-                    <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
-                    <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
-                    <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
-                </select>
-                <div class="custom-dates" id="customDates" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                    <input type="date" name="from" th:value="${filterFrom}" onchange="this.form.submit()">
-                    <span>tot</span>
-                    <input type="date" name="till" th:value="${filterTill}" onchange="this.form.submit()">
-                </div>
+        <div class="page-head">
+            <h1>Dashboard</h1>
+        </div>
 
-                <button type="submit" class="btn btn-primary btn-sm" style="display:none">Filter</button>
-                <a href="?" class="btn btn-sm" style="background:#eee;color:#333;">Reset</a>
+        <form method="get" class="filter-bar" id="mainFilter" aria-label="Periode voor totaaloverzicht en laatste trainingen">
+            <div class="filter-row">
+                <span class="filter-group">
+                    <label for="period">Periode overzicht</label>
+                    <select name="period" id="period" onchange="this.form.submit()">
+                        <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
+                        <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
+                        <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
+                        <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
+                        <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
+                        <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
+                        <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
+                    </select>
+                </span>
+                <div class="custom-dates" id="customDates" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                    <span class="filter-group"><label for="from">Van</label><input type="date" id="from" name="from" th:value="${filterFrom}" onchange="this.form.submit()"></span>
+                    <span class="filter-group"><label for="till">Tot en met</label><input type="date" id="till" name="till" th:value="${filterTill}" onchange="this.form.submit()"></span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm sr-only">Filter</button>
+                <a href="?" class="btn btn-ghost btn-sm">Reset</a>
             </div>
         </form>
-        <div class="card">
-            <h2>Totaaloverzicht</h2>
+
+        <section class="card" aria-labelledby="h-totals">
+            <h2 id="h-totals">Totaaloverzicht</h2>
+            <p th:if="${stats.totalRuns == 0}" class="note mb-2">Geen runs in deze periode. Kies een andere periode of klik op Reset.</p>
             <div class="stat-grid">
                 <div class="stat">
                     <div class="value" th:text="${stats.totalRuns}">0</div>
@@ -55,155 +61,187 @@
                 </div>
                 <div class="stat">
                     <div class="value" th:text="${stats.avgPace}">-</div>
-                    <div class="label">Gemiddeld tempo</div>
+                    <div class="label">Gem. tempo</div>
+                    <div class="stat-sub">totale afstand / totale tijd</div>
                 </div>
                 <div class="stat">
                     <div class="value" th:text="${stats.avgHeartrate}">-</div>
                     <div class="label">Gem. HR (bpm)</div>
+                    <div class="stat-sub">tijdgewogen · <span th:text="${stats.hrCoverage}">-</span></div>
                 </div>
                 <div class="stat">
                     <div class="value" th:text="${stats.avgCadence}">-</div>
-                    <div class="label">Cadence (spm)</div>
+                    <div class="label">Cadans (spm)</div>
+                    <div class="stat-sub">beide voeten · <span th:text="${stats.cadenceCoverage}">-</span></div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="card">
-            <h2>Evolutie loopniveau</h2>
-            <p class="text-muted" style="font-size:0.85rem;">
-                Efficiëntiefactor per maand (snelheid / hartslag) — een stijgende lijn betekent dat je sneller
-                loopt bij dezelfde hartslag, dus verbeterende conditie. Zo zie je meteen wanneer je loopniveau
-                het hoogst was en waar je nu staat.
+        <section class="card" aria-labelledby="h-evolution">
+            <div class="card-head">
+                <h2 id="h-evolution">Evolutie loopniveau <span class="badge badge-est" title="Efficiëntiefactor op automatisch herkende trainingstypes: een trend-indicator, geen meting.">indicatie</span></h2>
+                <span class="filter-group">
+                    <label for="evolution">Periode grafiek</label>
+                    <select id="evolution" name="evolution" onchange="this.form.submit()" form="mainFilter">
+                        <option value="3m" th:selected="${filterEvolution == '3m'}">Laatste 3 maanden</option>
+                        <option value="6m" th:selected="${filterEvolution == '6m'}">Laatste 6 maanden</option>
+                        <option value="ytd" th:selected="${filterEvolution == 'ytd'}">Dit jaar (YTD)</option>
+                        <option value="1y" th:selected="${filterEvolution == '1y'}">Laatste jaar</option>
+                        <option value="2y" th:selected="${filterEvolution == '2y'}">Laatste 2 jaar</option>
+                        <option value="3y" th:selected="${filterEvolution == '3y'}">Laatste 3 jaar</option>
+                        <option value="custom" th:selected="${filterEvolution == 'custom'}">Aangepast</option>
+                        <option value="all" th:selected="${filterEvolution == 'all'}">Altijd</option>
+                    </select>
+                </span>
+            </div>
+            <div class="custom-dates mb-2" th:style="${filterEvolution == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                <span class="filter-group"><label for="evolutionFrom">Van</label><input type="date" id="evolutionFrom" name="evolutionFrom" th:value="${filterEvolutionFrom}" onchange="this.form.submit()" form="mainFilter"></span>
+                <span class="filter-group"><label for="evolutionTill">Tot en met</label><input type="date" id="evolutionTill" name="evolutionTill" th:value="${filterEvolutionTill}" onchange="this.form.submit()" form="mainFilter"></span>
+            </div>
+            <p class="intro">
+                Efficiëntiefactor per maand (snelheid / hartslag, meter per hartslag). Een stijgende lijn betekent
+                sneller lopen bij dezelfde hartslag. Het is een trend-indicator, geen conditiemeting: terrein, warmte,
+                vermoeidheid en HR-meetfouten spelen mee. Rustig = automatisch herkende gelijkmatige weglopen met HR;
+                intervallen = automatisch herkende reps van 30 s of langer. Maanden met weinig lopen zijn onbetrouwbaar.
             </p>
-            <div class="filter-row" style="margin-bottom:1rem;">
-                <select name="evolution" onchange="this.form.submit()" form="mainFilter">
-                    <option value="3m" th:selected="${filterEvolution == '3m'}">Laatste 3 maanden</option>
-                    <option value="6m" th:selected="${filterEvolution == '6m'}">Laatste 6 maanden</option>
-                    <option value="ytd" th:selected="${filterEvolution == 'ytd'}">Dit jaar (YTD)</option>
-                    <option value="1y" th:selected="${filterEvolution == '1y'}">Laatste jaar</option>
-                    <option value="2y" th:selected="${filterEvolution == '2y'}">Laatste 2 jaar</option>
-                    <option value="3y" th:selected="${filterEvolution == '3y'}">Laatste 3 jaar</option>
-                    <option value="custom" th:selected="${filterEvolution == 'custom'}">Aangepast</option>
-                    <option value="all" th:selected="${filterEvolution == 'all'}">Altijd</option>
-                </select>
-                <div class="custom-dates" th:style="${filterEvolution == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                    <input type="date" name="evolutionFrom" th:value="${filterEvolutionFrom}" onchange="this.form.submit()" form="mainFilter">
-                    <span>tot</span>
-                    <input type="date" name="evolutionTill" th:value="${filterEvolutionTill}" onchange="this.form.submit()" form="mainFilter">
+            <div class="chart-scroll">
+                <div class="chart-box chart-box--tall">
+                    <canvas id="evolutionChart" role="img" aria-label="Lijngrafiek: efficiëntiefactor per maand voor rustige lopen en intervallen, met staven voor het aantal lopen en reps per maand."></canvas>
                 </div>
             </div>
-            <div style="position:relative;overflow-x:auto;height:600px;">
-                <canvas id="evolutionChart"></canvas>
+            <div class="legend" aria-hidden="false">
+                <span>● rustige lopen (doorlopende lijn) · ▲ intervallen (stippellijn)</span>
+                <span>Open punt = weinig data die maand (&lt; 3 rustige lopen of &lt; 2 intervalsessies)</span>
+                <span>De EF-as begint niet bij 0: kleine verschillen lijken groter.</span>
             </div>
-        </div>
+        </section>
 
-        <div class="card">
-            <h2>Wekelijkse volume (km)</h2>
-            <div class="filter-row" style="margin-bottom:1rem;">
-                <select name="weekly" onchange="this.form.submit()" form="mainFilter">
-                    <option value="3m" th:selected="${filterWeekly == '3m'}">Laatste 3 maanden</option>
-                    <option value="6m" th:selected="${filterWeekly == '6m'}">Laatste 6 maanden</option>
-                    <option value="ytd" th:selected="${filterWeekly == 'ytd'}">Dit jaar (YTD)</option>
-                    <option value="1y" th:selected="${filterWeekly == '1y'}">Laatste jaar</option>
-                    <option value="2y" th:selected="${filterWeekly == '2y'}">Laatste 2 jaar</option>
-                    <option value="3y" th:selected="${filterWeekly == '3y'}">Laatste 3 jaar</option>
-                    <option value="custom" th:selected="${filterWeekly == 'custom'}">Aangepast</option>
-                    <option value="all" th:selected="${filterWeekly == 'all'}">Altijd</option>
-                </select>
-                <div class="custom-dates" th:style="${filterWeekly == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                    <input type="date" name="weeklyFrom" th:value="${filterWeeklyFrom}" onchange="this.form.submit()" form="mainFilter">
-                    <span>tot</span>
-                    <input type="date" name="weeklyTill" th:value="${filterWeeklyTill}" onchange="this.form.submit()" form="mainFilter">
+        <section class="card" aria-labelledby="h-weekly">
+            <div class="card-head">
+                <h2 id="h-weekly">Wekelijks volume</h2>
+                <span class="filter-group">
+                    <label for="weekly">Periode grafiek</label>
+                    <select id="weekly" name="weekly" onchange="this.form.submit()" form="mainFilter">
+                        <option value="3m" th:selected="${filterWeekly == '3m'}">Laatste 3 maanden</option>
+                        <option value="6m" th:selected="${filterWeekly == '6m'}">Laatste 6 maanden</option>
+                        <option value="ytd" th:selected="${filterWeekly == 'ytd'}">Dit jaar (YTD)</option>
+                        <option value="1y" th:selected="${filterWeekly == '1y'}">Laatste jaar</option>
+                        <option value="2y" th:selected="${filterWeekly == '2y'}">Laatste 2 jaar</option>
+                        <option value="3y" th:selected="${filterWeekly == '3y'}">Laatste 3 jaar</option>
+                        <option value="custom" th:selected="${filterWeekly == 'custom'}">Aangepast</option>
+                        <option value="all" th:selected="${filterWeekly == 'all'}">Altijd</option>
+                    </select>
+                </span>
+            </div>
+            <div class="custom-dates mb-2" th:style="${filterWeekly == 'custom'} ? 'display:inline-flex' : 'display:none'">
+                <span class="filter-group"><label for="weeklyFrom">Van</label><input type="date" id="weeklyFrom" name="weeklyFrom" th:value="${filterWeeklyFrom}" onchange="this.form.submit()" form="mainFilter"></span>
+                <span class="filter-group"><label for="weeklyTill">Tot en met</label><input type="date" id="weeklyTill" name="weeklyTill" th:value="${filterWeeklyTill}" onchange="this.form.submit()" form="mainFilter"></span>
+            </div>
+            <p class="note mb-2">Kilometers per week (maandag t/m zondag, lokale tijd van de activiteit). Klik op een staaf om die week te openen.</p>
+            <div class="chart-scroll">
+                <div class="chart-box" id="weeklyBox">
+                    <canvas id="weeklyChart" role="img" aria-label="Staafgrafiek: aantal kilometer per week."></canvas>
                 </div>
             </div>
-            <div style="position:relative;overflow-x:auto;">
-                <canvas id="weeklyChart" height="100"></canvas>
-            </div>
-        </div>
+        </section>
 
-        <div class="card">
-            <h2>Laatste trainingen</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Datum</th>
-                        <th>Naam</th>
-                        <th>Type</th>
-                        <th>Afstand</th>
-                        <th>Tempo</th>
-                        <th>HR</th>
-                        <th>Duur</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="a : ${recent}">
-                        <td th:text="${a.date}">-</td>
-                        <td><a th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}" style="color:#1a1a2e;">-</a></td>
-                        <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
-                        <td th:text="${a.distance}">-</td>
-                        <td th:text="${a.pace}">-</td>
-                        <td th:text="${a.avgHr}">-</td>
-                        <td th:text="${a.duration}">-</td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="mt-2">
-                <a href="/activities" class="btn btn-primary btn-sm">Alle trainingen</a>
+        <section class="card" aria-labelledby="h-recent">
+            <h2 id="h-recent">Laatste trainingen</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Datum</th>
+                            <th scope="col">Naam</th>
+                            <th scope="col">Type</th>
+                            <th scope="col" class="num">Afstand</th>
+                            <th scope="col" class="num">Tempo</th>
+                            <th scope="col" class="num">HR</th>
+                            <th scope="col" class="num">Duur</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="a : ${recent}">
+                            <td class="nowrap" th:text="${a.date}">-</td>
+                            <td><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
+                            <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                            <td class="num" th:text="${a.distance}">-</td>
+                            <td class="num" th:text="${a.pace}">-</td>
+                            <td class="num" th:text="${a.avgHr}">-</td>
+                            <td class="num" th:text="${a.duration}">-</td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(recent)}" class="table-empty"><td colspan="7">Geen trainingen in deze periode.</td></tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
+            <div class="card-foot">
+                <a href="/activities" class="btn btn-secondary btn-sm">Alle trainingen</a>
+            </div>
+        </section>
 
-        <div class="card">
-            <h2>Persoonlijke Records</h2>
+        <section class="card" aria-labelledby="h-pbs">
+            <h2 id="h-pbs">Persoonlijke records <span class="badge badge-calc" title="Berekend uit GPS-streams: snelste stuk over de exacte afstand binnen een run.">uit GPS-stream</span></h2>
+            <p class="note mb-2">Snelste stuk over de exacte afstand binnen een run. Zie Records voor bron en controle.</p>
             <div class="stat-grid">
-                <div class="stat" th:each="pb : ${pbs}">
-                    <a th:if="${pb.activityId != null}" th:href="@{'/activity/' + ${pb.activityId}}" style="text-decoration:none;color:inherit;display:block;">
-                        <div class="value" th:text="${pb.time}">-</div>
+                <th:block th:each="pb : ${pbs}">
+                    <a th:if="${pb.activityId != null}" class="stat" th:href="@{'/activity/' + ${pb.activityId}}">
                         <div class="label" th:text="${pb.label}">-</div>
-                        <div class="text-muted" th:text="${pb.date}">-</div>
+                        <div class="value" th:text="${pb.time}">-</div>
+                        <div class="stat-sub" th:text="${pb.date}">-</div>
                     </a>
-                    <div th:if="${pb.activityId == null}">
-                        <div class="value" th:text="${pb.time}">-</div>
+                    <div th:if="${pb.activityId == null}" class="stat stat-empty">
                         <div class="label" th:text="${pb.label}">-</div>
-                        <div class="text-muted" th:text="${pb.date}">-</div>
+                        <div class="value" th:text="${pb.time}">-</div>
+                        <div class="stat-sub" th:text="${pb.date}">-</div>
                     </div>
-                </div>
+                </th:block>
             </div>
-        </div>
+            <div class="card-foot"><a href="/pbs" class="btn btn-secondary btn-sm">Alle records</a></div>
+        </section>
     </div>
 
-    <div th:if="${hasToken}" class="card">
-        <h2>Data synchroniseren</h2>
-        <div class="flex gap-1">
-            <a href="/sync" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</a>
-            <a href="/fetch-all" class="btn btn-primary btn-sm">Alle data opnieuw ophalen</a>
-            <a href="/fetch-remaining" class="btn btn-primary btn-sm">Ontbrekende data ophalen</a>
-            <a href="/backfill-laps" class="btn btn-primary btn-sm">Intervallen ophalen voor bestaande trainingen</a>
-        </div>
-        <p class="text-muted mt-2">Laatste sync: <span th:text="${stats.lastSync}">nooit</span></p>
-        <p class="text-muted" style="font-size:0.85rem;color:#999;">
-            "Ontbrekende data" haalt alleen activiteiten op die nog niet in de database staan.
-            Gebruik dit als je een "too many requests" fout kreeg bij het ophalen van alle data.
-            "Intervallen ophalen" haalt de ronde/lap-data (voor interval-analyse) op voor bestaande trainingen die dit nog missen.
-            Kan meerdere keren aangeklikt worden — al verwerkte trainingen worden overgeslagen.
-        </p>
-    </div>
+    <div class="card-grid">
+        <section th:if="${hasToken}" class="card" aria-labelledby="h-sync">
+            <h2 id="h-sync">Data synchroniseren</h2>
+            <p class="note">Laatste sync: <strong th:text="${stats.lastSync}">nooit</strong></p>
+            <div class="actions mt-2">
+                <form method="post" action="/sync" data-loading="Nieuwe trainingen syncen..."><button type="submit" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</button></form>
+            </div>
+            <details class="explain">
+                <summary>Meer opties</summary>
+                <div>
+                    <div class="actions">
+                        <form method="post" action="/fetch-all" data-loading="Alle data opnieuw ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Alle data opnieuw ophalen</button></form>
+                        <form method="post" action="/fetch-remaining" data-loading="Ontbrekende data ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Ontbrekende data ophalen</button></form>
+                        <form method="post" action="/backfill-laps" data-loading="Rondes ophalen voor bestaande trainingen..."><button type="submit" class="btn btn-secondary btn-sm">Intervallen ophalen voor bestaande trainingen</button></form>
+                    </div>
+                    <p class="note mt-2">
+                        "Ontbrekende data" haalt alleen activiteiten op die nog niet in de database staan.
+                        Gebruik dit als je een "too many requests" fout kreeg bij het ophalen van alle data.
+                        "Intervallen ophalen" haalt de ronde/lap-data (voor interval-analyse) op voor bestaande trainingen die dit nog missen.
+                        Kan meerdere keren aangeklikt worden: al verwerkte trainingen worden overgeslagen.
+                    </p>
+                </div>
+            </details>
+        </section>
 
-    <div th:if="${hasData}" class="card">
-        <h2>Exporteren</h2>
-        <p class="text-muted">Exporteer alle trainingen als JSON voor AI-analyse.</p>
-        <a href="/export" class="btn btn-primary btn-sm">Exporteer als JSON</a>
-    </div>
+        <section th:if="${hasData}" class="card" aria-labelledby="h-ai">
+            <h2 id="h-ai">AI-analyse</h2>
+            <p class="note">Genereer een prompt met je trainingshistoriek om te plakken in een AI-chatbot (ChatGPT, Claude, Gemini, ...).</p>
+            <div class="card-foot"><a href="/ai" class="btn btn-primary btn-sm">AI-prompt genereren</a></div>
+        </section>
 
-    <div th:if="${hasData}" class="card">
-        <h2>AI-analyse</h2>
-        <p class="text-muted">Genereer een prompt met je volledige trainingshistoriek om te plakken in een AI-chatbot (ChatGPT, Claude, Gemini, ...).</p>
-        <a href="/ai" class="btn btn-primary btn-sm">AI-prompt genereren</a>
-    </div>
+        <section th:if="${hasData}" class="card" aria-labelledby="h-compare">
+            <h2 id="h-compare">Periodes vergelijken</h2>
+            <p class="note">Vergelijk je loopniveau (tempo &amp; hartslag, rustig en intervallen) tussen twee periodes.</p>
+            <div class="card-foot"><a href="/compare" class="btn btn-secondary btn-sm">Periodes vergelijken</a></div>
+        </section>
 
-    <div th:if="${hasData}" class="card">
-        <h2>Periodes vergelijken</h2>
-        <p class="text-muted">Vergelijk je loopniveau (tempo &amp; hartslag, rustig en intervallen) tussen twee periodes en zie je evolutie in een grafiek.</p>
-        <a href="/compare" class="btn btn-primary btn-sm">Periodes vergelijken</a>
+        <section th:if="${hasData}" class="card" aria-labelledby="h-export">
+            <h2 id="h-export">Exporteren</h2>
+            <p class="note">Exporteer alle trainingen als JSON.</p>
+            <div class="card-foot"><a href="/export" class="btn btn-secondary btn-sm">Exporteer als JSON</a></div>
+        </section>
     </div>
 
     <script th:if="${hasData}" th:inline="javascript">
@@ -212,70 +250,68 @@
         const evolutionIntervalEf = /*[[${evolutionIntervalEf}]]*/ [];
         const evolutionEasyRunCount = /*[[${evolutionEasyRunCount}]]*/ [];
         const evolutionIntervalRepCount = /*[[${evolutionIntervalRepCount}]]*/ [];
+        const evolutionIntervalSessionCount = /*[[${evolutionIntervalSessionCount}]]*/ [];
+        const evoCanvas = document.getElementById('evolutionChart');
         if (evolutionMonths.length > 0) {
-            const canvas = document.getElementById('evolutionChart');
-            new Chart(canvas, {
+            // Low-data months get a hollow point (shape + fill, not colour alone).
+            const lowEasy = (i) => (evolutionEasyRunCount[i] ?? 0) < 3;
+            const lowInt = (i) => (evolutionIntervalSessionCount[i] ?? 0) < 2;
+            new Chart(evoCanvas, {
                 data: {
                     labels: evolutionMonths,
                     datasets: [
                         {
-                            type: 'line',
-                            label: 'Rustige lopen (EF)',
-                            data: evolutionEasyEf,
-                            borderColor: '#1a1a2e',
-                            backgroundColor: 'rgba(26,26,46,0.1)',
-                            spanGaps: true,
-                            tension: 0.3,
-                            yAxisID: 'y',
-                            order: 1,
+                            type: 'line', label: 'Rustige lopen (EF)', data: evolutionEasyEf,
+                            borderColor: RC.s1, borderWidth: 2, spanGaps: true, tension: 0,
+                            pointStyle: 'circle', pointRadius: 4, pointHoverRadius: 6,
+                            pointBackgroundColor: (c) => lowEasy(c.dataIndex) ? '#fff' : RC.s1,
+                            pointBorderColor: RC.s1,
+                            yAxisID: 'y', order: 1,
                         },
                         {
-                            type: 'line',
-                            label: 'Intervallen (EF)',
-                            data: evolutionIntervalEf,
-                            borderColor: '#e88934',
-                            backgroundColor: 'rgba(232,137,52,0.1)',
-                            spanGaps: true,
-                            tension: 0.3,
-                            yAxisID: 'y',
-                            order: 1,
+                            type: 'line', label: 'Intervallen (EF)', data: evolutionIntervalEf,
+                            borderColor: RC.s2, borderWidth: 2, borderDash: [6, 4], spanGaps: true, tension: 0,
+                            pointStyle: 'triangle', pointRadius: 5, pointHoverRadius: 7,
+                            pointBackgroundColor: (c) => lowInt(c.dataIndex) ? '#fff' : RC.s2,
+                            pointBorderColor: RC.s2,
+                            yAxisID: 'y', order: 1,
                         },
                         {
-                            type: 'bar',
-                            label: 'Aantal rustige lopen',
-                            data: evolutionEasyRunCount,
-                            backgroundColor: 'rgba(26,26,46,0.12)',
-                            yAxisID: 'yCount',
-                            order: 3,
-                            barPercentage: 0.5,
+                            type: 'bar', label: 'Aantal rustige lopen', data: evolutionEasyRunCount,
+                            backgroundColor: 'rgba(21,32,43,0.12)', yAxisID: 'yCount', order: 3, barPercentage: 0.5,
+                            pointStyle: 'rect',
                         },
                         {
-                            type: 'bar',
-                            label: 'Aantal interval-reps',
-                            data: evolutionIntervalRepCount,
-                            backgroundColor: 'rgba(232,137,52,0.15)',
-                            yAxisID: 'yCount',
-                            order: 3,
-                            barPercentage: 0.5,
+                            type: 'bar', label: 'Aantal interval-reps', data: evolutionIntervalRepCount,
+                            backgroundColor: 'rgba(194,65,12,0.14)', borderColor: 'rgba(194,65,12,0.5)', borderWidth: { top: 1 },
+                            yAxisID: 'yCount', order: 3, barPercentage: 0.5, pointStyle: 'rect',
                         },
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { display: true },
+                        legend: { display: true, position: 'top' },
                         tooltip: {
                             callbacks: {
-                                afterBody: function(items) {
+                                label: function (item) {
+                                    if (item.raw == null) return null;
+                                    return item.dataset.yAxisID === 'y'
+                                        ? `${item.dataset.label}: ${Number(item.raw).toPrecision(3)} m/s per bpm`
+                                        : `${item.dataset.label}: ${item.raw}`;
+                                },
+                                afterBody: function (items) {
                                     if (!items.length) return [];
                                     const idx = items[0].dataIndex;
                                     const easyN = evolutionEasyRunCount[idx] ?? 0;
                                     const intN = evolutionIntervalRepCount[idx] ?? 0;
+                                    const sessN = (evolutionIntervalSessionCount[idx] ?? 0);
                                     return [
                                         '',
-                                        `Gebaseerd op: ${easyN} rustige loop(en), ${intN} interval-rep(s)`,
-                                        (easyN < 3 && intN < 3) ? '⚠ weinig data deze maand — neem met een korrel zout' : '',
+                                        `Gebaseerd op: ${easyN} rustige loop(en), ${intN} rep(s) uit ${sessN} intervalsessie(s)`,
+                                        (easyN < 3 || sessN < 2) ? 'Let op: weinig data deze maand, neem met een korrel zout' : '',
                                     ].filter(l => l !== '');
                                 }
                             }
@@ -284,56 +320,58 @@
                     scales: {
                         y: {
                             position: 'left',
-                            title: { display: true, text: 'Efficiëntiefactor (m/s per bpm)', font: { size: 11 }, color: '#888' },
-                            grid: { color: '#eee' },
+                            title: RC.axisTitle('Efficiëntiefactor (m/s per bpm) · as begint niet bij 0'),
+                            grid: { color: RC.line },
                         },
                         yCount: {
                             position: 'right',
-                            title: { display: true, text: 'Aantal lopen/reps', font: { size: 11 }, color: '#bbb' },
+                            title: RC.axisTitle('Aantal lopen / reps'),
                             grid: { display: false },
-                            ticks: { color: '#bbb', font: { size: 10 } },
                             beginAtZero: true,
                         },
-                        x: { ticks: { font: { size: 11 } } },
+                        x: { title: RC.axisTitle('Maand'), grid: { display: false } },
                     }
                 }
             });
+        } else {
+            evoCanvas.parentElement.outerHTML = '<div class="chart-empty">Geen lopen met hartslag in deze periode.</div>';
         }
 
         const labels = /*[[${weeklyLabels}]]*/ [];
         const data = /*[[${weeklyDistances}]]*/ [];
         const weekStarts = /*[[${weeklyWeekStarts}]]*/ [];
+        const weeklyCanvas = document.getElementById('weeklyChart');
         if (labels.length > 0) {
             const n = labels.length;
-            const canvas = document.getElementById('weeklyChart');
-            const minBarSpace = 28;
-            const idealWidth = n * minBarSpace;
-            const containerWidth = canvas.parentElement.clientWidth || 800;
-            const chartWidth = Math.max(containerWidth, Math.min(idealWidth, 8000));
-            canvas.style.width = chartWidth + 'px';
-            canvas.style.height = Math.max(350, Math.min(600, n * 6)) + 'px';
-            new Chart(canvas, {
+            const box = document.getElementById('weeklyBox');
+            const containerWidth = box.parentElement.clientWidth || 800;
+            const chartWidth = Math.max(containerWidth, Math.min(n * 22, 8000));
+            box.style.width = chartWidth + 'px';
+            box.style.minWidth = '0';
+            box.parentElement.scrollLeft = box.parentElement.scrollWidth; // show most recent weeks first
+            new Chart(weeklyCanvas, {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: 'Km',
-                        data: data,
-                        backgroundColor: '#1a1a2e',
-                        borderRadius: 2,
-                    }]
+                    datasets: [{ label: 'Km per week', data: data, backgroundColor: RC.accent, hoverBackgroundColor: RC.ink, borderRadius: 2 }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => items.length ? 'Week van ' + items[0].label : '',
+                                label: (item) => `${Number(item.raw).toFixed(1)} km`,
+                            }
+                        }
                     },
-                    onHover: function(e) {
+                    onHover: function (e) {
                         const bars = this.getElementsAtEventForMode(e, 'index', { intersect: true });
                         e.native.target.style.cursor = bars.length > 0 ? 'pointer' : 'default';
                     },
-                    onClick: function(e) {
+                    onClick: function (e) {
                         const bars = this.getElementsAtEventForMode(e, 'index', { intersect: true });
                         if (bars.length > 0) {
                             const idx = bars[0].index;
@@ -345,31 +383,17 @@
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                font: { size: 12, weight: 'bold' },
-                                padding: 8,
-                            },
-                            grid: { color: '#eee' },
-                            title: {
-                                display: true,
-                                text: 'km',
-                                font: { size: 11 },
-                                color: '#888',
-                            }
-                        },
+                        y: { beginAtZero: true, grid: { color: RC.line }, title: RC.axisTitle('Kilometer') },
                         x: {
-                            ticks: {
-                                font: { size: 10 },
-                                maxTicksLimit: Math.max(8, Math.min(36, Math.floor(n / 4))),
-                                autoSkip: true,
-                            },
+                            title: RC.axisTitle('Week (start maandag)'),
+                            ticks: { maxTicksLimit: Math.max(8, Math.min(36, Math.floor(n / 4))), autoSkip: true, maxRotation: 0 },
                             grid: { display: false }
                         }
                     }
                 }
             });
+        } else {
+            weeklyCanvas.parentElement.outerHTML = '<div class="chart-empty">Geen lopen in deze periode.</div>';
         }
     </script>
 </th:block>

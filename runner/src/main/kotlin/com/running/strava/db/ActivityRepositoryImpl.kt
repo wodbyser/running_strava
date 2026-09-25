@@ -2,6 +2,7 @@ package com.running.strava.db
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.running.strava.domain.Activity
+import com.running.strava.domain.BestEffort
 import com.running.strava.domain.ActivityStream
 import com.running.strava.domain.Lap
 import com.running.strava.domain.SyncStatus
@@ -33,12 +34,16 @@ class ActivityRepositoryImpl(
 ) : ActivityRepository {
 
     override fun save(activity: Activity) {
-        activityJpaRepository.save(toEntity(activity))
+        val existing = if (activity.bestEfforts == null) activityJpaRepository.findById(activity.id).orElse(null) else null
+        activityJpaRepository.save(toEntity(activity, existing?.bestEffortsJson))
         activity.laps?.let { saveLaps(activity.id, it) }
     }
 
     override fun saveAll(activities: List<Activity>) {
-        activityJpaRepository.saveAll(activities.map { toEntity(it) })
+        // Summary lists from Strava carry no best efforts: never overwrite ones stored from a detail fetch.
+        val existing = activityJpaRepository.findAllById(activities.filter { it.bestEfforts == null }.map { it.id })
+            .associate { it.id to it.bestEffortsJson }
+        activityJpaRepository.saveAll(activities.map { toEntity(it, existing[it.id]) })
         activities.forEach { activity -> activity.laps?.let { saveLaps(activity.id, it) } }
     }
 
@@ -119,7 +124,7 @@ class ActivityRepositoryImpl(
         syncStatusJpaRepository.save(entity)
     }
 
-    private fun toEntity(activity: Activity) = ActivityEntity(
+    private fun toEntity(activity: Activity, keepBestEffortsJson: String? = null) = ActivityEntity(
         id = activity.id,
         name = activity.name,
         distance = activity.distance,
@@ -154,6 +159,7 @@ class ActivityRepositoryImpl(
         isManual = activity.isManual,
         isFlagged = activity.isFlagged,
         workoutType = activity.workoutType,
+        bestEffortsJson = activity.bestEfforts?.let { toJson(it) } ?: keepBestEffortsJson,
     )
 
     private fun toDomain(entity: ActivityEntity) = Activity(
@@ -194,7 +200,9 @@ class ActivityRepositoryImpl(
         originalStartDate = null,
         laps = null,
         splits = null,
-        bestEfforts = null,
+        bestEfforts = entity.bestEffortsJson?.let { json ->
+            runCatching { fromJson<BestEffort>(json) }.getOrNull()
+        },
     )
 
     private fun toDomainStream(entity: ActivityStreamEntity) = ActivityStream(

@@ -29,8 +29,10 @@ class SyncStravaDataImpl(
         var totalNew = 0
         var streamsFetched = 0
 
+        // Look back a week before the newest stored start: activities uploaded late (watch synced days later,
+        // start time before our newest activity) would otherwise never be fetched. Already-stored ids are skipped.
         val lastSync = activityRepository.findLatestActivityTimestamp()
-        val afterEpoch = lastSync?.toEpochSecond()
+        val afterEpoch = lastSync?.minusDays(OVERLAP_DAYS)?.toEpochSecond()
 
         var page = 1
         var hasMore = true
@@ -113,6 +115,10 @@ class SyncStravaDataImpl(
         )
 
         return SyncStravaData.SyncResult(totalFetched, totalNew, streamsFetched, errors)
+    }
+
+    companion object {
+        const val OVERLAP_DAYS = 7L
     }
 
     private fun ensureValidToken(token: StravaToken): StravaToken {

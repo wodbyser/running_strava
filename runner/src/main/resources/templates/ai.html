@@ -1,29 +1,35 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <div class="card">
-        <h2>AI-analyse</h2>
-        <p class="text-muted">
+    <div class="page-head">
+        <h1 th:text="${title}">AI-analyse</h1>
+    </div>
+    <section class="card" aria-labelledby="h-prompt">
+        <h2 id="h-prompt">Prompt</h2>
+        <p class="intro">
             Onderstaande prompt bevat je volledige trainingshistoriek, gegenereerd door de app.
             Kopieer ze en plak ze in een AI-chatbot (ChatGPT, Claude, Gemini, ...) voor analyse,
             planning en race-voorspellingen.
         </p>
-        <textarea id="aiPrompt" class="prompt-box mt-2" readonly th:text="${prompt}"></textarea>
-        <div class="flex gap-1 mt-2">
-            <button id="copyPromptBtn" class="btn btn-primary btn-sm">Kopieer prompt</button>
-            <a href="/ai/download" class="btn btn-sm" style="background:#eee;color:#333;" th:if="${downloadUrl == null}">Download als .txt</a>
-            <a th:if="${downloadUrl != null}" th:href="${downloadUrl}" class="btn btn-sm" style="background:#eee;color:#333;">Download als .txt</a>
-            <a th:if="${backUrl != null}" th:href="${backUrl}" class="btn btn-sm" style="background:#eee;color:#333;">&larr; Aanpassen</a>
-            <span class="filter-divider"></span>
-            <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT &rarr;</a>
-            <a href="https://claude.ai/" target="_blank" rel="noopener">Claude &rarr;</a>
-            <a href="https://gemini.google.com/" target="_blank" rel="noopener">Gemini &rarr;</a>
+        <div class="actions mb-2">
+            <button id="copyPromptBtn" type="button" class="btn btn-primary btn-sm" aria-live="polite">Kopieer prompt</button>
+            <a href="/ai/download" class="btn btn-secondary btn-sm" th:if="${downloadUrl == null}">Download als .txt</a>
+            <a th:if="${downloadUrl != null}" th:href="${downloadUrl}" class="btn btn-secondary btn-sm">Download als .txt</a>
+            <a th:if="${backUrl != null}" th:href="${backUrl}" class="btn btn-secondary btn-sm">&larr; Aanpassen</a>
+            <span class="filter-divider" aria-hidden="true"></span>
+            <span class="ext-links">Plakken in:
+                <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT &rarr;</a>
+                <a href="https://claude.ai/" target="_blank" rel="noopener">Claude &rarr;</a>
+                <a href="https://gemini.google.com/" target="_blank" rel="noopener">Gemini &rarr;</a>
+            </span>
         </div>
-        <p class="text-muted mt-2">
-            De AI kan antwoord geven op vragen zoals: ben ik aan het overtrainen? Hoe evolueert mijn
-            lactaatdrempel? Wat is mijn ideale trainingsweek? Voorspelling voor HM/marathon? Blessurerisico?
+        <label for="aiPrompt" class="sr-only">Gegenereerde prompt</label>
+        <textarea id="aiPrompt" class="prompt-box" readonly th:text="${prompt}"></textarea>
+        <p class="callout mt-2">
+            De prompt bevat enkel Strava-data (geen weer, slaap, HRV of klachten) en markeert elke waarde als
+            gemeten, berekend of app-schatting. Een AI-antwoord blijft een interpretatie, geen diagnose of meting.
         </p>
-    </div>
+    </section>
 
     <script>
         document.getElementById('copyPromptBtn').addEventListener('click', async function () {

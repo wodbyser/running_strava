@@ -6,10 +6,10 @@
 # Usage:
 #   ./test-strava-connection.sh
 #
-# IMPORTANT: Vul hieronder je Strava Client ID en Client Secret in.
+# Vereist: STRAVA_CLIENT_ID en STRAVA_CLIENT_SECRET in .env (git-ignored) of als env var.
 # Te vinden op https://www.strava.com/settings/api
 
-# Settings worden eerst uit .env geladen, daarna uit onderstaande defaults.
+# Er zijn bewust GEEN standaardwaarden: het script stopt zonder credentials.
 # .env-bestand (niet in git) heeft voorrang.
 
 ENV_FILE="$(dirname "$0")/.env"
@@ -19,8 +19,8 @@ if [ -f "$ENV_FILE" ]; then
     set +a
 fi
 
-CLIENT_ID="${STRAVA_CLIENT_ID:-265769}"
-CLIENT_SECRET="${STRAVA_CLIENT_SECRET:-88115b193d8d5f9934df65a8dd3a227458ae9645}"
+CLIENT_ID="${STRAVA_CLIENT_ID:-}"
+CLIENT_SECRET="${STRAVA_CLIENT_SECRET:-}"
 
 # ---------------------------------------------------------------------------
 # Niets wijzigen onder deze lijn

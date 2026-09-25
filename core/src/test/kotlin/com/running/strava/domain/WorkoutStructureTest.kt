@@ -75,4 +75,67 @@ class WorkoutStructureTest {
         val steady = laps(r(1000, 330, 140, 150), r(1000, 325, 142, 150), r(1000, 328, 145, 152))
         assertEquals(null, WorkoutStructure.describe(steady))
     }
+
+    @Test
+    fun `pyramid is one ladder set, not five sets with set pauses`() {
+        val s = WorkoutStructure.analyze(GoldenLaps.pyramid)!!
+        assertEquals(1, s.sets.size)
+        assertTrue(s.sets[0].ladder)
+        assertEquals(listOf(400f, 800f, 1200f, 800f, 400f), s.sets[0].reps.laps.map { it.distance })
+        assertEquals(4, s.sets[0].recovery.laps.size)
+        assertTrue(s.setPauses.isEmpty())
+        assertTrue(WorkoutStructure.describe(GoldenLaps.pyramid)!!.contains("ladder 400-800-1200-800-400m"))
+    }
+
+    @Test
+    fun `tempo block does not disappear into the warm-up when strides follow`() {
+        val s = WorkoutStructure.analyze(GoldenLaps.tempoWithStrides)!!
+        assertEquals(1, s.tempoBlocks.size)
+        assertEquals(5000.0, s.tempoBlocks[0].distance)
+        assertEquals(2000.0, s.warmup.distance)
+        assertEquals(4, s.sets.single().reps.laps.size)
+        val text = WorkoutStructure.describe(GoldenLaps.tempoWithStrides)!!
+        assertTrue(text.contains("tempoblok 5.00 km in 22m30s @ 4:30 /km"), text)
+    }
+
+    @Test
+    fun `tempo run is described as easy - tempo - easy without warm-up claims`() {
+        val text = WorkoutStructure.describe(GoldenLaps.tempo)!!
+        // 5 km in 270+270+270+268+272 = 1350 s = 22m30s -> 4:30 /km
+        assertEquals("rustig 2.00 km @ 5:45 /km, gem. HR 138 | tempoblok 5.00 km in 22m30s @ 4:30 /km, gem. HR 170 | rustig 1.00 km @ 5:50 /km, gem. HR 150", text)
+    }
+
+    @Test
+    fun `floats after a short warm-up are reported as floats`() {
+        val s = WorkoutStructure.analyze(GoldenLaps.floatsShortWarmup)!!
+        assertEquals(1, s.sets.size)
+        assertEquals(8, s.sets[0].reps.laps.size)
+        assertEquals(8, s.sets[0].floats.laps.size)
+        assertEquals(0, s.sets[0].recovery.laps.size)
+        assertEquals(2000.0, s.warmup.distance)
+        assertEquals(1000.0, s.cooldown.distance)
+    }
+
+    @Test
+    fun `hill repeats keep the warm-up out of the reps`() {
+        val s = WorkoutStructure.analyze(GoldenLaps.hillRepeats)!!
+        assertEquals(8, s.sets.single().reps.laps.size)
+        assertEquals(2000.0, s.warmup.distance)
+        assertEquals(1500.0, s.cooldown.distance)
+    }
+
+    @Test
+    fun `time-based reps are described by duration`() {
+        val s = WorkoutStructure.analyze(GoldenLaps.timeBased)!!
+        assertTrue(s.sets.single().timeBased)
+        assertTrue(WorkoutStructure.describe(GoldenLaps.timeBased)!!.contains("6x 3m00s"))
+    }
+
+    @Test
+    fun `easy run, gps glitch, accidental lap and race produce no structure`() {
+        assertEquals(null, WorkoutStructure.describe(GoldenLaps.easyRun))
+        assertEquals(null, WorkoutStructure.describe(GoldenLaps.gpsGlitch))
+        assertEquals(null, WorkoutStructure.describe(GoldenLaps.accidentalLap))
+        assertEquals(null, WorkoutStructure.describe(GoldenLaps.race, workoutType = 1))
+    }
 }

@@ -1,54 +1,75 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <form method="get" class="filter-bar">
+    <div class="page-head"><h1>Persoonlijke records</h1></div>
+
+    <form method="get" class="filter-bar" aria-label="Records filteren">
         <div class="filter-row">
-            <select name="period" id="period" onchange="document.getElementById('customDates3').style.display=this.value=='custom'?'inline-flex':'none'">
-                <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
-                <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
-                <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
-                <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
-                <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
-                <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
-                <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
-            </select>
+            <span class="filter-group">
+                <label for="period">Periode</label>
+                <select name="period" id="period" onchange="document.getElementById('customDates3').style.display=this.value=='custom'?'inline-flex':'none'">
+                    <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
+                    <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
+                    <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
+                    <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
+                    <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
+                    <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
+                    <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
+                </select>
+            </span>
             <div class="custom-dates" id="customDates3" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                <input type="date" name="from" th:value="${filterFrom}">
-                <span>tot</span>
-                <input type="date" name="till" th:value="${filterTill}">
+                <span class="filter-group"><label for="from">Van</label><input type="date" id="from" name="from" th:value="${filterFrom}"></span>
+                <span class="filter-group"><label for="till">Tot en met</label><input type="date" id="till" name="till" th:value="${filterTill}"></span>
             </div>
-            <select name="type">
-                <option value="run" th:selected="${filterType == 'run' or filterType == ''}">Lopen</option>
-                <option value="all" th:selected="${filterType == 'all'}">Alle types</option>
-                <option value="ride" th:selected="${filterType == 'ride'}">Fietsen</option>
-                <option value="swim" th:selected="${filterType == 'swim'}">Zwemmen</option>
-                <option value="other" th:selected="${filterType == 'other'}">Overig</option>
-            </select>
+            <span class="filter-group">
+                <label for="type">Sport</label>
+                <select name="type" id="type">
+                    <option value="run" th:selected="${filterType == 'run' or filterType == ''}">Lopen</option>
+                    <option value="all" th:selected="${filterType == 'all'}">Alle types</option>
+                    <option value="ride" th:selected="${filterType == 'ride'}">Fietsen</option>
+                    <option value="swim" th:selected="${filterType == 'swim'}">Zwemmen</option>
+                    <option value="other" th:selected="${filterType == 'other'}">Overig</option>
+                </select>
+            </span>
             <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-            <a href="?" class="btn btn-sm" style="background:#eee;color:#333;">Reset</a>
+            <a href="?" class="btn btn-ghost btn-sm">Reset</a>
         </div>
     </form>
-    <div class="card">
-        <h2>Persoonlijke Records</h2>
-        <p class="text-muted mb-2">Beste prestaties over standaard afstanden.</p>
+
+    <section class="card" aria-labelledby="h-pbs">
+        <h2 id="h-pbs">Snelste stukken <span class="badge badge-calc" title="Berekend uit de GPS-stream (afstand + tijd). GPS-afstand kan enkele procenten afwijken.">uit GPS-stream</span></h2>
+        <p class="intro">
+            Snelste stuk over <strong>exact</strong> deze afstand binnen een run, berekend uit de GPS-stream (afstand + tijd,
+            inclusief eventuele stilstand, zoals bij een wedstrijd). Een run van 21,9 km telt dus mee voor de halve marathon,
+            een snelle 5 km binnen een 10 km-run telt mee voor de 5 km, en een run van 4,9 km telt niet mee voor de 5 km.
+            GPS meet in wedstrijden meestal iets te veel afstand, dus deze tijden kunnen enkele seconden sneller zijn dan je
+            officiële (chip)tijd.
+        </p>
+        <p class="note mb-2" th:if="${pbInfo != null}"
+           th:text="${pbInfo.runsWithStreams} + ' van ' + ${pbInfo.runsConsidered} + ' runs hebben een GPS-stream en tellen mee'
+                    + (${pbInfo.runsWithStravaEffortsOnly} > 0 ? ' (+ ' + ${pbInfo.runsWithStravaEffortsOnly} + ' via Strava best efforts)' : '')
+                    + '. Runs zonder stream kunnen niet beoordeeld worden.'
+                    + (${pbInfo.treadmillExcluded} > 0 ? ' ' + ${pbInfo.treadmillExcluded} + ' loopbandrun(s) uitgesloten (afstand is een schatting).' : '')">-</p>
         <div class="stat-grid">
-            <div class="stat" th:each="pb : ${pbs}">
-                <a th:if="${pb.activityId != null}" th:href="@{'/activity/' + ${pb.activityId}}" style="text-decoration:none;color:inherit;display:block;">
-                    <div class="value" th:text="${pb.time}">-</div>
+            <th:block th:each="pb : ${pbs}">
+                <a th:if="${pb.activityId != null}" class="stat" th:href="@{'/activity/' + ${pb.activityId}}">
                     <div class="label" th:text="${pb.label}">-</div>
-                    <div class="text-muted" th:if="${pb.pace}">Tempo: <span th:text="${pb.pace}">-</span></div>
-                    <div class="text-muted" th:text="${pb.date}">-</div>
-                    <div class="text-muted" style="font-size:0.75rem;" th:text="${pb.name}">-</div>
+                    <div class="value" th:text="${pb.time}">-</div>
+                    <div class="stat-sub" th:if="${pb.pace}">Tempo <span th:text="${pb.pace}">-</span></div>
+                    <div class="stat-sub" th:text="${pb.date}">-</div>
+                    <div class="stat-sub" th:text="${pb.name}">-</div>
+                    <div class="stat-sub" th:text="${pb.source}">-</div>
+                    <div class="stat-sub" th:if="${pb.crossCheck != null}" th:text="${pb.crossCheck}">-</div>
                 </a>
-                <div th:if="${pb.activityId == null}">
-                    <div class="value" th:text="${pb.time}">-</div>
+                <div th:if="${pb.activityId == null}" class="stat stat-empty">
                     <div class="label" th:text="${pb.label}">-</div>
-                    <div class="text-muted" th:if="${pb.pace}">Tempo: <span th:text="${pb.pace}">-</span></div>
-                    <div class="text-muted" th:text="${pb.date}">-</div>
-                    <div class="text-muted" style="font-size:0.75rem;" th:text="${pb.name}">-</div>
+                    <div class="value" th:text="${pb.time}">-</div>
+                    <div class="stat-sub" th:if="${pb.pace}">Tempo <span th:text="${pb.pace}">-</span></div>
+                    <div class="stat-sub" th:text="${pb.date}">-</div>
+                    <div class="stat-sub" th:text="${pb.name}">-</div>
                 </div>
-            </div>
+            </th:block>
         </div>
-    </div>
+    </section>
 </th:block>
 </html>

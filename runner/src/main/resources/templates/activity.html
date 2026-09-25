@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <a href="/activities" class="text-muted" style="text-decoration:none;">&larr; Terug naar overzicht</a>
+    <a href="/activities" class="back-link">&larr; Terug naar overzicht</a>
 
-    <div class="card" style="margin-top:1rem;">
-        <div class="flex" style="justify-content:space-between;align-items:start;">
+    <section class="card" aria-labelledby="h-activity">
+        <div class="card-head">
             <div>
-                <h1 style="font-size:1.5rem;" th:text="${a.name}">-</h1>
-                <p class="text-muted" th:text="${a.date}">-</p>
+                <h1 id="h-activity" th:text="${a.name}">-</h1>
+                <p class="note" th:text="${a.date}">-</p>
             </div>
             <span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span>
         </div>
 
-        <div class="stat-grid" style="margin-top:1.5rem;">
+        <div class="stat-grid mt-2">
             <div class="stat">
                 <div class="value" th:text="${a.distance}">-</div>
                 <div class="label">Afstand</div>
@@ -23,7 +23,7 @@
             </div>
             <div class="stat">
                 <div class="value" th:text="${a.duration}">-</div>
-                <div class="label">Duur</div>
+                <div class="label">Duur (in beweging)</div>
             </div>
             <div class="stat">
                 <div class="value" th:text="${a.avgHr}">-</div>
@@ -35,64 +35,78 @@
             </div>
             <div class="stat">
                 <div class="value" th:text="${a.cadence}">-</div>
-                <div class="label">Cadence</div>
+                <div class="label">Cadans</div>
+                <div class="stat-sub">beide voeten</div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div class="card">
-        <h2>Details</h2>
-        <table style="width:auto;">
-            <tr><td style="font-weight:600;padding-right:2rem;">Elevatie</td><td th:text="${a.elevation}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Max snelheid</td><td th:text="${a.maxSpeed}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Gem. vermogen</td><td th:text="${a.avgWatts}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Max vermogen</td><td th:text="${a.maxWatts}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Calorieën</td><td th:text="${a.calories}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Suffer Score</td><td th:text="${a.sufferScore}">-</td></tr>
-            <tr><td style="font-weight:600;padding-right:2rem;">Beschrijving</td><td th:text="${a.description}">-</td></tr>
-        </table>
-        <div style="margin-top:1rem;">
-            <a th:href="${a.stravaUrl}" target="_blank" class="btn btn-primary btn-sm">Bekijk op Strava &rarr;</a>
+    <section class="card" aria-labelledby="h-details">
+        <h2 id="h-details">Details</h2>
+        <div class="table-wrap">
+            <table class="kv">
+                <tr><th scope="row">Elevatie</th><td th:text="${a.elevation}">-</td></tr>
+                <tr><th scope="row">Totale tijd (incl. stilstand)</th><td th:text="${a.elapsed}">-</td></tr>
+                <tr><th scope="row">Snelste moment (max. snelheid als tempo)</th><td th:text="${a.maxSpeed}">-</td></tr>
+                <tr><th scope="row">Gem. vermogen</th><td th:text="${a.avgWatts}">-</td></tr>
+                <tr><th scope="row">Max vermogen</th><td th:text="${a.maxWatts}">-</td></tr>
+                <tr><th scope="row">Calorieën</th><td th:text="${a.calories}">-</td></tr>
+                <tr><th scope="row">Suffer Score</th><td th:text="${a.sufferScore}">-</td></tr>
+            </table>
         </div>
-    </div>
+        <div class="card-foot">
+            <a th:href="${a.stravaUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Bekijk op Strava &rarr;</a>
+        </div>
+    </section>
 
-    <div th:if="${a.description}" class="card">
-        <h2>Notities</h2>
+    <section th:if="${a.description}" class="card" aria-labelledby="h-notes">
+        <h2 id="h-notes">Notities</h2>
         <p style="white-space:pre-wrap;" th:text="${a.description}">-</p>
-    </div>
+    </section>
 
-    <div th:if="${hasLaps}" class="card">
-        <div class="flex" style="justify-content:space-between;align-items:center;">
-            <h2>Intervallen / rondes</h2>
-            <a th:href="@{'/activity/' + ${a.id} + '/export'}" class="btn btn-sm" style="background:#eee;color:#333;">Exporteer CSV</a>
+    <section th:if="${hasLaps}" class="card" aria-labelledby="h-laps">
+        <div class="card-head">
+            <h2 id="h-laps">Intervallen / rondes</h2>
+            <a th:href="@{'/activity/' + ${a.id} + '/export'}" class="btn btn-secondary btn-sm">Exporteer CSV</a>
         </div>
-        <table style="width:100%;">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Afstand</th>
-                    <th>Duur</th>
-                    <th>Tempo</th>
-                    <th>Gem. HR</th>
-                    <th>Max HR</th>
-                    <th>Cadans</th>
-                    <th>Type</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="lap : ${laps}"
-                    th:style="${lap.type == 'interval'} ? 'background:#fff4e5;font-weight:600;' : ''">
-                    <td th:text="${lap.index}">-</td>
-                    <td th:text="${lap.distance}">-</td>
-                    <td th:text="${lap.duration}">-</td>
-                    <td th:text="${lap.pace}">-</td>
-                    <td th:text="${lap.avgHr}">-</td>
-                    <td th:text="${lap.maxHr}">-</td>
-                    <td th:text="${lap.cadence}">-</td>
-                    <td th:text="${lap.type}">-</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+        <p class="callout mb-2" th:if="${sessionType != null}">
+            Sessietype: <strong th:text="${sessionType}">-</strong>
+            <span class="badge badge-est" title="Heuristiek van de app op basis van tempo per ronde, geen meting.">automatisch herkend</span><br>
+            De kolom "Type" wordt door de app afgeleid uit het tempo per ronde (heuristiek) en kan fout zijn, bv. bij
+            heuvels, tijdsgebaseerde reps of GPS-fouten.
+        </p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col" class="num">#</th>
+                        <th scope="col" class="num">Afstand</th>
+                        <th scope="col" class="num">Duur</th>
+                        <th scope="col" class="num">Tempo</th>
+                        <th scope="col" class="num">Gem. HR</th>
+                        <th scope="col" class="num">Max HR</th>
+                        <th scope="col" class="num">Cadans (spm)</th>
+                        <th scope="col">Type <span class="badge badge-est" title="Automatisch herkend door de app">auto</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="lap : ${laps}" th:classappend="${lap.type == 'interval'} ? 'row-highlight' : (${lap.type == 'ruis'} ? 'row-muted' : '')">
+                        <td class="num" th:text="${lap.index}">-</td>
+                        <td class="num" th:text="${lap.distance}">-</td>
+                        <td class="num" th:text="${lap.duration}">-</td>
+                        <td class="num" th:text="${lap.pace}">-</td>
+                        <td class="num" th:text="${lap.avgHr}">-</td>
+                        <td class="num" th:text="${lap.maxHr}">-</td>
+                        <td class="num" th:text="${lap.cadence}">-</td>
+                        <td>
+                            <span th:if="${lap.type != '-'}" class="lap-tag" th:text="${lap.type}"
+                                  th:classappend="${lap.type == 'interval'} ? 'lap-rep' : (${lap.type == 'float/matig'} ? 'lap-float' : (${lap.type == 'tempo'} ? 'lap-tempo' : (${lap.type == 'rustig/herstel'} ? 'lap-easy' : (${lap.type == 'wedstrijd'} ? 'lap-race' : 'lap-noise'))))">-</span>
+                            <span th:if="${lap.type == '-'}">-</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </th:block>
 </html>

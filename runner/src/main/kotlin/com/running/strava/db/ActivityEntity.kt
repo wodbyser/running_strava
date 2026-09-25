@@ -68,6 +68,9 @@ class ActivityEntity(
     var isFlagged: Boolean = false,
     @Column(name = "workout_type")
     var workoutType: Int? = null,
+    /** Strava best efforts (JSON), only present for activities fetched with details after this column existed. */
+    @Column(name = "best_efforts_json", columnDefinition = "TEXT")
+    var bestEffortsJson: String? = null,
 )
 
 @Entity

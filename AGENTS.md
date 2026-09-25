@@ -49,7 +49,11 @@ Scheduled sync: daily at 06:00 (`strava.sync.cron`), guarded by token presence.
 
 ## Testing & Linting
 
-- **No tests exist** in either module (no `src/test` files found).
+- Run on Java 23: `JAVA_HOME=~/.sdkman/candidates/java/23-open ./gradlew :core:test :runner:test`
+  (Java 21 gives a misleading "Inconsistent JVM target" error; don't "fix" buildSrc).
+- `core/src/test`: golden lap dataset (`GoldenLaps`), classifier/structure, best efforts, units/aggregates, models (EF, Riegel, HR zones).
+- `runner/src/test`: service tests with an in-memory `FakeActivityRepository` (no Spring context).
+- Pure calculation logic lives in `core` (`com.running.strava.analysis`, `LapClassifier`, `WorkoutStructure`); keep it Spring-free.
 - `ktlint` dependency present in `buildSrc` but **not configured** in any module.
 
 ## Frontend
