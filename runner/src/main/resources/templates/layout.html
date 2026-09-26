@@ -117,8 +117,30 @@
 
         /* ---------- Layout ---------- */
         .container { max-width: 1160px; margin: 0 auto; padding: var(--sp-6) var(--sp-5) var(--sp-7); }
-        .page-head { margin-bottom: var(--sp-5); }
+        .page-head { margin-bottom: var(--sp-5); display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-3) var(--sp-5); flex-wrap: wrap; }
+        .page-head > div:first-child { flex: 1 1 32rem; min-width: 0; }
+        .page-head > h1, .page-head > p { flex-basis: 100%; }
+        .page-head > h1 + p { margin-top: calc(-1 * var(--sp-2)); }
         .page-head p { color: var(--ink-2); max-width: 72ch; margin-top: var(--sp-2); }
+        .page-head h1 { overflow-wrap: anywhere; }
+        .page-meta { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--sp-1); display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+        /* Sync status: quiet line in the page header, extra actions behind disclosure. */
+        .sync-bar { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
+        .sync-bar .note strong { color: var(--ink-2); font-weight: 600; }
+        .sync-more { position: relative; }
+        .sync-more > summary { list-style: none; }
+        .sync-more > summary::-webkit-details-marker { display: none; }
+        .sync-more-panel {
+            position: absolute; right: 0; top: calc(100% + var(--sp-2)); z-index: 50; width: min(22rem, 90vw);
+            background: var(--surface); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(21,32,43,0.14), 0 0 0 1px var(--line);
+            padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3);
+        }
+        .sync-more-panel .btn { justify-content: flex-start; width: 100%; }
+        .sync-more-panel hr { border: 0; border-top: 1px solid var(--line); }
+        @media (max-width: 640px) {
+            .sync-bar { align-items: stretch; width: 100%; }
+            .sync-more-panel { position: static; width: 100%; margin-top: var(--sp-2); }
+        }
         .back-link { display: inline-flex; align-items: center; min-height: 40px; color: var(--muted); text-decoration: none; font-size: var(--fs-sm); }
         .back-link:hover { color: var(--ink); }
 
@@ -134,25 +156,22 @@
         .card-head h2 { margin-bottom: 0; }
         .card-foot { margin-top: var(--sp-4); display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
         .intro { color: var(--ink-2); font-size: var(--fs-sm); max-width: 80ch; margin-bottom: var(--sp-4); }
-        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--sp-5); margin-bottom: var(--sp-5); }
-        .card-grid > .card { margin-bottom: 0; display: flex; flex-direction: column; }
-        .card-grid > .card .card-foot { margin-top: auto; padding-top: var(--sp-4); }
         .inset { background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-4); }
 
         /* ---------- Stats ---------- */
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); }
+        /* Values scale with the tile width (container query) so numbers like 569:25:40 never break mid-token. */
         .stat {
             padding: var(--sp-3) var(--sp-4); border-left: 3px solid var(--line);
-            display: flex; flex-direction: column; gap: 2px;
+            display: flex; flex-direction: column; gap: 2px; container-type: inline-size; min-width: 0;
         }
         .stat .value {
-            font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 600;
-            line-height: 1.05; color: var(--ink); letter-spacing: 0.2px; order: 1;
+            font-family: var(--font-display); font-size: min(var(--fs-2xl), 19cqi); font-weight: 600;
+            line-height: 1.1; color: var(--ink); letter-spacing: 0.2px; order: 1; white-space: nowrap;
         }
         .stat .label { font-size: var(--fs-sm); color: var(--ink-2); font-weight: 500; order: 0; }
         .stat .stat-sub { font-size: var(--fs-xs); color: var(--muted); order: 2; }
-        .stat .value { overflow-wrap: anywhere; }
-        .stat-text .value { font-size: var(--fs-xl); overflow-wrap: normal; }
+        .stat-text .value { font-size: min(var(--fs-xl), 15cqi); white-space: normal; }
         .stat.is-est { border-left: 3px dashed var(--est-line); }
         a.stat { text-decoration: none; color: inherit; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
         a.stat:hover { background: var(--surface-2); border-left-color: var(--accent); }
@@ -182,10 +201,53 @@
         tr.row-highlight td { font-weight: 600; }
         tr.row-muted td { color: var(--muted); }
         .table-empty td { text-align: center; color: var(--muted); padding: var(--sp-6) var(--sp-4); }
-        .kv { width: auto; }
-        .kv th { text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink-2); font-weight: 600; padding-right: var(--sp-6); vertical-align: top; white-space: normal; }
-        .kv tr:hover { background: none; }
         .mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        /* Comparison tables: a metric column plus equal-width period columns. */
+        .compare-table { table-layout: fixed; }
+        .compare-table tbody th { white-space: normal; }
+        .compare-table thead th { text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); color: var(--ink); white-space: normal; }
+        .compare-table thead th:first-child { width: 34%; }
+        .compare-table td.num:last-child:not(.delta-up):not(.delta-down) { color: var(--muted); }
+        @media (max-width: 640px) {
+            .compare-table thead th { font-size: var(--fs-xs); }
+            .compare-table thead th:first-child { width: 32%; }
+            .compare-table td.num { white-space: normal; overflow-wrap: anywhere; }
+            .compare-table thead th:last-child { width: 14%; }
+            .compare-table th, .compare-table td { padding-left: var(--sp-1); padding-right: var(--sp-1); }
+        }
+        .compare-table tr.row-sub th, .compare-table tr.row-sub td { color: var(--muted); font-weight: 500; font-size: var(--fs-xs); }
+
+        /* Definition grid for secondary facts (replaces two-column key/value tables). */
+        .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--sp-4) var(--sp-5); }
+        .facts div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .facts dt { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; }
+        .facts-divided { margin-top: var(--sp-5); padding-top: var(--sp-5); border-top: 1px solid var(--line); }
+        .facts dd { font-size: var(--fs-md); color: var(--ink); font-weight: 500; }
+
+        /* Stacked tables: on small screens each row becomes a compact block; header row turns into a
+           horizontally scrollable strip so sort links stay reachable. Cells need data-label. */
+        @media (max-width: 640px) {
+            .table-stack { margin: 0; overflow: visible; }
+            .table-stack table, .table-stack thead { display: block; width: 100%; }
+            .table-stack:not(.table-stack--sortable) thead { display: none; }
+            .table-stack thead tr { display: flex; gap: var(--sp-1); overflow-x: auto; padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line); }
+            .table-stack thead th { border: 0; padding: 0 var(--sp-2); flex: none; text-align: left; min-width: 0; }
+            .table-stack thead th.stack-hide, .table-stack td.stack-hide { display: none; }
+            .table-stack tbody, .table-stack tbody tr { display: block; }
+            .table-stack tbody tr {
+                display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2) var(--sp-3);
+                padding: var(--sp-3) 0; border-bottom: 1px solid var(--line);
+            }
+            .table-stack tbody tr:hover { background: none; }
+            .table-stack td { border: 0; padding: 0; text-align: left !important; display: flex; flex-direction: column; min-width: 0; }
+            .table-stack td[data-label]::before { content: attr(data-label); font-size: var(--fs-xs); color: var(--muted); font-weight: 600; }
+            .table-stack td.stack-title { grid-column: 1 / -1; order: -2; font-size: var(--fs-md); }
+            .table-stack td.stack-meta { order: -1; flex-direction: row; align-items: center; gap: var(--sp-2); color: var(--muted); }
+            .table-stack td.stack-meta::before { content: none !important; }
+            .table-stack td.stack-action { grid-column: 1 / -1; }
+            .table-stack td.stack-action .btn { width: 100%; }
+            .table-stack .table-empty td { grid-column: 1 / -1; text-align: center !important; }
+        }
 
         /* ---------- Badges & tags ---------- */
         .badge {
@@ -263,6 +325,10 @@
         .field-block { margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-1); }
         .inline-form { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
         .inline-form input[type="number"] { width: 96px; }
+        .form-section { border: 0; min-width: 0; }
+        .form-section + .form-section { margin-top: var(--sp-5); padding-top: var(--sp-5); border-top: 1px solid var(--line); }
+        .form-section > legend { font: 600 var(--fs-lg) var(--font-display); color: var(--ink); margin-bottom: var(--sp-3); padding: 0; }
+        input:invalid:not(:placeholder-shown):not(:focus) { border-color: var(--bad); }
 
         /* ---------- Feedback ---------- */
         .flash-wrap { max-width: 1160px; margin: var(--sp-4) auto 0; padding: 0 var(--sp-5); }
@@ -317,10 +383,11 @@
         }
 
         /* ---------- Charts ---------- */
-        .chart-box { position: relative; height: 380px; }
-        .chart-box--tall { height: 480px; }
+        .chart-box { position: relative; height: 340px; width: 100%; }
         .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .chart-scroll .chart-box { min-width: 640px; }
+        .check { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; min-height: 36px; }
+        .check input { width: 18px; height: 18px; accent-color: var(--accent); }
+        .chart-box--tall { height: 440px; }
         .chart-empty { display: flex; align-items: center; justify-content: center; height: 160px; color: var(--muted); font-size: var(--fs-sm); background: var(--surface-2); border-radius: var(--radius-sm); }
 
         /* ---------- Zones (coach) ---------- */
@@ -339,7 +406,6 @@
         /* ---------- Compare ---------- */
         .verdict { font-size: var(--fs-md); line-height: 1.7; max-width: 80ch; }
         .period-form .filter-group { min-width: 0; }
-        .period-label { font-weight: 600; font-size: var(--fs-sm); color: var(--ink); }
 
         /* ---------- Prompt pages ---------- */
         .prompt-box {
@@ -351,11 +417,13 @@
         .ext-links a { min-height: 36px; display: inline-flex; align-items: center; }
 
         /* ---------- Utilities ---------- */
-        .mt-1 { margin-top: var(--sp-2); }
         .mt-2 { margin-top: var(--sp-4); }
         .mb-2 { margin-bottom: var(--sp-4); }
-        .flex { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
-        .gap-1 { gap: var(--sp-4); }
+        .is-hidden { display: none !important; }
+        .show-sm { display: none; }
+        @media (max-width: 640px) { .hide-sm { display: none; } .show-sm { display: inline; } }
+        .prose-pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 80ch; }
+        .input-sm { width: 8rem; }
 
         @media (max-width: 640px) {
             .container { padding: var(--sp-4) var(--sp-3) var(--sp-6); }
@@ -367,6 +435,14 @@
             .btn, .btn-sm { min-height: 44px; }
             input[type="date"], input[type="number"], input[type="text"], select { min-height: 44px; font-size: 16px; }
             .filter-divider { display: none; }
+            .filter-row > .filter-group { flex: 1 1 9rem; }
+            .filter-row > fieldset.filter-group { flex: 1 1 100%; }
+            .filter-group > .inline { display: flex; }
+            .filter-row > .custom-dates { flex: 1 1 100%; }
+            .custom-dates .filter-group, .filter-group > .inline > input { flex: 1 1 0; min-width: 0; }
+            .filter-group select, .custom-dates input { width: 100%; }
+            .filter-group input[type="number"] { width: auto; }
+            .card-head .filter-row { width: 100%; }
             .chart-box { height: 320px; }
             .chart-box--tall { height: 380px; }
             .flash-wrap { padding: 0 var(--sp-3); }
@@ -383,7 +459,19 @@
         window.RC = {
             ink: '#15202b', muted: '#5b6875', line: '#e1e6ea', accent: '#0e6655',
             s1: '#15202b', s2: '#c2410c',
-            axisTitle: function (text) { return { display: true, text: text, color: '#33414e', font: { size: 12, weight: '600' } }; }
+            axisTitle: function (text, short) {
+                var narrow = window.matchMedia('(max-width: 640px)').matches;
+                return { display: !narrow || !!short, text: narrow && short ? short : text, color: '#33414e', font: { size: 12, weight: '600' } };
+            },
+            narrow: function () { return window.matchMedia('(max-width: 640px)').matches; },
+            fullDate: function (iso) {
+                var d = new Date(iso + 'T00:00:00');
+                return isNaN(d) ? iso : d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' });
+            },
+            monthYear: function (iso) {
+                var d = new Date(iso + 'T00:00:00');
+                return isNaN(d) ? iso : d.toLocaleDateString('nl-BE', { month: 'short', year: '2-digit' });
+            }
         };
         if (window.Chart) {
             Chart.defaults.font.family = "'Barlow', -apple-system, 'Segoe UI', Roboto, sans-serif";
@@ -436,7 +524,7 @@
                 </ul>
             </details>
         </div>
-        <button type="button" class="flash-close" aria-label="Melding sluiten" onclick="this.closest('.flash-wrap').remove()">&times;</button>
+        <button type="button" class="flash-close" aria-label="Melding sluiten">&times;</button>
     </div>
 </div>
 <div class="spinner-overlay" id="loadingSpinner" role="status" aria-live="polite" aria-hidden="true">
@@ -457,6 +545,33 @@
             var open = nav.classList.toggle('open');
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             toggle.textContent = open ? 'Sluiten' : 'Menu';
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (nav.classList.contains('open')) { toggle.click(); toggle.focus(); }
+            document.querySelectorAll('details.sync-more[open]').forEach(function (d) { d.open = false; d.querySelector('summary').focus(); });
+        });
+        // Close the "Meer opties" popover when clicking outside it
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('details.sync-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
+        });
+
+        document.querySelectorAll('.flash-close').forEach(function (b) {
+            b.addEventListener('click', function () { b.closest('.flash-wrap').remove(); });
+        });
+
+        // Filters: data-autosubmit submits the owning form on change; data-custom-target shows the
+        // matching date range only when "custom" is chosen.
+        document.querySelectorAll('[data-custom-target]').forEach(function (sel) {
+            var target = document.getElementById(sel.getAttribute('data-custom-target'));
+            if (!target) return;
+            sel.addEventListener('change', function () { target.classList.toggle('is-hidden', sel.value !== 'custom'); });
+        });
+        document.querySelectorAll('[data-autosubmit]').forEach(function (el) {
+            el.addEventListener('change', function () {
+                if (el.tagName === 'SELECT' && el.value === 'custom') return; // wait for dates
+                if (el.form) el.form.requestSubmit ? el.form.requestSubmit() : el.form.submit();
+            });
         });
 
         // Active navigation item

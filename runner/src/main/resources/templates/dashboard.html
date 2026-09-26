@@ -13,39 +13,47 @@
         <div class="actions">
             <form method="post" action="/fetch-all" data-loading="Alle trainingen ophalen..."><button type="submit" class="btn btn-primary btn-lg">Alle data ophalen</button></form>
         </div>
+        <p class="note mt-2">Kreeg je eerder een "too many requests"-fout? Ga dan verder waar je gebleven was:</p>
+        <div class="actions mt-2">
+            <form method="post" action="/fetch-remaining" data-loading="Ontbrekende data ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Ontbrekende data ophalen</button></form>
+        </div>
     </div>
 
     <div th:if="${hasData}">
         <div class="page-head">
-            <h1>Dashboard</h1>
+            <div>
+                <h1>Dashboard</h1>
+                <p class="page-meta">Laatste sync: <strong th:text="${stats.lastSync}">nooit</strong></p>
+            </div>
+            <div class="sync-bar" th:if="${hasToken}">
+                <div class="actions">
+                    <form method="post" action="/sync" data-loading="Nieuwe trainingen syncen..."><button type="submit" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</button></form>
+                    <details class="sync-more">
+                        <summary class="btn btn-secondary btn-sm">Meer opties</summary>
+                        <div class="sync-more-panel">
+                            <form method="post" action="/fetch-remaining" data-loading="Ontbrekende data ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Ontbrekende data ophalen</button></form>
+                            <p class="note-xs">Alleen activiteiten die nog niet in de database staan. Handig na een "too many requests"-fout.</p>
+                            <form method="post" action="/backfill-laps" data-loading="Rondes ophalen voor bestaande trainingen..."><button type="submit" class="btn btn-secondary btn-sm">Intervallen ophalen voor bestaande trainingen</button></form>
+                            <p class="note-xs">Haalt ronde/lap-data op voor trainingen die dit nog missen. Al verwerkte trainingen worden overgeslagen.</p>
+                            <hr>
+                            <form method="post" action="/fetch-all" data-loading="Alle data opnieuw ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Alle data opnieuw ophalen</button></form>
+                            <p class="note-xs">Haalt de volledige historiek opnieuw op. Duurt enkele minuten en telt zwaar mee in de Strava-limiet.</p>
+                            <hr>
+                            <a href="/export" class="btn btn-ghost btn-sm">Exporteer alle trainingen (JSON)</a>
+                        </div>
+                    </details>
+                </div>
+            </div>
         </div>
 
-        <form method="get" class="filter-bar" id="mainFilter" aria-label="Periode voor totaaloverzicht en laatste trainingen">
-            <div class="filter-row">
-                <span class="filter-group">
-                    <label for="period">Periode overzicht</label>
-                    <select name="period" id="period" onchange="this.form.submit()">
-                        <option value="all" th:selected="${filterPeriod == 'all' or filterPeriod == ''}">Alle periodes</option>
-                        <option value="last-month" th:selected="${filterPeriod == 'last-month'}">Laatste maand</option>
-                        <option value="last-year" th:selected="${filterPeriod == 'last-year'}">Laatste jaar</option>
-                        <option value="ytd" th:selected="${filterPeriod == 'ytd'}">Dit jaar (YTD)</option>
-                        <option value="last-2-years" th:selected="${filterPeriod == 'last-2-years'}">Laatste 2 jaar</option>
-                        <option value="last-3-years" th:selected="${filterPeriod == 'last-3-years'}">Laatste 3 jaar</option>
-                        <option value="custom" th:selected="${filterPeriod == 'custom'}">Aangepast</option>
-                    </select>
-                </span>
-                <div class="custom-dates" id="customDates" th:style="${filterPeriod == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                    <span class="filter-group"><label for="from">Van</label><input type="date" id="from" name="from" th:value="${filterFrom}" onchange="this.form.submit()"></span>
-                    <span class="filter-group"><label for="till">Tot en met</label><input type="date" id="till" name="till" th:value="${filterTill}" onchange="this.form.submit()"></span>
-                </div>
-                <button type="submit" class="btn btn-primary btn-sm sr-only">Filter</button>
-                <a href="?" class="btn btn-ghost btn-sm">Reset</a>
-            </div>
-        </form>
-
         <section class="card" aria-labelledby="h-totals">
-            <h2 id="h-totals">Totaaloverzicht</h2>
-            <p th:if="${stats.totalRuns == 0}" class="note mb-2">Geen runs in deze periode. Kies een andere periode of klik op Reset.</p>
+            <div class="card-head">
+                <h2 id="h-totals">Totaaloverzicht</h2>
+                <form method="get" id="mainFilter" class="filter-row" aria-label="Periode voor totaaloverzicht en laatste trainingen">
+                    <th:block th:replace="~{fragments :: periodFilter('Periode', ${filterPeriod}, ${filterFrom}, ${filterTill}, true)}"/>
+                </form>
+            </div>
+            <p th:if="${stats.totalRuns == 0}" class="note mb-2">Geen runs in deze periode. Kies een andere periode of <a href="?">wis de filters</a>.</p>
             <div class="stat-grid">
                 <div class="stat">
                     <div class="value" th:text="${stats.totalRuns}">0</div>
@@ -77,77 +85,62 @@
             </div>
         </section>
 
-        <section class="card" aria-labelledby="h-evolution">
+        <section class="card" aria-labelledby="h-weekly">
             <div class="card-head">
-                <h2 id="h-evolution">Evolutie loopniveau <span class="badge badge-est" title="Efficiëntiefactor op automatisch herkende trainingstypes: een trend-indicator, geen meting.">indicatie</span></h2>
-                <span class="filter-group">
-                    <label for="evolution">Periode grafiek</label>
-                    <select id="evolution" name="evolution" onchange="this.form.submit()" form="mainFilter">
-                        <option value="3m" th:selected="${filterEvolution == '3m'}">Laatste 3 maanden</option>
-                        <option value="6m" th:selected="${filterEvolution == '6m'}">Laatste 6 maanden</option>
-                        <option value="ytd" th:selected="${filterEvolution == 'ytd'}">Dit jaar (YTD)</option>
-                        <option value="1y" th:selected="${filterEvolution == '1y'}">Laatste jaar</option>
-                        <option value="2y" th:selected="${filterEvolution == '2y'}">Laatste 2 jaar</option>
-                        <option value="3y" th:selected="${filterEvolution == '3y'}">Laatste 3 jaar</option>
-                        <option value="custom" th:selected="${filterEvolution == 'custom'}">Aangepast</option>
-                        <option value="all" th:selected="${filterEvolution == 'all'}">Altijd</option>
-                    </select>
-                </span>
-            </div>
-            <div class="custom-dates mb-2" th:style="${filterEvolution == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                <span class="filter-group"><label for="evolutionFrom">Van</label><input type="date" id="evolutionFrom" name="evolutionFrom" th:value="${filterEvolutionFrom}" onchange="this.form.submit()" form="mainFilter"></span>
-                <span class="filter-group"><label for="evolutionTill">Tot en met</label><input type="date" id="evolutionTill" name="evolutionTill" th:value="${filterEvolutionTill}" onchange="this.form.submit()" form="mainFilter"></span>
-            </div>
-            <p class="intro">
-                Efficiëntiefactor per maand (snelheid in m/s gedeeld door hartslag in bpm). Een stijgende lijn betekent
-                sneller lopen bij dezelfde hartslag. Het is een trend-indicator, geen conditiemeting: terrein, warmte,
-                vermoeidheid en HR-meetfouten spelen mee. Rustig = automatisch herkende gelijkmatige weglopen met HR;
-                intervallen = automatisch herkende reps van 30 s of langer. Maanden met weinig lopen zijn onbetrouwbaar.
-            </p>
-            <div class="chart-scroll">
-                <div class="chart-box chart-box--tall">
-                    <canvas id="evolutionChart" role="img" aria-label="Lijngrafiek: efficiëntiefactor per maand voor rustige lopen en intervallen, met staven voor het aantal lopen en reps per maand."></canvas>
+                <div>
+                    <h2 id="h-weekly">Wekelijks volume</h2>
+                    <p class="note">Kilometers per week (maandag t/m zondag). Klik op een staaf om die week te openen.</p>
+                </div>
+                <div class="filter-row">
+                    <th:block th:replace="~{fragments :: chartRange('weekly', ${filterWeekly}, ${filterWeeklyFrom}, ${filterWeeklyTill})}"/>
                 </div>
             </div>
-            <div class="legend" aria-hidden="false">
+            <label class="check mb-2" for="weeklyScroll">
+                <input type="checkbox" id="weeklyScroll"> Scrollbare grafiek (bredere staven)
+            </label>
+            <div class="chart-scroll" id="weeklyScrollWrap">
+            <div class="chart-box" id="weeklyBox">
+                <canvas id="weeklyChart" role="img" aria-label="Staafgrafiek: aantal kilometer per week."></canvas>
+            </div>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="h-evolution">
+            <div class="card-head">
+                <div>
+                    <h2 id="h-evolution">Evolutie loopniveau <span class="badge badge-est" title="Efficiëntiefactor op automatisch herkende trainingstypes: een trend-indicator, geen meting.">indicatie</span></h2>
+                    <p class="note">Efficiëntiefactor per maand: hoger = sneller bij dezelfde hartslag.</p>
+                </div>
+                <div class="filter-row">
+                    <th:block th:replace="~{fragments :: chartRange('evolution', ${filterEvolution}, ${filterEvolutionFrom}, ${filterEvolutionTill})}"/>
+                </div>
+            </div>
+            <div class="chart-box chart-box--tall">
+                <canvas id="evolutionChart" role="img" aria-label="Lijngrafiek: efficiëntiefactor per maand voor rustige lopen en intervallen, met staven voor het aantal lopen en reps per maand."></canvas>
+            </div>
+            <div class="legend">
                 <span>● rustige lopen (doorlopende lijn) · ▲ intervallen (stippellijn)</span>
                 <span>Open punt = weinig data die maand (&lt; 3 rustige lopen of &lt; 2 intervalsessies)</span>
                 <span>De EF-as begint niet bij 0: kleine verschillen lijken groter.</span>
             </div>
-        </section>
-
-        <section class="card" aria-labelledby="h-weekly">
-            <div class="card-head">
-                <h2 id="h-weekly">Wekelijks volume</h2>
-                <span class="filter-group">
-                    <label for="weekly">Periode grafiek</label>
-                    <select id="weekly" name="weekly" onchange="this.form.submit()" form="mainFilter">
-                        <option value="3m" th:selected="${filterWeekly == '3m'}">Laatste 3 maanden</option>
-                        <option value="6m" th:selected="${filterWeekly == '6m'}">Laatste 6 maanden</option>
-                        <option value="ytd" th:selected="${filterWeekly == 'ytd'}">Dit jaar (YTD)</option>
-                        <option value="1y" th:selected="${filterWeekly == '1y'}">Laatste jaar</option>
-                        <option value="2y" th:selected="${filterWeekly == '2y'}">Laatste 2 jaar</option>
-                        <option value="3y" th:selected="${filterWeekly == '3y'}">Laatste 3 jaar</option>
-                        <option value="custom" th:selected="${filterWeekly == 'custom'}">Aangepast</option>
-                        <option value="all" th:selected="${filterWeekly == 'all'}">Altijd</option>
-                    </select>
-                </span>
-            </div>
-            <div class="custom-dates mb-2" th:style="${filterWeekly == 'custom'} ? 'display:inline-flex' : 'display:none'">
-                <span class="filter-group"><label for="weeklyFrom">Van</label><input type="date" id="weeklyFrom" name="weeklyFrom" th:value="${filterWeeklyFrom}" onchange="this.form.submit()" form="mainFilter"></span>
-                <span class="filter-group"><label for="weeklyTill">Tot en met</label><input type="date" id="weeklyTill" name="weeklyTill" th:value="${filterWeeklyTill}" onchange="this.form.submit()" form="mainFilter"></span>
-            </div>
-            <p class="note mb-2">Kilometers per week (maandag t/m zondag, lokale tijd van de activiteit). Klik op een staaf om die week te openen.</p>
-            <div class="chart-scroll">
-                <div class="chart-box" id="weeklyBox">
-                    <canvas id="weeklyChart" role="img" aria-label="Staafgrafiek: aantal kilometer per week."></canvas>
+            <details class="explain">
+                <summary>Hoe lees ik deze grafiek?</summary>
+                <div>
+                    <p>Efficiëntiefactor (EF) = snelheid in m/s gedeeld door hartslag in bpm. Een stijgende lijn betekent
+                    sneller lopen bij dezelfde hartslag. Het is een trend-indicator, geen conditiemeting: terrein, warmte,
+                    vermoeidheid en HR-meetfouten spelen mee.</p>
+                    <p>Rustig = automatisch herkende gelijkmatige weglopen met HR; intervallen = automatisch herkende reps
+                    van 30 s of langer. Maanden met weinig lopen zijn onbetrouwbaar.</p>
                 </div>
-            </div>
+            </details>
         </section>
 
         <section class="card" aria-labelledby="h-recent">
-            <h2 id="h-recent">Laatste trainingen</h2>
-            <div class="table-wrap">
+            <div class="card-head">
+                <h2 id="h-recent">Laatste trainingen</h2>
+                <a href="/activities" class="btn btn-ghost btn-sm">Alle trainingen &rarr;</a>
+            </div>
+            <div class="table-wrap table-stack">
                 <table>
                     <thead>
                         <tr>
@@ -162,26 +155,25 @@
                     </thead>
                     <tbody>
                         <tr th:each="a : ${recent}">
-                            <td class="nowrap" th:text="${a.date}">-</td>
-                            <td><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
-                            <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
-                            <td class="num" th:text="${a.distance}">-</td>
-                            <td class="num" th:text="${a.pace}">-</td>
-                            <td class="num" th:text="${a.avgHr}">-</td>
-                            <td class="num" th:text="${a.duration}">-</td>
+                            <td class="nowrap stack-meta" th:text="${a.date}">-</td>
+                            <td class="stack-title"><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
+                            <td class="stack-meta"><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                            <td class="num" data-label="Afstand" th:text="${a.distance}">-</td>
+                            <td class="num" data-label="Tempo" th:text="${a.pace}">-</td>
+                            <td class="num" data-label="HR" th:text="${a.avgHr}">-</td>
+                            <td class="num" data-label="Duur" th:text="${a.duration}">-</td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(recent)}" class="table-empty"><td colspan="7">Geen trainingen in deze periode.</td></tr>
                     </tbody>
                 </table>
             </div>
-            <div class="card-foot">
-                <a href="/activities" class="btn btn-secondary btn-sm">Alle trainingen</a>
-            </div>
         </section>
 
         <section class="card" aria-labelledby="h-pbs">
-            <h2 id="h-pbs">Persoonlijke records <span class="badge badge-calc" title="Berekend uit GPS-streams: snelste stuk over de exacte afstand binnen een run.">uit GPS-stream</span></h2>
-            <p class="note mb-2">Snelste stuk over de exacte afstand binnen een run. Zie Records voor bron en controle.</p>
+            <div class="card-head">
+                <h2 id="h-pbs">Persoonlijke records <span class="badge badge-calc" title="Berekend uit GPS-streams: snelste stuk over de exacte afstand binnen een run.">uit GPS-stream</span></h2>
+                <a href="/pbs" class="btn btn-ghost btn-sm">Alle records &rarr;</a>
+            </div>
             <div class="stat-grid">
                 <th:block th:each="pb : ${pbs}">
                     <a th:if="${pb.activityId != null}" class="stat" th:href="@{'/activity/' + ${pb.activityId}}">
@@ -196,51 +188,6 @@
                     </div>
                 </th:block>
             </div>
-            <div class="card-foot"><a href="/pbs" class="btn btn-secondary btn-sm">Alle records</a></div>
-        </section>
-    </div>
-
-    <div class="card-grid">
-        <section th:if="${hasToken}" class="card" aria-labelledby="h-sync">
-            <h2 id="h-sync">Data synchroniseren</h2>
-            <p class="note">Laatste sync: <strong th:text="${stats.lastSync}">nooit</strong></p>
-            <div class="actions mt-2">
-                <form method="post" action="/sync" data-loading="Nieuwe trainingen syncen..."><button type="submit" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</button></form>
-            </div>
-            <details class="explain">
-                <summary>Meer opties</summary>
-                <div>
-                    <div class="actions">
-                        <form method="post" action="/fetch-all" data-loading="Alle data opnieuw ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Alle data opnieuw ophalen</button></form>
-                        <form method="post" action="/fetch-remaining" data-loading="Ontbrekende data ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Ontbrekende data ophalen</button></form>
-                        <form method="post" action="/backfill-laps" data-loading="Rondes ophalen voor bestaande trainingen..."><button type="submit" class="btn btn-secondary btn-sm">Intervallen ophalen voor bestaande trainingen</button></form>
-                    </div>
-                    <p class="note mt-2">
-                        "Ontbrekende data" haalt alleen activiteiten op die nog niet in de database staan.
-                        Gebruik dit als je een "too many requests" fout kreeg bij het ophalen van alle data.
-                        "Intervallen ophalen" haalt de ronde/lap-data (voor interval-analyse) op voor bestaande trainingen die dit nog missen.
-                        Kan meerdere keren aangeklikt worden: al verwerkte trainingen worden overgeslagen.
-                    </p>
-                </div>
-            </details>
-        </section>
-
-        <section th:if="${hasData}" class="card" aria-labelledby="h-ai">
-            <h2 id="h-ai">AI-analyse</h2>
-            <p class="note">Genereer een prompt met je trainingshistoriek om te plakken in een AI-chatbot (ChatGPT, Claude, Gemini, ...).</p>
-            <div class="card-foot"><a href="/ai" class="btn btn-primary btn-sm">AI-prompt genereren</a></div>
-        </section>
-
-        <section th:if="${hasData}" class="card" aria-labelledby="h-compare">
-            <h2 id="h-compare">Periodes vergelijken</h2>
-            <p class="note">Vergelijk je loopniveau (tempo &amp; hartslag, rustig en intervallen) tussen twee periodes.</p>
-            <div class="card-foot"><a href="/compare" class="btn btn-secondary btn-sm">Periodes vergelijken</a></div>
-        </section>
-
-        <section th:if="${hasData}" class="card" aria-labelledby="h-export">
-            <h2 id="h-export">Exporteren</h2>
-            <p class="note">Exporteer alle trainingen als JSON.</p>
-            <div class="card-foot"><a href="/export" class="btn btn-secondary btn-sm">Exporteer als JSON</a></div>
         </section>
     </div>
 
@@ -293,7 +240,7 @@
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
-                        legend: { display: true, position: 'top' },
+                        legend: { display: true, position: RC.narrow() ? 'bottom' : 'top' },
                         tooltip: {
                             callbacks: {
                                 label: function (item) {
@@ -320,16 +267,16 @@
                     scales: {
                         y: {
                             position: 'left',
-                            title: RC.axisTitle('Efficiëntiefactor (m/s per bpm) · as begint niet bij 0'),
+                            title: RC.axisTitle('Efficiëntiefactor (m/s per bpm) · as begint niet bij 0', 'EF'),
                             grid: { color: RC.line },
                         },
                         yCount: {
                             position: 'right',
-                            title: RC.axisTitle('Aantal lopen / reps'),
+                            title: RC.axisTitle('Aantal lopen / reps', 'aantal'),
                             grid: { display: false },
                             beginAtZero: true,
                         },
-                        x: { title: RC.axisTitle('Maand'), grid: { display: false } },
+                        x: { title: RC.axisTitle('Maand'), grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: RC.narrow() ? 6 : 14, maxRotation: 0 } },
                     }
                 }
             });
@@ -343,13 +290,7 @@
         const weeklyCanvas = document.getElementById('weeklyChart');
         if (labels.length > 0) {
             const n = labels.length;
-            const box = document.getElementById('weeklyBox');
-            const containerWidth = box.parentElement.clientWidth || 800;
-            const chartWidth = Math.max(containerWidth, Math.min(n * 22, 8000));
-            box.style.width = chartWidth + 'px';
-            box.style.minWidth = '0';
-            box.parentElement.scrollLeft = box.parentElement.scrollWidth; // show most recent weeks first
-            new Chart(weeklyCanvas, {
+            const weeklyChart = new Chart(weeklyCanvas, {
                 type: 'bar',
                 data: {
                     labels: labels,
@@ -362,7 +303,7 @@
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                title: (items) => items.length ? 'Week van ' + items[0].label : '',
+                                title: (items) => items.length ? 'Week van ' + RC.fullDate(weekStarts[items[0].dataIndex]) : '',
                                 label: (item) => `${Number(item.raw).toFixed(1)} km`,
                             }
                         }
@@ -383,16 +324,35 @@
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true, grid: { color: RC.line }, title: RC.axisTitle('Kilometer') },
+                        y: { beginAtZero: true, grid: { color: RC.line }, title: RC.axisTitle('Kilometer per week', 'km') },
                         x: {
                             title: RC.axisTitle('Week (start maandag)'),
-                            ticks: { maxTicksLimit: Math.max(8, Math.min(36, Math.floor(n / 4))), autoSkip: true, maxRotation: 0 },
+                            ticks: { maxTicksLimit: RC.narrow() ? 5 : 12, autoSkip: true, maxRotation: 0, callback: function (v, i) { return weekStarts[v] ? (n > 30 ? RC.monthYear(weekStarts[v]) : RC.fullDate(weekStarts[v])) : this.getLabelForValue(v); } },
                             grid: { display: false }
                         }
                     }
                 }
             });
+
+            // Optional horizontal scrolling: ~22px per week, newest weeks visible first. Choice is remembered.
+            const scrollToggle = document.getElementById('weeklyScroll');
+            const scrollWrap = document.getElementById('weeklyScrollWrap');
+            const weeklyBox = document.getElementById('weeklyBox');
+            const applyScroll = function () {
+                const on = scrollToggle.checked;
+                const width = Math.max(scrollWrap.clientWidth, Math.min(n * 22, 8000));
+                weeklyBox.style.width = on ? width + 'px' : '';
+                weeklyChart.options.scales.x.ticks.maxTicksLimit = on ? Math.max(8, Math.min(36, Math.floor(n / 4))) : (RC.narrow() ? 5 : 12);
+                weeklyChart.resize();
+                weeklyChart.update('none');
+                if (on) scrollWrap.scrollLeft = scrollWrap.scrollWidth;
+                try { localStorage.setItem('weeklyScroll', on ? '1' : '0'); } catch (e) {}
+            };
+            try { scrollToggle.checked = localStorage.getItem('weeklyScroll') === '1'; } catch (e) {}
+            scrollToggle.addEventListener('change', applyScroll);
+            if (scrollToggle.checked) applyScroll();
         } else {
+            document.getElementById('weeklyScroll').parentElement.remove();
             weeklyCanvas.parentElement.outerHTML = '<div class="chart-empty">Geen lopen in deze periode.</div>';
         }
     </script>

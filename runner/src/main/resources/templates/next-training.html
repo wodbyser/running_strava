@@ -12,7 +12,8 @@
     </div>
 
     <form method="get" action="/next-training/prompt" class="card" aria-labelledby="h-plan">
-        <h2 id="h-plan">Geplande training</h2>
+        <fieldset class="form-section">
+        <legend id="h-plan">Geplande training</legend>
         <div class="filter-row">
             <span class="filter-group">
                 <label for="distanceKm">Afstand (km)</label>
@@ -37,7 +38,9 @@
             </span>
         </div>
 
-        <h2 class="mt-2">Doel</h2>
+        </fieldset>
+        <fieldset class="form-section">
+        <legend>Doel</legend>
         <div class="filter-row">
             <span class="filter-group">
                 <label for="goalRace">Doelwedstrijd</label>
@@ -55,10 +58,12 @@
             </span>
             <span class="filter-group">
                 <label for="goalTime">Doeltijd (u:mm:ss)</label>
-                <input type="text" id="goalTime" name="goalTime" th:value="${goalTime}" placeholder="bv. 1:45:00" inputmode="numeric" style="width:120px;">
+                <input type="text" id="goalTime" name="goalTime" th:value="${goalTime}" placeholder="bv. 1:45:00" pattern="\d{1,2}(:\d{2}){1,2}" title="Formaat u:mm:ss of mm:ss, bv. 1:45:00" aria-describedby="goalTime-hint" class="input-sm">
+                <span class="field-hint" id="goalTime-hint">Optioneel, bv. 1:45:00</span>
             </span>
         </div>
 
+        </fieldset>
         <div class="field-block">
             <label for="notes" class="field-label">Extra opmerkingen</label>
             <textarea id="notes" name="notes" rows="3" placeholder="bv. schema-details, hoe je je voelt, blessures, weersomstandigheden, ..." th:text="${notes}" aria-describedby="notes-hint"></textarea>
@@ -67,6 +72,7 @@
 
         <div class="card-foot">
             <button type="submit" class="btn btn-primary">Prompt genereren</button>
+            <span class="field-hint">Alle velden zijn optioneel; hoe meer je invult, hoe gerichter het advies.</span>
         </div>
     </form>
 </th:block>

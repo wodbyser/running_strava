@@ -5,7 +5,7 @@
 <div th:if="${!hasToken}" class="card empty-state">
     <h2>Koppel eerst Strava</h2>
     <p>De coach werkt op je Strava-trainingen. Koppel je account om zones, profiel en voorspellingen te zien.</p>
-    <div class="actions"><a href="/auth/strava" class="btn btn-primary btn-lg">Strava Authoriseren</a></div>
+    <div class="actions"><a href="/auth/strava" class="btn btn-primary btn-lg">Koppel Strava-account</a></div>
 </div>
 
 <div th:if="${hasToken && !hasData}" class="card empty-state">
@@ -20,7 +20,7 @@
 
 <div th:if="${hasToken && hasData && coachData != null}">
 
-    <div class="page-head card-head">
+    <div class="page-head">
         <div>
             <h1>Coach</h1>
             <p>Hartslagzones, profiel en wedstrijdvoorspellingen. Onderdelen met een <span class="badge badge-est">schatting</span>-label zijn door de app afgeleid, niet gemeten.</p>

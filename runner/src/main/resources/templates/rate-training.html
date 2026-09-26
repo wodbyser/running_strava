@@ -18,7 +18,7 @@
 
     <section class="card" th:if="${!#lists.isEmpty(recentRuns)}" aria-labelledby="h-runs">
         <h2 id="h-runs">Laatste 50 trainingen</h2>
-        <div class="table-wrap">
+        <div class="table-wrap table-stack">
             <table>
                 <thead>
                     <tr>
@@ -29,19 +29,19 @@
                         <th scope="col" class="num">Tempo</th>
                         <th scope="col" class="num">HR gem</th>
                         <th scope="col" class="num">Duur</th>
-                        <th scope="col"><span class="sr-only">Actie</span></th>
+                        <th scope="col" class="stack-hide"><span class="sr-only">Actie</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="a : ${recentRuns}">
-                        <td class="nowrap" th:text="${a.date}">-</td>
-                        <td><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
-                        <td><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
-                        <td class="num" th:text="${a.distance}">-</td>
-                        <td class="num" th:text="${a.pace}">-</td>
-                        <td class="num" th:text="${a.avgHr}">-</td>
-                        <td class="num" th:text="${a.duration}">-</td>
-                        <td class="num">
+                        <td class="nowrap stack-meta" th:text="${a.date}">-</td>
+                        <td class="stack-title"><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
+                        <td class="stack-meta"><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                        <td class="num" data-label="Afstand" th:text="${a.distance}">-</td>
+                        <td class="num" data-label="Tempo" th:text="${a.pace}">-</td>
+                        <td class="num" data-label="HR gem" th:text="${a.avgHr}">-</td>
+                        <td class="num" data-label="Duur" th:text="${a.duration}">-</td>
+                        <td class="num stack-action">
                             <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="btn btn-secondary btn-sm"
                                th:attr="aria-label='Beoordeel ' + ${a.name} + ' van ' + ${a.date}">Beoordeel</a>
                         </td>

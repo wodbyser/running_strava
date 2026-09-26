@@ -1,18 +1,23 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <a href="/activities" class="back-link">&larr; Terug naar overzicht</a>
+    <a href="/activities" class="back-link">&larr; Alle trainingen</a>
 
-    <section class="card" aria-labelledby="h-activity">
-        <div class="card-head">
-            <div>
-                <h1 id="h-activity" th:text="${a.name}">-</h1>
-                <p class="note" th:text="${a.date}">-</p>
-            </div>
-            <span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span>
+    <div class="page-head">
+        <div>
+            <h1 id="h-activity" th:text="${a.name}">-</h1>
+            <p class="page-meta">
+                <span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span>
+                <span th:text="${a.date}">-</span>
+            </p>
         </div>
+        <div class="actions">
+            <a th:href="${a.stravaUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Bekijk op Strava &rarr;<span class="sr-only"> (opent in nieuw tabblad)</span></a>
+        </div>
+    </div>
 
-        <div class="stat-grid mt-2">
+    <section class="card" aria-label="Kerncijfers">
+        <div class="stat-grid">
             <div class="stat">
                 <div class="value" th:text="${a.distance}">-</div>
                 <div class="label">Afstand</div>
@@ -39,29 +44,22 @@
                 <div class="stat-sub" th:if="${a.isRun}">beide voeten</div>
             </div>
         </div>
+
+        <h2 id="h-details" class="sr-only">Details</h2>
+        <dl class="facts facts-divided" aria-labelledby="h-details">
+            <div><dt>Elevatie</dt><dd th:text="${a.elevation}">-</dd></div>
+            <div><dt>Totale tijd (incl. stilstand)</dt><dd th:text="${a.elapsed}">-</dd></div>
+            <div><dt>Snelste moment (max. snelheid)</dt><dd th:text="${a.maxSpeed}">-</dd></div>
+            <div><dt>Gem. vermogen</dt><dd th:text="${a.avgWatts}">-</dd></div>
+            <div><dt>Max vermogen</dt><dd th:text="${a.maxWatts}">-</dd></div>
+            <div><dt>Calorieën</dt><dd th:text="${a.calories}">-</dd></div>
+            <div><dt>Suffer Score</dt><dd th:text="${a.sufferScore}">-</dd></div>
+        </dl>
     </section>
 
-    <section class="card" aria-labelledby="h-details">
-        <h2 id="h-details">Details</h2>
-        <div class="table-wrap">
-            <table class="kv">
-                <tr><th scope="row">Elevatie</th><td th:text="${a.elevation}">-</td></tr>
-                <tr><th scope="row">Totale tijd (incl. stilstand)</th><td th:text="${a.elapsed}">-</td></tr>
-                <tr><th scope="row">Snelste moment (max. snelheid als tempo)</th><td th:text="${a.maxSpeed}">-</td></tr>
-                <tr><th scope="row">Gem. vermogen</th><td th:text="${a.avgWatts}">-</td></tr>
-                <tr><th scope="row">Max vermogen</th><td th:text="${a.maxWatts}">-</td></tr>
-                <tr><th scope="row">Calorieën</th><td th:text="${a.calories}">-</td></tr>
-                <tr><th scope="row">Suffer Score</th><td th:text="${a.sufferScore}">-</td></tr>
-            </table>
-        </div>
-        <div class="card-foot">
-            <a th:href="${a.stravaUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Bekijk op Strava &rarr;</a>
-        </div>
-    </section>
-
-    <section th:if="${a.description}" class="card" aria-labelledby="h-notes">
+    <section th:if="${a.description != null and a.description != '-' and not #strings.isEmpty(#strings.trim(a.description))}" class="card" aria-labelledby="h-notes">
         <h2 id="h-notes">Notities</h2>
-        <p style="white-space:pre-wrap;" th:text="${a.description}">-</p>
+        <p class="prose-pre" th:text="${a.description}">-</p>
     </section>
 
     <section th:if="${hasLaps}" class="card" aria-labelledby="h-laps">
@@ -77,6 +75,7 @@
         </p>
         <div class="table-wrap">
             <table>
+                <caption class="sr-only">Rondes van deze training</caption>
                 <thead>
                     <tr>
                         <th scope="col" class="num">#</th>

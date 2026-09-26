@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--/* Period select + custom date range used by Dashboard, Trainingen and Records.
+       auto = submit on change (true) or wait for the form's submit button (false). */-->
+<th:block th:fragment="periodFilter(label, value, from, till, auto)">
+    <span class="filter-group">
+        <label for="period" th:text="${label}">Periode</label>
+        <select name="period" id="period" data-custom-target="customDates" th:attr="data-autosubmit=${auto} ? 'true' : null">
+            <option value="all" th:selected="${value == 'all' or value == null or value == ''}">Alle periodes</option>
+            <option value="last-month" th:selected="${value == 'last-month'}">Laatste maand</option>
+            <option value="last-year" th:selected="${value == 'last-year'}">Laatste jaar</option>
+            <option value="ytd" th:selected="${value == 'ytd'}">Dit jaar (YTD)</option>
+            <option value="last-2-years" th:selected="${value == 'last-2-years'}">Laatste 2 jaar</option>
+            <option value="last-3-years" th:selected="${value == 'last-3-years'}">Laatste 3 jaar</option>
+            <option value="custom" th:selected="${value == 'custom'}">Aangepast</option>
+        </select>
+    </span>
+    <div class="custom-dates" id="customDates" th:classappend="${value != 'custom'} ? 'is-hidden'">
+        <span class="filter-group"><label for="from">Van</label><input type="date" id="from" name="from" th:value="${from}" th:attr="data-autosubmit=${auto} ? 'true' : null"></span>
+        <span class="filter-group"><label for="till">Tot en met</label><input type="date" id="till" name="till" th:value="${till}" th:attr="data-autosubmit=${auto} ? 'true' : null"></span>
+    </div>
+</th:block>
+
+<!--/* Chart range select (Dashboard charts). prefix = request param name, e.g. 'evolution'. */-->
+<th:block th:fragment="chartRange(prefix, value, from, till)">
+    <span class="filter-group">
+        <label th:for="${prefix}">Bereik grafiek</label>
+        <select th:id="${prefix}" th:name="${prefix}" form="mainFilter" data-autosubmit="true" th:attr="data-custom-target=${prefix} + 'Dates'">
+            <option value="3m" th:selected="${value == '3m'}">Laatste 3 maanden</option>
+            <option value="6m" th:selected="${value == '6m'}">Laatste 6 maanden</option>
+            <option value="ytd" th:selected="${value == 'ytd'}">Dit jaar (YTD)</option>
+            <option value="1y" th:selected="${value == '1y'}">Laatste jaar</option>
+            <option value="2y" th:selected="${value == '2y'}">Laatste 2 jaar</option>
+            <option value="3y" th:selected="${value == '3y'}">Laatste 3 jaar</option>
+            <option value="custom" th:selected="${value == 'custom'}">Aangepast</option>
+            <option value="all" th:selected="${value == 'all'}">Altijd</option>
+        </select>
+    </span>
+    <div class="custom-dates" th:id="${prefix} + 'Dates'" th:classappend="${value != 'custom'} ? 'is-hidden'">
+        <span class="filter-group"><label th:for="${prefix} + 'From'">Van</label><input type="date" th:id="${prefix} + 'From'" th:name="${prefix} + 'From'" th:value="${from}" form="mainFilter" data-autosubmit="true"></span>
+        <span class="filter-group"><label th:for="${prefix} + 'Till'">Tot en met</label><input type="date" th:id="${prefix} + 'Till'" th:name="${prefix} + 'Till'" th:value="${till}" form="mainFilter" data-autosubmit="true"></span>
+    </div>
+</th:block>
+
+</body>
+</html>
