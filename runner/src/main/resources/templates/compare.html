@@ -5,7 +5,7 @@
     <div class="page-head">
         <h1>Periodes vergelijken</h1>
         <p>
-            Vergelijk twee periodes op efficiëntiefactor (EF = snelheid / hartslag, meter per hartslag; hoger = sneller
+            Vergelijk twee periodes op efficiëntiefactor (EF = snelheid in m/s gedeeld door hartslag in bpm; hoger = sneller
             bij dezelfde hartslag). EF is een trend-indicator, geen meting van conditie: terrein, warmte, vermoeidheid
             en de kwaliteit van de hartslagmeting beïnvloeden hem sterk. Het type training (rustig, tempo, interval)
             wordt automatisch herkend door de app.
@@ -67,9 +67,9 @@
                         <td class="num">-</td>
                     </tr>
                     <tr>
-                        <th scope="row" class="note">Niet meegeteld: zonder HR / trail of loopband / wedstrijd / tempo / versnellingen</th>
-                        <td class="num note" th:text="${result.periodA.easyRunsWithoutHr + ' / ' + result.periodA.excludedTrailOrTreadmill + ' / ' + result.periodA.excludedRaces + ' / ' + result.periodA.excludedTempo + ' / ' + result.periodA.excludedStrides}">-</td>
-                        <td class="num note" th:text="${result.periodB.easyRunsWithoutHr + ' / ' + result.periodB.excludedTrailOrTreadmill + ' / ' + result.periodB.excludedRaces + ' / ' + result.periodB.excludedTempo + ' / ' + result.periodB.excludedStrides}">-</td>
+                        <th scope="row" class="note">Niet meegeteld: zonder HR / trail of loopband / wedstrijd / tempo / versnellingen / wedstrijdinspanning (gem. HR ≥ 85% max, niet als wedstrijd getagd)</th>
+                        <td class="num note" th:text="${result.periodA.easyRunsWithoutHr + ' / ' + result.periodA.excludedTrailOrTreadmill + ' / ' + result.periodA.excludedRaces + ' / ' + result.periodA.excludedTempo + ' / ' + result.periodA.excludedStrides + ' / ' + result.periodA.excludedHardEfforts}">-</td>
+                        <td class="num note" th:text="${result.periodB.easyRunsWithoutHr + ' / ' + result.periodB.excludedTrailOrTreadmill + ' / ' + result.periodB.excludedRaces + ' / ' + result.periodB.excludedTempo + ' / ' + result.periodB.excludedStrides + ' / ' + result.periodB.excludedHardEfforts}">-</td>
                         <td class="num">-</td>
                     </tr>
                     <tr>

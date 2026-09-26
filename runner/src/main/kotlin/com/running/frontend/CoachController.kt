@@ -44,7 +44,7 @@ class CoachController(
         val result = syncStravaData.execute()
         val msg = buildString {
             append("Synchronisatie voltooid. ")
-            append("${result.newActivities} nieuw, ${result.streamsFetched} streams opgehaald")
+            append("${result.newActivities} nieuw, ${result.updatedActivities} bijgewerkt (aangepast op Strava), ${result.streamsFetched} streams opgehaald")
             if (result.errors.isNotEmpty()) {
                 append(", ${result.errors.size} fout(en)")
             }

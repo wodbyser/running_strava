@@ -8,5 +8,7 @@ interface SyncStravaData {
         val newActivities: Int,
         val streamsFetched: Int,
         val errors: List<String>,
+        /** Already-stored activities that were edited on Strava and updated. */
+        val updatedActivities: Int = 0,
     )
 }

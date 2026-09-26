@@ -158,7 +158,7 @@
             </div>
             <div class="stat">
                 <div class="value" th:text="${coachData.runnerProfile.totalTime}">200</div>
-                <div class="label">Totale tijd (uren)</div>
+                <div class="label">Totale bewegingstijd (u:mm:ss)</div>
             </div>
             <div class="stat">
                 <div class="value" th:text="${coachData.runnerProfile.longestRun}">21</div>
@@ -186,8 +186,8 @@
     <section class="card" aria-labelledby="h-pred">
         <h2 id="h-pred">Wedstrijdvoorspellingen <span class="badge badge-est" title="Model (Riegel) op je eigen inspanningen; geen garantie.">schatting</span></h2>
         <p class="intro">
-            Riegel-formule (T2 = T1 &middot; (D2/D1)<sup>1,06</sup>) op <strong>doorlopende</strong> inspanningen van de laatste
-            12 maanden: wedstrijden, je snelste stukken over 1/5/10/21,1/42,2 km binnen een run (uit GPS-streams) en runs met
+            Riegel-formule (T2 = T1 &middot; (D2/D1)<sup>1,06</sup>) op <strong>doorlopende</strong> inspanningen van de
+            <span th:text="${coachData.windowLabel}">laatste 12 maanden</span>: wedstrijden, je snelste stukken over 1/5/10/21,1/42,2 km binnen een run (uit GPS-streams) en runs met
             gem. HR &ge; 85% van je geschatte max. Intervalreps tellen niet mee (er zit rust tussen). Getoond: de mediaan van
             minstens 2 inspanningen binnen 0,4-2,5x de doelafstand, afgerond, met de spreiding. Riegel veronderstelt dat je
             voor de doelafstand even goed getraind bent; voor de marathon is hij vaak te optimistisch.

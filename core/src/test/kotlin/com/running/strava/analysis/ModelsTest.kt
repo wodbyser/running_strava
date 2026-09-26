@@ -51,6 +51,19 @@ class ModelsTest {
     }
 
     @Test
+    fun `verdict never contradicts the per-session direction`() {
+        // Regression: pooled EF +5 % (0.020 -> 0.021, e.g. because the mix of long/short runs changed) while EVERY
+        // session got worse (0.020 -> 0.019, -5 %). Old code said IMPROVED. The statistics disagree → UNCERTAIN.
+        val a = listOf(0.0200, 0.0201, 0.0199, 0.0200, 0.0200)
+        val b = listOf(0.0190, 0.0191, 0.0189, 0.0190, 0.0190)
+        assertEquals(EfVerdict.Status.UNCERTAIN, EfVerdict.evaluate(0.020, 0.021, a, b, 5).status)
+        // Pooled +2 % (inside band) but sessions -5 %: also not a confident verdict.
+        assertEquals(EfVerdict.Status.UNCERTAIN, EfVerdict.evaluate(0.020, 0.0204, a, b, 5).status)
+        // Both agree on -5 % with tight spread → DECLINED.
+        assertEquals(EfVerdict.Status.DECLINED, EfVerdict.evaluate(0.020, 0.019, a, b, 5).status)
+    }
+
+    @Test
     fun `riegel matches the published formula`() {
         // 2^1.06 = 2.084931
         assertEquals(1200 * 2.084931, RacePredictor.riegel(1200.0, 5000.0, 10000.0), 0.01)

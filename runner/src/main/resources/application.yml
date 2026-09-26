@@ -22,6 +22,11 @@ spring:
   thymeleaf:
     cache: false
 
+  # Fixed locale so Thymeleaf #numbers uses the same decimal point as the rest of the app (not the browser locale).
+  web:
+    locale: en
+    locale-resolver: fixed
+
 server:
   port: 8080
 

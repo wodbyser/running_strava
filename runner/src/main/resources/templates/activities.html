@@ -83,8 +83,8 @@
                     <td class="num" th:text="${a.distance}">-</td>
                     <td class="num" th:text="${a.pace}">-</td>
                     <td class="num" th:text="${a.avgHr}">-</td>
-                    <td class="num" th:text="${a.maxHr}">-</td>
-                    <td class="num" th:text="${a.cadence}">-</td>
+                    <td class="num" th:text="${a.maxHr ?: '-'}">-</td>
+                    <td class="num" th:text="${a.cadence ?: '-'}">-</td>
                     <td class="num" th:text="${a.elevation}">-</td>
                     <td class="num" th:text="${a.duration}">-</td>
                     <td class="num" th:text="${a.sufferScore ?: '-'}">-</td>

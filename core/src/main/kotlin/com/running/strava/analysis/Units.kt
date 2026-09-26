@@ -1,6 +1,8 @@
 package com.running.strava.analysis
 
 import com.running.strava.domain.Activity
+import java.util.Locale
+import com.running.strava.domain.Lap
 import java.time.DateTimeException
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -12,6 +14,18 @@ import kotlin.math.roundToLong
 val RUN_TYPES = setOf("Run", "TrailRun", "VirtualRun")
 
 fun Activity.isRun(): Boolean = type in RUN_TYPES
+
+/**
+ * Lap speed for DISPLAY: distance / moving time in double precision. Strava's `average_speed` is the same
+ * quantity but stored as a rounded Float, which made a lap line and a pooled pace differ by 1 s at the
+ * half-second edge. Falls back to `averageSpeed` when time or distance is missing.
+ */
+fun Lap.speedMs(): Double =
+    if (movingTime > 0 && distance > 0f) distance.toDouble() / movingTime else averageSpeed.toDouble()
+
+/** Activity speed for display: distance / moving time (same definition as the aggregates). */
+fun Activity.speedMs(): Double =
+    if (movingTime > 0 && distance > 0f) distance.toDouble() / movingTime else averageSpeed.toDouble()
 
 /** Strava `workout_type` for runs: 0 = default, 1 = race, 2 = long run, 3 = workout. */
 object WorkoutType {
@@ -59,7 +73,7 @@ object Format {
     }
 
     /** Distance in km with 2 decimals. */
-    fun km(meters: Number, decimals: Int = 2): String = "%.${decimals}f km".format(meters.toDouble() / 1000)
+    fun km(meters: Number, decimals: Int = 2): String = "%.${decimals}f km".format(Locale.ROOT, meters.toDouble() / 1000)
 }
 
 /**

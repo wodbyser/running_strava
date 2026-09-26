@@ -1,16 +1,18 @@
 package com.running.analysis
 
 import com.running.strava.analysis.ActivityTime
+import java.util.Locale
+import java.time.ZonedDateTime
 import com.running.strava.analysis.DateRange
 import com.running.strava.analysis.EfVerdict
 import com.running.strava.analysis.EfficiencyFactor
 import com.running.strava.analysis.EfficiencyFactor.Sample
 import com.running.strava.analysis.Format
+import com.running.strava.analysis.HrZones
 import com.running.strava.analysis.RUN_TYPES
 import com.running.strava.domain.Activity
 import com.running.strava.domain.Lap
 import com.running.strava.domain.LapClassifier
-import com.running.strava.domain.LapKind
 import com.running.strava.domain.SessionClassifier
 import com.running.strava.domain.SessionType
 import com.running.strava.spi.ActivityRepository
@@ -49,6 +51,8 @@ class PeriodComparisonService(
         val excludedTempo: Int,
         val excludedStrides: Int,
         val excludedTrailOrTreadmill: Int,
+        /** Steady road runs with average HR >= 85 % of estimated max HR (e.g. a race not tagged on Strava). */
+        val excludedHardEfforts: Int,
         val easyAvgPace: String,
         val easyAvgHr: Double?,
         val easyEf: Double?,
@@ -99,8 +103,9 @@ class PeriodComparisonService(
         val allRuns = activityRepository.findAll().filter { it.type in RUN_TYPES }
         val lapsByActivity = activityRepository.findLapsForActivities(allRuns.map { it.id })
 
-        val a = classify(allRuns.filter { rangeA.contains(it) }, lapsByActivity, rangeA, labelA)
-        val b = classify(allRuns.filter { rangeB.contains(it) }, lapsByActivity, rangeB, labelB)
+        val maxHr = estimateMaxHr(allRuns)
+        val a = classify(allRuns.filter { rangeA.contains(it) }, lapsByActivity, rangeA, labelA, maxHr)
+        val b = classify(allRuns.filter { rangeB.contains(it) }, lapsByActivity, rangeB, labelB, maxHr)
 
         val easy = EfVerdict.evaluate(a.stats.easyEf, b.stats.easyEf, a.easyPerRunEf, b.easyPerRunEf, EfVerdict.MIN_EASY_RUNS)
         val interval = EfVerdict.evaluate(a.stats.intervalEf, b.stats.intervalEf, a.intervalPerSessionEf, b.intervalPerSessionEf, EfVerdict.MIN_INTERVAL_SESSIONS)
@@ -113,16 +118,26 @@ class PeriodComparisonService(
             easyVerdict = easy,
             intervalVerdict = interval,
             verdict = buildVerdict(easy, interval, a.stats, b.stats),
-            monthlyTrend = buildMonthlyTrend(allRuns, lapsByActivity),
+            monthlyTrend = buildMonthlyTrend(allRuns, lapsByActivity, maxHr),
         )
     }
 
     fun buildMonthlyTrend(runs: List<Activity>): List<MonthlyPoint> =
-        buildMonthlyTrend(runs, activityRepository.findLapsForActivities(runs.map { it.id }))
+        // Max HR from ALL stored runs (not just the filtered ones), so it matches the coach page.
+        buildMonthlyTrend(
+            runs, activityRepository.findLapsForActivities(runs.map { it.id }),
+            estimateMaxHr(activityRepository.findAll().filter { it.type in RUN_TYPES }),
+        )
 
-    private fun buildMonthlyTrend(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>): List<MonthlyPoint> =
+    /**
+     * Max-HR estimate, identical to the coach page ([HrZones.estimateMaxHrForRuns]: p95 of per-run max HR over the
+     * 12 months before today, all runs if none), only used to keep hard efforts out of the "easy" EF population.
+     */
+    private fun estimateMaxHr(runs: List<Activity>): Int? = HrZones.estimateMaxHrForRuns(runs, ZonedDateTime.now())
+
+    private fun buildMonthlyTrend(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, maxHr: Int?): List<MonthlyPoint> =
         runs.groupBy { YearMonth.from(ActivityTime.localDate(it)) }.toSortedMap().map { (month, monthRuns) ->
-            val c = classify(monthRuns, lapsByActivity, DateRange.ALL, month.toString())
+            val c = classify(monthRuns, lapsByActivity, DateRange.ALL, month.toString(), maxHr)
             MonthlyPoint(
                 month = month.toString(),
                 easyEf = c.stats.easyEf,
@@ -133,21 +148,20 @@ class PeriodComparisonService(
             )
         }
 
-    private fun classify(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, range: DateRange, label: String): Classified {
+    private fun classify(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, range: DateRange, label: String, maxHr: Int?): Classified {
         val types = runs.associateWith { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType) }
 
         val steady = runs.filter { types[it] == SessionType.STEADY }
         val roadSteady = steady.filter { it.type == "Run" && !it.isTrainer }
-        val easyWithHr = roadSteady.filter { (it.averageHeartrate ?: 0f) > 0f && it.movingTime > 0 && it.distance > 0 }
+        // A steady run at race-like HR (e.g. a race not tagged as race on Strava) is not an easy run.
+        val hardEfforts = roadSteady.filter { HrZones.isHardEffort(it.averageHeartrate, maxHr) }
+        val easyWithHr = roadSteady.filter { it !in hardEfforts && (it.averageHeartrate ?: 0f) > 0f && it.movingTime > 0 && it.distance > 0 }
         val easySamples = easyWithHr.map { Sample(it.distance.toDouble(), it.movingTime.toDouble(), it.averageHeartrate!!.toDouble()) }
         val easyPerRun = easySamples.mapNotNull { EfficiencyFactor.pooled(listOf(it)) }
 
         val intervalSessions = runs.filter { types[it] == SessionType.INTERVAL }
-        val repsPerSession = intervalSessions.associateWith { a ->
-            val laps = lapsByActivity[a.id].orEmpty()
-            val kinds = LapClassifier.classify(laps, a.workoutType)
-            laps.filterIndexed { i, lap -> kinds[i] == LapKind.REP && lap.movingTime >= LapClassifier.MIN_REP_SECONDS }
-        }
+        // Contiguous rep laps (auto-lap) count as one rep.
+        val repsPerSession = intervalSessions.associateWith { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType) }
         val repSamplesPerSession = repsPerSession.mapValues { (_, reps) ->
             EfficiencyFactor.usable(reps.map { Sample(it.distance.toDouble(), it.movingTime.toDouble(), it.averageHeartrate?.toDouble()) })
         }.filterValues { it.isNotEmpty() }
@@ -162,11 +176,12 @@ class PeriodComparisonService(
             totalDistanceKm = runs.sumOf { it.distance.toDouble() } / 1000,
             totalTimeHours = runs.sumOf { it.movingTime.toLong() } / 3600.0,
             easyRunCount = easyWithHr.size,
-            easyRunsWithoutHr = roadSteady.size - easyWithHr.size,
+            easyRunsWithoutHr = roadSteady.size - hardEfforts.size - easyWithHr.size,
             excludedRaces = types.values.count { it == SessionType.RACE },
             excludedTempo = types.values.count { it == SessionType.TEMPO },
             excludedStrides = types.values.count { it == SessionType.STRIDES },
             excludedTrailOrTreadmill = steady.size - roadSteady.size,
+            excludedHardEfforts = hardEfforts.size,
             easyAvgPace = Format.pace(EfficiencyFactor.avgSpeed(easySamples)),
             easyAvgHr = EfficiencyFactor.avgHr(easySamples),
             easyEf = EfficiencyFactor.pooled(easySamples),
@@ -183,13 +198,13 @@ class PeriodComparisonService(
     }
 
     private fun describe(kind: String, r: EfVerdict.Result, minN: Int): String {
-        val pct = r.changePct?.let { (if (it > 0) "+" else "") + "%.1f".format(it) + "%" }
+        val pct = r.changePct?.let { (if (it > 0) "+" else "") + "%.1f".format(Locale.ROOT, it) + "%" }
         return when (r.status) {
             EfVerdict.Status.INSUFFICIENT_DATA ->
                 "$kind: onvoldoende data voor een oordeel (${r.nA} vs ${r.nB} sessies met HR; minimum $minN per periode)" +
                     (pct?.let { ", ruwe verandering $it" } ?: "")
             EfVerdict.Status.STABLE -> "$kind: stabiel ($pct, binnen ±${EfVerdict.THRESHOLD_PCT.toInt()}%)"
-            EfVerdict.Status.UNCERTAIN -> "$kind: $pct, maar dat verschil valt binnen de spreiding tussen losse sessies, dus geen duidelijke verandering"
+            EfVerdict.Status.UNCERTAIN -> "$kind: $pct, maar dat verschil is niet eenduidig (valt binnen de spreiding tussen losse sessies, of het gemiddelde per sessie wijst niet dezelfde kant op), dus geen duidelijke verandering"
             EfVerdict.Status.IMPROVED -> "$kind: indicatie van verbetering ($pct)"
             EfVerdict.Status.DECLINED -> "$kind: indicatie van achteruitgang ($pct)"
         }
@@ -203,7 +218,7 @@ class PeriodComparisonService(
         val repA = a.intervalAvgRepSeconds
         val repB = b.intervalAvgRepSeconds
         if (repA != null && repB != null && abs(repA - repB) / maxOf(repA, repB) > 0.2) {
-            parts += "Let op: de gemiddelde repduur verschilt sterk (${"%.0f".format(repA)} s vs ${"%.0f".format(repB)} s); " +
+            parts += "Let op: de gemiddelde repduur verschilt sterk (${"%.0f".format(Locale.ROOT, repA)} s vs ${"%.0f".format(Locale.ROOT, repB)} s); " +
                 "interval-EF hangt af van de replengte, dus die vergelijking is weinig betrouwbaar"
         }
         return "Indicatie van de app (EF is gevoelig voor terrein, warmte, vermoeidheid en HR-meting). " + parts.joinToString(". ") + "."

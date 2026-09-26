@@ -1,11 +1,13 @@
 package com.running.analysis
 
 import com.running.strava.analysis.ActivityTime
+import java.util.Locale
 import com.running.strava.analysis.Cadence
 import com.running.strava.analysis.DateRange
 import com.running.strava.analysis.EfVerdict
 import com.running.strava.analysis.EfficiencyFactor
 import com.running.strava.analysis.Format
+import com.running.strava.analysis.speedMs
 import com.running.strava.analysis.HrZones
 import com.running.strava.analysis.RUN_TYPES
 import com.running.strava.analysis.RunAggregates
@@ -79,15 +81,18 @@ class AiAnalysisService(
         appendLine("- Datums en weken: lokale datum van de activiteit; een week loopt van maandag t/m zondag.")
         appendLine("Automatische herkenning van de opbouw $TAG_ESTIMATE:")
         appendLine("- Werkt enkel op gemiddelde snelheid (en HR) per ronde/lap, niet op GPS- of HR-stromen. Zonder laps: geen herkenning.")
-        appendLine("- 'interval/rep' = minstens 2 afzonderlijke, duidelijk snellere rondes (ca. >= 1,15x het rustige tempo) met rustigere rondes ertussen.")
+        appendLine("- 'interval/rep' = minstens 2 afzonderlijke, duidelijk snellere rondes (snelheid ca. >= 1.15x die van de rustige rondes) met rustigere rondes ertussen.")
+        appendLine("  Bij kleiner snelheidsverschil (>= 1.08x) enkel als de HR van die rondes minstens 8 bpm hoger ligt, of (zonder HR) als de activiteit op Strava als 'workout' gemarkeerd is.")
+        appendLine("  Aaneengesloten rep-rondes tellen als 1 rep (bv. een 2 km-rep die het horloge in 2x 1 km splitste).")
+        appendLine("  Bij een Strava 'lange duurloop' tellen snellere rondes enkel als rep als de HR dat bevestigt.")
         appendLine("- 'herstel' = rustige jog/wandel-ronde tussen reps; 'float' = matig tempo tussen reps, sneller dan rustig maar trager dan de reps.")
         appendLine("- 'tempo' = aaneengesloten sneller blok zonder herhalingen (tempoloop, progressie, eindversnelling).")
         appendLine("- 'ruis' = ronde < 10 s of < 45 m (per ongeluk lap-knop) of onmogelijke snelheid/GPS-fout; genegeerd in berekeningen.")
-        appendLine("- Beperkingen: bergop-herhalingen, fartlek zonder laps, loopband (onbetrouwbaar tempo) en wedstrijden worden vaak fout of niet herkend.")
+        appendLine("- Beperkingen: bergop-herhalingen zonder HR, fartlek zonder laps, loopband (onbetrouwbaar tempo) en niet-getagde wedstrijden worden vaak fout of niet herkend.")
         if (!withLaps) appendLine("- In deze prompt staan GEEN individuele laps: de herkende opbouw kan je hier dus niet zelf controleren.")
         if (withEf) {
             appendLine("Efficiëntiefactor (EF) $TAG_COMPUTED:")
-            appendLine("- EF = snelheid (m/s) / hartslag (bpm) = meter per hartslag, gepoold: totale afstand / totaal aantal hartslagen, enkel over sessies of reps met HR.")
+            appendLine("- EF = snelheid (m/s) gedeeld door hartslag (bpm); x60 = meter per hartslag (EF 0.022 is ca. 1.3 m per hartslag). Gepoold: totale afstand / som(HR x tijd), enkel over sessies of reps met HR.")
             appendLine("- Hogere EF = sneller bij dezelfde hartslag. EF is gevoelig voor warmte, terrein, vermoeidheid, cardiac drift en HR-meetfouten;")
             appendLine("  interval-EF hangt bovendien af van de replengte (HR loopt achter op korte reps). Het is een trendindicator, geen fitheidsmeting.")
         }
@@ -132,14 +137,14 @@ class AiAnalysisService(
                 appendLine("${index + 1}. ${ActivityTime.localDate(activity)}")
                 appendLine("   Type: ${activity.type}" + raceSuffix(activity) + if (activity.isTrainer) " (loopband: tempo/afstand onbetrouwbaar)" else "")
                 appendLine("   Naam (door gebruiker): ${activity.name}")
-                appendLine("   Afstand: ${"%.2f".format(activity.distance / 1000)} km")
+                appendLine("   Afstand: ${"%.2f".format(Locale.ROOT, activity.distance / 1000)} km")
                 appendLine("   Bewegingstijd: ${Format.duration(activity.movingTime)}")
-                appendLine("   Gem. tempo: ${Format.pace(activity.averageSpeed.toDouble())}")
+                appendLine("   Gem. tempo: ${Format.pace(activity.speedMs())}")
                 appendLine("   Gem. HR: ${activity.averageHeartrate?.let { Format.hr(it) } ?: "onbekend (geen HR)"}")
                 activity.maxHeartrate?.let { appendLine("   Max HR: ${Format.hr(it)}") }
-                Cadence.toSpm(activity.averageCadence, activity.type)?.let { appendLine("   Gem. cadans: ${"%.0f".format(it)} spm") }
-                activity.averageWatts?.let { appendLine("   Gem. vermogen: ${"%.0f".format(it)} W") }
-                appendLine("   Hoogtemeters: ${"%.0f".format(activity.totalElevationGain)} m")
+                Cadence.toSpm(activity.averageCadence, activity.type)?.let { appendLine("   Gem. cadans: ${"%.0f".format(Locale.ROOT, it)} spm") }
+                activity.averageWatts?.let { appendLine("   Gem. vermogen: ${"%.0f".format(Locale.ROOT, it)} W") }
+                appendLine("   Hoogtemeters: ${"%.0f".format(Locale.ROOT, activity.totalElevationGain)} m")
                 val laps = lapsByActivity[activity.id].orEmpty()
                 val structure = WorkoutStructure.describe(laps, activity.workoutType)
                 when {
@@ -158,8 +163,8 @@ class AiAnalysisService(
             appendLine("## 2. Totalen laatste $SUMMARY_WEEKS weken $TAG_COMPUTED ($windowStart t/m $today; overlapt met de lijst hierboven)")
             appendLine()
             appendLine("Aantal runs: ${inWindow.size}")
-            appendLine("Totale afstand: ${"%.1f".format(agg.totalDistanceMeters / 1000)} km")
-            appendLine("Totale bewegingstijd: ${"%.1f".format(agg.totalMovingTimeSeconds / 3600.0)} uur")
+            appendLine("Totale afstand: ${"%.1f".format(Locale.ROOT, agg.totalDistanceMeters / 1000)} km")
+            appendLine("Totale bewegingstijd: ${Format.duration(agg.totalMovingTimeSeconds)}")
             appendLine("Gem. tempo (totale afstand / totale bewegingstijd): ${Format.pace(agg.avgSpeedMs)}")
             appendLine("Gem. HR (tijdgewogen, over ${agg.hrCount} van ${inWindow.size} runs met HR): ${Format.hr(agg.avgHr)}")
             if (firstRun.isAfter(windowStart)) appendLine("Let op: de historiek begint pas op $firstRun; eerdere weken hebben geen data.")
@@ -168,7 +173,7 @@ class AiAnalysisService(
             appendLine("## 3. Wekelijkse kilometers laatste $SUMMARY_WEEKS weken $TAG_COMPUTED (week = maandag-datum; 0.0 = geen runs; huidige week kan onvolledig zijn)")
             appendLine()
             WeeklyVolume.compute(inWindow, windowStart, today).forEach { (week, km) ->
-                appendLine("  $week: ${"%.1f".format(km)} km")
+                appendLine("  $week: ${"%.1f".format(Locale.ROOT, km)} km")
             }
 
             appendLine()
@@ -228,7 +233,7 @@ class AiAnalysisService(
 
         val details = buildString {
             appendLine("(Door de gebruiker ingevuld.)")
-            appendLine("Geplande training: ${params.distanceKm?.let { "%.1f km".format(it) } ?: "afstand niet opgegeven"}")
+            appendLine("Geplande training: ${params.distanceKm?.let { "%.1f km".format(Locale.ROOT, it) } ?: "afstand niet opgegeven"}")
             params.trainingType?.takeIf { it.isNotBlank() }?.let { appendLine("Type training (uit schema): $it") }
             params.goalRace?.takeIf { it.isNotBlank() }?.let { appendLine("Doelwedstrijd: $it") }
             params.raceDate?.takeIf { it.isNotBlank() }?.let { appendLine("Datum doelwedstrijd: $it") }
@@ -283,14 +288,14 @@ class AiAnalysisService(
             appendLine("Datum: ${local.toLocalDate()} (lokale starttijd ${local.toLocalTime().withSecond(0).withNano(0)})")
             appendLine("Naam (door gebruiker): ${activity.name}")
             appendLine("Type: ${activity.type}" + raceSuffix(activity) + if (activity.isTrainer) " (loopband: tempo/afstand onbetrouwbaar)" else "")
-            appendLine("Afstand: ${"%.2f".format(activity.distance / 1000)} km")
+            appendLine("Afstand: ${"%.2f".format(Locale.ROOT, activity.distance / 1000)} km")
             appendLine("Bewegingstijd: ${Format.duration(activity.movingTime)} (totale tijd ${Format.duration(activity.elapsedTime)})")
-            appendLine("Gem. tempo: ${Format.pace(activity.averageSpeed.toDouble())}")
+            appendLine("Gem. tempo: ${Format.pace(activity.speedMs())}")
             appendLine("Gem. HR: ${activity.averageHeartrate?.let { Format.hr(it) } ?: "onbekend (geen HR)"}")
             activity.maxHeartrate?.let { appendLine("Max HR: ${Format.hr(it)}") }
-            Cadence.toSpm(activity.averageCadence, activity.type)?.let { appendLine("Gem. cadans: ${"%.0f".format(it)} spm") }
-            activity.averageWatts?.let { appendLine("Gem. vermogen: ${"%.0f".format(it)} W") }
-            appendLine("Hoogtemeters: ${"%.0f".format(activity.totalElevationGain)} m")
+            Cadence.toSpm(activity.averageCadence, activity.type)?.let { appendLine("Gem. cadans: ${"%.0f".format(Locale.ROOT, it)} spm") }
+            activity.averageWatts?.let { appendLine("Gem. vermogen: ${"%.0f".format(Locale.ROOT, it)} W") }
+            appendLine("Hoogtemeters: ${"%.0f".format(Locale.ROOT, activity.totalElevationGain)} m")
             activity.sufferScore?.let { appendLine("Suffer score: $it (Strava-berekening op basis van HR; geen app-waarde)") }
 
             if (laps.size > 1) {
@@ -303,8 +308,8 @@ class AiAnalysisService(
                 appendLine("Rondes/laps (${laps.size}): afstand, tijd, tempo en HR zijn $TAG_MEASURED; de rol na '->' is een $TAG_ESTIMATE:")
                 laps.forEachIndexed { i, lap ->
                     appendLine(
-                        "  Lap ${lap.lapIndex}: ${"%.0f".format(lap.distance)} m in ${Format.duration(lap.movingTime)}, " +
-                            "${Format.pace(lap.averageSpeed.toDouble())}, " +
+                        "  Lap ${lap.lapIndex}: ${"%.0f".format(Locale.ROOT, lap.distance)} m in ${Format.duration(lap.movingTime)}, " +
+                            "${Format.pace(lap.speedMs())}, " +
                             (lap.averageHeartrate?.let { "gem. HR ${Format.hr(it)}" } ?: "HR onbekend") +
                             (lap.maxHeartrate?.let { ", max HR ${Format.hr(it)}" } ?: "") +
                             " -> ${labels[i]}"
@@ -393,35 +398,37 @@ class AiAnalysisService(
             appendLine("VERGELIJKING TRAININGSPERIODES")
             appendLine("=".repeat(50))
             appendLine()
-            appendLine("Alle waarden hieronder zijn $TAG_COMPUTED uit gemeten Strava-data, over sessies die de app automatisch")
-            appendLine("als rustig of interval heeft herkend $TAG_ESTIMATE. Tempo en HR zijn tijdgewogen gemiddelden.")
+            appendLine("Alle waarden hieronder zijn $TAG_COMPUTED uit gemeten Strava-data. 'Aantal runs', 'Totale afstand' en")
+            appendLine("'Totale bewegingstijd' tellen ALLE loopactiviteiten in de periode. De blokken 'Rustige lopen' en")
+            appendLine("'Intervaltrainingen' gebruiken enkel sessies die de app automatisch als rustig of interval heeft herkend")
+            appendLine("$TAG_ESTIMATE. Tempo en HR zijn tijdgewogen gemiddelden.")
             appendLine()
             listOf(result.periodA, result.periodB).forEach { p ->
                 val weeks = weeksIn(p.from, p.till)
                 appendLine("## ${p.label}")
-                appendLine("Aantal runs: ${p.activityCount}")
-                appendLine("Totale afstand: ${"%.1f".format(p.totalDistanceKm)} km" +
-                    (weeks?.let { " (gem. ${"%.1f".format(p.totalDistanceKm / it)} km/week over ${"%.1f".format(it)} weken)" } ?: ""))
-                appendLine("Totale bewegingstijd: ${"%.1f".format(p.totalTimeHours)} uur")
+                appendLine("Aantal runs (alle loopactiviteiten): ${p.activityCount}")
+                appendLine("Totale afstand: ${"%.1f".format(Locale.ROOT, p.totalDistanceKm)} km" +
+                    (weeks?.let { " (gem. ${"%.1f".format(Locale.ROOT, p.totalDistanceKm / it)} km/week over ${"%.1f".format(Locale.ROOT, it)} weken)" } ?: ""))
+                appendLine("Totale bewegingstijd: ${Format.duration(p.totalTimeHours * 3600)}")
                 appendLine()
                 appendLine("Rustige lopen met HR: ${p.easyRunCount} (minimum voor een oordeel: ${EfVerdict.MIN_EASY_RUNS})")
-                appendLine("  Niet meegeteld: ${p.easyRunsWithoutHr} zonder HR, ${p.excludedTrailOrTreadmill} trail/loopband, ${p.excludedRaces} wedstrijden, ${p.excludedTempo} tempo, ${p.excludedStrides} met versnellingen")
+                appendLine("  Niet meegeteld: ${p.easyRunsWithoutHr} zonder HR, ${p.excludedTrailOrTreadmill} trail/loopband, ${p.excludedRaces} wedstrijden, ${p.excludedTempo} tempo, ${p.excludedStrides} met versnellingen, ${p.excludedHardEfforts} met wedstrijdhartslag (gem. HR >= 85% van geschatte max, niet als wedstrijd getagd)")
                 appendLine("  Gem. tempo: ${p.easyAvgPace}")
                 appendLine("  Gem. HR: ${Format.hr(p.easyAvgHr)}")
                 appendLine("  EF: ${EfficiencyFactor.format(p.easyEf)}" + (p.easyEfSd?.let { " (spreiding tussen losse runs: SD ${EfficiencyFactor.format(it)})" } ?: ""))
                 appendLine()
-                appendLine("Intervaltrainingen met HR: ${p.intervalSessionCount} sessies (minimum voor een oordeel: ${EfVerdict.MIN_INTERVAL_SESSIONS}), ${p.intervalRepCount} reps van >= ${LapClassifier.MIN_REP_SECONDS} s, gem. repduur ${p.intervalAvgRepSeconds?.let { "%.0f s".format(it) } ?: "-"}")
+                appendLine("Intervaltrainingen met HR: ${p.intervalSessionCount} sessies (minimum voor een oordeel: ${EfVerdict.MIN_INTERVAL_SESSIONS}), ${p.intervalRepCount} reps van >= ${LapClassifier.MIN_REP_SECONDS} s, gem. repduur ${p.intervalAvgRepSeconds?.let { "%.0f s".format(Locale.ROOT, it) } ?: "-"}")
                 appendLine("  Gem. tempo per rep: ${p.intervalAvgPace}")
                 appendLine("  Gem. HR per rep: ${Format.hr(p.intervalAvgHr)}")
                 appendLine("  EF: ${EfficiencyFactor.format(p.intervalEf)}" + (p.intervalEfSd?.let { " (spreiding tussen losse sessies: SD ${EfficiencyFactor.format(it)})" } ?: ""))
                 appendLine()
             }
             appendLine("## Verandering ${result.periodA.label} -> ${result.periodB.label} $TAG_COMPUTED")
-            appendLine("EF rustige lopen: ${result.easyEfChangePct?.let { "%+.1f%%".format(it) } ?: "onbekend"}")
-            appendLine("EF intervallen: ${result.intervalEfChangePct?.let { "%+.1f%%".format(it) } ?: "onbekend"}")
+            appendLine("EF rustige lopen: ${result.easyEfChangePct?.let { "%+.1f%%".format(Locale.ROOT, it) } ?: "onbekend"}")
+            appendLine("EF intervallen: ${result.intervalEfChangePct?.let { "%+.1f%%".format(Locale.ROOT, it) } ?: "onbekend"}")
             appendLine()
             appendLine("## Indicatie van de app $TAG_ESTIMATE")
-            appendLine("Regel: verschil <= ±${EfVerdict.THRESHOLD_PCT.toInt()}% of binnen de spreiding tussen sessies = geen duidelijke verandering; onder het minimum aantal sessies = onvoldoende data.")
+            appendLine("Regel: verschil <= ±${EfVerdict.THRESHOLD_PCT.toInt()}%, binnen de spreiding tussen sessies, of gepoolde EF en gemiddelde EF per sessie wijzen een andere kant op = geen duidelijke verandering; onder het minimum aantal sessies = onvoldoende data.")
             appendLine(result.verdict)
         }
 
@@ -429,7 +436,7 @@ class AiAnalysisService(
             |Je bent een ervaren hardloopcoach. Vergelijk onderstaande twee trainingsperiodes en beoordeel of de
             |data wijst op vooruitgang, achteruitgang of geen duidelijke verandering in loopniveau.
             |Behandel minimaal deze punten:
-            |1. Is de aerobe efficiëntie (EF, tempo per hartslag) bij rustige lopen veranderd, en is dat verschil groot
+            |1. Is de aerobe efficiëntie (EF, snelheid per hartslag) bij rustige lopen veranderd, en is dat verschil groot
             |   genoeg ten opzichte van de spreiding en het aantal runs om iets te betekenen?
             |2. Is de kwaliteit van de intervaltrainingen (tempo & hartslag per rep) veranderd? Houd rekening met
             |   verschillen in repduur tussen de periodes.

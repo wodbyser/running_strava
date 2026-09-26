@@ -1,6 +1,7 @@
 package com.running.analysis
 
 import com.running.strava.analysis.ActivityTime
+import java.util.Locale
 import com.running.strava.analysis.BestEffortFinder
 import com.running.strava.analysis.Format
 import com.running.strava.analysis.HrZones
@@ -9,7 +10,6 @@ import com.running.strava.analysis.RunAggregates
 import com.running.strava.domain.Activity
 import com.running.strava.domain.Lap
 import com.running.strava.domain.LapClassifier
-import com.running.strava.domain.LapKind
 import com.running.strava.domain.SessionClassifier
 import com.running.strava.domain.SessionType
 import com.running.strava.spi.ActivityRepository
@@ -79,11 +79,16 @@ class CoachService(
         val runnerProfile: RunnerProfile,
         val racePredictions: List<RacePrediction>,
         val recentFormPredictions: List<RacePrediction>,
+        /** Window the profile, max HR and predictions are based on, e.g. "laatste 12 maanden". */
+        val windowLabel: String = WINDOW_12M,
     )
 
     fun calculateCoachData(runs: List<Activity>, restingHr: Int? = null): CoachData {
         val now = ZonedDateTime.now()
-        val lastYear = runs.filter { it.startDate.isAfter(now.minusYears(1)) }.takeIf { it.isNotEmpty() } ?: runs
+        val inLastYear = runs.filter { it.startDate.isAfter(now.minusYears(1)) }
+        // No runs in the last 12 months: fall back to all runs, and SAY so in every label.
+        val lastYear = HrZones.maxHrWindow(runs, now)
+        val window = if (inLastYear.isNotEmpty()) WINDOW_12M else "alle data (geen runs in de laatste 12 maanden)"
         val lapsByActivity = activityRepository.findLapsForActivities(runs.map { it.id })
 
         val perRunMax = lastYear.mapNotNull { it.maxHeartrate?.toInt() }
@@ -91,8 +96,8 @@ class CoachService(
         val rawMax = perRunMax.maxOrNull()
         val maxHrSource = when {
             maxHr == null -> "onbekend (geen hartslagdata)"
-            perRunMax.size < 5 -> "schatting: hoogste gemeten max-HR in ${perRunMax.size} run(s) van de laatste 12 maanden (te weinig data voor een robuuste schatting)"
-            else -> "schatting: 95e percentiel van de max-HR per run (${perRunMax.size} runs, laatste 12 maanden)" +
+            perRunMax.size < 5 -> "schatting: hoogste gemeten max-HR in ${perRunMax.size} run(s) van $window (te weinig data voor een robuuste schatting)"
+            else -> "schatting: 95e percentiel van de max-HR per run (${perRunMax.size} runs, $window)" +
                 (if (rawMax != null && rawMax > maxHr) "; hoogste gemeten waarde $rawMax bpm genegeerd als mogelijke meetpiek" else "") +
                 ". Een echte max-HR-test kan hoger uitkomen"
         }
@@ -113,17 +118,18 @@ class CoachService(
             maxHrSource = maxHrSource,
             restingHr = restingHr,
             restingHrSource = if (restingHr != null) "door jou ingesteld" else "niet ingesteld: Karvonen-zones worden pas getoond als je je rusthartslag invult",
-            runnerProfile = buildRunnerProfile(lastYear, runs, lapsByActivity),
-            racePredictions = predictions(lastYear, lapsByActivity, maxHr, "laatste 12 maanden", RACE_DISTANCES),
+            runnerProfile = buildRunnerProfile(lastYear, runs, lapsByActivity, window),
+            racePredictions = predictions(lastYear, lapsByActivity, maxHr, window, RACE_DISTANCES),
             recentFormPredictions = predictions(
                 runs.filter { it.startDate.isAfter(now.minusWeeks(6)) }, lapsByActivity, maxHr, "laatste 6 weken", FORM_DISTANCES,
             ),
+            windowLabel = window,
         )
     }
 
     private fun HrZones.Zone.toView() = HrZone(zone, name, description, minBpm, maxBpm, pct)
 
-    private fun buildRunnerProfile(recent: List<Activity>, all: List<Activity>, lapsByActivity: Map<Long, List<Lap>>): RunnerProfile {
+    private fun buildRunnerProfile(recent: List<Activity>, all: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, window: String): RunnerProfile {
         if (recent.isEmpty()) {
             return RunnerProfile(
                 type = "Onbekend", description = "Geen trainingsdata beschikbaar.",
@@ -150,7 +156,7 @@ class CoachService(
         }
 
         val longestRun = all.maxByOrNull { it.distance }
-        val longestRunStr = longestRun?.let { "%.2f km".format(it.distance / 1000) } ?: "-"
+        val longestRunStr = longestRun?.let { "%.2f km".format(Locale.ROOT, it.distance / 1000) } ?: "-"
         val totalDistance = all.sumOf { it.distance.toDouble() }
         val totalTime = all.sumOf { it.movingTime.toLong() }
 
@@ -172,15 +178,12 @@ class CoachService(
 
         val intervalSessions = recent.filter { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType) == SessionType.INTERVAL }
         val intervalSessionsPerWeek = intervalSessions.size / recentWeeks.coerceAtLeast(1.0)
-        val reps = intervalSessions.flatMap { a ->
-            val laps = lapsByActivity[a.id].orEmpty()
-            val kinds = LapClassifier.classify(laps, a.workoutType)
-            laps.filterIndexed { i, lap -> kinds[i] == LapKind.REP && lap.movingTime >= LapClassifier.MIN_REP_SECONDS }
-        }
+        // Contiguous rep laps (auto-lap) count as one rep.
+        val reps = intervalSessions.flatMap { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType) }
         val repTime = reps.sumOf { it.movingTime }
         val avgIntervalSpeed = if (repTime > 0) reps.sumOf { it.distance.toDouble() } / repTime else null
         val intervalPaceStr = Format.pace(avgIntervalSpeed)
-        val intervalFrequencyStr = if (intervalSessions.isNotEmpty()) "%.1fx/week".format(intervalSessionsPerWeek) else "Geen"
+        val intervalFrequencyStr = if (intervalSessions.isNotEmpty()) "%.1fx/week".format(Locale.ROOT, intervalSessionsPerWeek) else "Geen"
 
         val profileType = when {
             avgElevPerKm >= 15 -> "Berggeit"
@@ -194,38 +197,38 @@ class CoachService(
 
         val description = buildString {
             append("<p><strong>$profileType</strong> <span class=\"text-muted\">(app-label op basis van vaste vuistregels)</span> &mdash; ")
-            append("Je loopt gemiddeld <strong>${"%.1f".format(weeklyKm)} km</strong> per week ")
-            append("over <strong>${"%.1f".format(runsPerWeek)}x</strong> per week. ")
+            append("Je loopt gemiddeld <strong>${"%.1f".format(Locale.ROOT, weeklyKm)} km</strong> per week ")
+            append("over <strong>${"%.1f".format(Locale.ROOT, runsPerWeek)}x</strong> per week. ")
             append("Je gemiddelde tempo (totale afstand / totale tijd) is <strong>$paceStr</strong>")
             if (avgHr != null) append(" bij gemiddeld <strong>${Format.hr(avgHr)}</strong> (${agg.hrCount} van ${recent.size} runs met HR)")
             append(".</p>")
             append("<p>Je trainingsgebied is <strong>${terrainPref.lowercase()}</strong>")
-            if (avgCadence != null) append(" met een cadans van <strong>${"%.0f".format(avgCadence)} spm</strong> (stappen per minuut, beide voeten)")
+            if (avgCadence != null) append(" met een cadans van <strong>${"%.0f".format(Locale.ROOT, avgCadence)} spm</strong> (stappen per minuut, beide voeten)")
             append(". Je langste run ooit is <strong>$longestRunStr</strong>. ")
             append("Je bent actief sinds <strong>$trainingSince</strong> ")
             append("met <strong>${all.size} runs</strong>, ")
-            append("<strong>${"%.0f".format(totalDistance / 1000)} km</strong> ")
-            append("en <strong>${totalTime / 3600}u ${(totalTime % 3600) / 60}m</strong> totaal.</p>")
+            append("<strong>${"%.0f".format(Locale.ROOT, totalDistance / 1000)} km</strong> ")
+            append("en <strong>${Format.duration(totalTime)}</strong> (u:mm:ss) bewegingstijd in totaal.</p>")
             if (intervalSessions.isNotEmpty()) {
-                append("<p>De app herkende gemiddeld <strong>${"%.1f".format(intervalSessionsPerWeek)}x</strong> per week ")
+                append("<p>De app herkende gemiddeld <strong>${"%.1f".format(Locale.ROOT, intervalSessionsPerWeek)}x</strong> per week ")
                 append("een intervaltraining (automatisch herkend uit rondes), met een gemiddeld reptempo van <strong>$intervalPaceStr</strong>.</p>")
             } else {
-                append("<p class=\"text-muted\">Geen intervaltrainingen herkend in de laatste 12 maanden (herkenning vereist rondes/laps).</p>")
+                append("<p class=\"text-muted\">Geen intervaltrainingen herkend ($window; herkenning vereist rondes/laps).</p>")
             }
             append("<p class=\"text-muted\">Weekvolume-categorie: <strong>$classification</strong> &mdash; ")
-            append("profiel gebaseerd op laatste 12 maanden. Het profieltype is een app-label, geen wetenschappelijke classificatie.</p>")
+            append("profiel gebaseerd op $window. Het profieltype is een app-label, geen wetenschappelijke classificatie.</p>")
         }
 
         return RunnerProfile(
             type = profileType,
             description = description,
-            weeklyVolume = "%.1f km".format(weeklyKm),
-            frequency = "%.1fx/week".format(runsPerWeek),
+            weeklyVolume = "%.1f km".format(Locale.ROOT, weeklyKm),
+            frequency = "%.1fx/week".format(Locale.ROOT, runsPerWeek),
             avgPace = paceStr,
             avgHr = Format.hr(avgHr),
-            avgCadence = avgCadence?.let { "%.0f spm".format(it) } ?: "-",
-            totalDistance = "%.1f km".format(totalDistance / 1000),
-            totalTime = "${totalTime / 3600}u ${(totalTime % 3600) / 60}m",
+            avgCadence = avgCadence?.let { "%.0f spm".format(Locale.ROOT, it) } ?: "-",
+            totalDistance = "%.1f km".format(Locale.ROOT, totalDistance / 1000),
+            totalTime = Format.duration(totalTime),
             totalRuns = all.size,
             trainingSince = trainingSince,
             longestRun = longestRunStr,
@@ -314,9 +317,10 @@ class CoachService(
     }
 
     private fun formatDistance(meters: Float): String =
-        if (meters >= 1000) "%.1f km".format(meters / 1000) else "%.0f m".format(meters)
+        if (meters >= 1000) "%.1f km".format(Locale.ROOT, meters / 1000) else "%.0f m".format(Locale.ROOT, meters)
 
     companion object {
+        const val WINDOW_12M = "laatste 12 maanden"
         private val RACE_DISTANCES = listOf(1000f, 3000f, 5000f, 10000f, 15000f, 21097.5f, 42195f)
         private val FORM_DISTANCES = listOf(1000f, 3000f, 5000f, 10000f, 21097.5f, 42195f)
     }

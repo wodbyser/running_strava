@@ -1,6 +1,8 @@
 package com.running.strava.domain
 
 import com.running.strava.analysis.Format
+import java.util.Locale
+import com.running.strava.analysis.speedMs
 import kotlin.math.abs
 
 /**
@@ -67,16 +69,17 @@ object WorkoutStructure {
     /** Returns null if the activity has neither interval reps nor a tempo block. */
     fun analyze(laps: List<Lap>, workoutType: Int? = null): Structure? {
         val kinds = LapClassifier.classify(laps, workoutType)
-        val repIdx = laps.indices.filter { kinds[it] == LapKind.REP }
-        if (repIdx.isEmpty() && kinds.none { it == LapKind.TEMPO }) return null
+        // Contiguous rep laps are one rep (auto-lapped 2 km rep = 2x 1 km laps → one 2000m rep).
+        val efforts = LapClassifier.repEfforts(laps, kinds)
+        if (efforts.isEmpty() && kinds.none { it == LapKind.TEMPO }) return null
 
         // 1. Group reps into sets of similar size, then merge runs of single-rep "sets" into one ladder.
-        val sizeGroups = mutableListOf<MutableList<Int>>()
-        for (i in repIdx) {
+        val sizeGroups = mutableListOf<MutableList<LapClassifier.RepEffort>>()
+        for (e in efforts) {
             val current = sizeGroups.lastOrNull()
-            if (current != null && sameSize(laps[current.first()], laps[i])) current.add(i) else sizeGroups.add(mutableListOf(i))
+            if (current != null && sameSize(current.first().lap, e.lap)) current.add(e) else sizeGroups.add(mutableListOf(e))
         }
-        data class Group(val reps: List<Int>, val ladder: Boolean)
+        data class Group(val reps: List<LapClassifier.RepEffort>, val ladder: Boolean)
         val groups = mutableListOf<Group>()
         var k = 0
         while (k < sizeGroups.size) {
@@ -97,8 +100,8 @@ object WorkoutStructure {
         data class Span(val start: Int, val end: Int, val set: IntervalSet)
         val spans = mutableListOf<Span>()
         for (g in groups) {
-            val first = g.reps.first()
-            var end = g.reps.last()
+            val first = g.reps.first().first
+            var end = g.reps.last().last
             val inner = first..end
             val recovery = inner.filter { kinds[it] == LapKind.EASY || kinds[it] == LapKind.TEMPO }.map { laps[it] }.toMutableList()
             val floats = inner.filter { kinds[it] == LapKind.FLOAT }.map { laps[it] }.toMutableList()
@@ -114,7 +117,7 @@ object WorkoutStructure {
                     end++
                 }
             }
-            val repLaps = g.reps.map { laps[it] }
+            val repLaps = g.reps.map { it.lap }
             spans.add(Span(first, end, IntervalSet(
                 reps = Block(repLaps),
                 recovery = Block(recovery),
@@ -194,7 +197,8 @@ object WorkoutStructure {
             set.timeBased -> duration(reps.laps.map { it.movingTime }.sorted()[n / 2])
             else -> meters(reps.laps.map { it.distance.toDouble() }.sorted()[n / 2])
         }
-        val paces = reps.laps.map { it.averageSpeed.toDouble() }
+        // Per-rep pace from distance / moving time (same source as the pooled set pace and the lap lines).
+        val paces = reps.laps.map { it.speedMs() }
         val details = listOfNotNull(
             reps.avgHr?.let { "gem. HR ${Format.hr(it, unit = false)}" },
             reps.maxHr?.let { "max ${Format.hr(it, unit = false)}" },
@@ -233,7 +237,7 @@ object WorkoutStructure {
     /** Kept for callers that need a pace string; delegates to the shared rounded formatter. */
     fun pace(speedMs: Double, unit: Boolean = true): String = Format.pace(speedMs, unit)
 
-    private fun km(b: Block) = "%.2f km".format(b.distance / 1000)
+    private fun km(b: Block) = "%.2f km".format(Locale.ROOT, b.distance / 1000)
     private fun hr(b: Block) = b.avgHr?.let { ", gem. HR ${Format.hr(it, unit = false)}" } ?: ""
     private fun duration(sec: Int) = if (sec >= 60) "${sec / 60}m${(sec % 60).toString().padStart(2, '0')}s" else "${sec}s"
 

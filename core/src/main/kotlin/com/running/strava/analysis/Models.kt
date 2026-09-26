@@ -1,13 +1,17 @@
 package com.running.strava.analysis
 
+import com.running.strava.domain.Activity
+import java.time.ZonedDateTime
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlin.math.sign
 import kotlin.math.sqrt
 
 /**
- * Efficiency factor (EF) = speed (m/s) / heart rate (bpm): metres per heartbeat. A trend PROXY for aerobic
+ * Efficiency factor (EF) = speed (m/s) / heart rate (bpm). ×60 this is metres per heartbeat (EF 0.022 ≈ 1.3 m
+ * per beat). A trend PROXY for aerobic
  * fitness (known from TrainingPeaks), strongly affected by terrain, heat, fatigue and HR-strap quality.
  *
  * Pooled over several items it is computed as total distance / total heartbeats:
@@ -47,10 +51,12 @@ object EfficiencyFactor {
 /**
  * App verdict on an EF change between two periods. HEURISTIC:
  * - fewer than [minSessions] sessions with HR in either period → INSUFFICIENT_DATA;
- * - |change| <= [THRESHOLD_PCT] % → STABLE;
- * - otherwise, if the difference of the per-session means is smaller than 2 standard errors
- *   (≈ 95 % interval, Welch) → UNCERTAIN ("valt binnen de spreiding");
- * - else IMPROVED / DECLINED.
+ * - pooled change AND per-session-mean change both within ±[THRESHOLD_PCT] % → STABLE;
+ * - pooled and per-session-mean change point in opposite directions, or only one of them exceeds the
+ *   threshold → UNCERTAIN (the statistics disagree);
+ * - difference of the per-session means smaller than 2 standard errors (≈ 95 %, Welch) → UNCERTAIN;
+ * - else IMPROVED / DECLINED, with the direction taken from the per-session means (which then agrees with
+ *   the pooled change).
  */
 object EfVerdict {
     const val THRESHOLD_PCT = 3.0
@@ -78,17 +84,21 @@ object EfVerdict {
             return Result(Status.INSUFFICIENT_DATA, change, nA, nB, sdA, sdB)
         }
         val change = (pooledB - pooledA) / pooledA * 100
+        // Direction and significance are both judged on the per-session means (the statistic the spread belongs
+        // to). The pooled change (shown to the user) must point the same way and exceed the threshold; if the two
+        // statistics disagree in sign the data do not support a direction → UNCERTAIN.
+        val meanA = perSessionA.average()
+        val meanB = perSessionB.average()
+        val diff = meanB - meanA
+        val sessionChange = if (meanA != 0.0) diff / meanA * 100 else 0.0
+        val se = sqrt((sdA ?: 0.0).pow(2) / nA + (sdB ?: 0.0).pow(2) / nB)
         val status = when {
-            abs(change) <= THRESHOLD_PCT -> Status.STABLE
-            else -> {
-                val se = sqrt((sdA ?: 0.0).pow(2) / nA + (sdB ?: 0.0).pow(2) / nB)
-                val diff = perSessionB.average() - perSessionA.average()
-                when {
-                    abs(diff) < 2 * se -> Status.UNCERTAIN
-                    change > 0 -> Status.IMPROVED
-                    else -> Status.DECLINED
-                }
-            }
+            abs(change) <= THRESHOLD_PCT && abs(sessionChange) <= THRESHOLD_PCT -> Status.STABLE
+            sign(change) != sign(diff) -> Status.UNCERTAIN
+            abs(change) <= THRESHOLD_PCT || abs(sessionChange) <= THRESHOLD_PCT -> Status.UNCERTAIN
+            abs(diff) < 2 * se -> Status.UNCERTAIN
+            diff > 0 -> Status.IMPROVED
+            else -> Status.DECLINED
         }
         return Result(status, change, nA, nB, sdA, sdB)
     }
@@ -166,6 +176,16 @@ object RacePredictor {
 
 /** Heart-rate zones. Percentages are textbook conventions; individual thresholds differ. */
 object HrZones {
+    /**
+     * A run with average HR >= this fraction of (estimated) max HR is a hard continuous effort (race-like), not
+     * an easy run. HEURISTIC: 85 % HRmax is the usual lower bound of threshold/tempo intensity; easy running is
+     * typically below ~75-80 %.
+     */
+    const val HARD_EFFORT_FRACTION = 0.85
+
+    fun isHardEffort(avgHr: Number?, maxHr: Int?): Boolean =
+        avgHr != null && maxHr != null && maxHr > 0 && avgHr.toDouble() >= maxHr * HARD_EFFORT_FRACTION
+
     data class Zone(val zone: Int, val name: String, val description: String, val minBpm: Int, val maxBpm: Int, val pct: String)
 
     private val BOUNDS = listOf(0.50, 0.60, 0.70, 0.80, 0.90, 1.00)
@@ -204,4 +224,15 @@ object HrZones {
         val rank = ceil(0.95 * s.size).toInt().coerceIn(1, s.size)
         return s[rank - 1]
     }
+
+    /**
+     * The runs the max-HR estimate is based on: the 12 months before [now]; if there are none, all runs.
+     * Shared by the coach page and the period comparison so both use the same max HR.
+     */
+    fun maxHrWindow(runs: List<Activity>, now: ZonedDateTime): List<Activity> =
+        runs.filter { it.startDate.isAfter(now.minusYears(1)) }.ifEmpty { runs }
+
+    /** [estimateMaxHr] over the per-run max HR of [maxHrWindow]. */
+    fun estimateMaxHrForRuns(runs: List<Activity>, now: ZonedDateTime): Int? =
+        estimateMaxHr(maxHrWindow(runs, now).mapNotNull { it.maxHeartrate?.toInt() })
 }

@@ -7,9 +7,8 @@
     <section class="card" aria-labelledby="h-prompt">
         <h2 id="h-prompt">Prompt</h2>
         <p class="intro">
-            Onderstaande prompt bevat je volledige trainingshistoriek, gegenereerd door de app.
-            Kopieer ze en plak ze in een AI-chatbot (ChatGPT, Claude, Gemini, ...) voor analyse,
-            planning en race-voorspellingen.
+            <span th:text="${promptIntro}">Onderstaande prompt is gegenereerd door de app.</span>
+            Kopieer ze en plak ze in een AI-chatbot (ChatGPT, Claude, Gemini, ...).
         </p>
         <div class="actions mb-2">
             <button id="copyPromptBtn" type="button" class="btn btn-primary btn-sm" aria-live="polite">Kopieer prompt</button>

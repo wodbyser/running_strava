@@ -1,6 +1,7 @@
 package com.running.frontend
 
 import com.running.analysis.AiAnalysisService
+import java.util.Locale
 import com.running.analysis.BestEffortService
 import com.running.analysis.NextTrainingParams
 import com.running.analysis.PeriodComparisonService
@@ -15,6 +16,8 @@ import com.running.strava.analysis.ActivityTime
 import com.running.strava.analysis.Cadence
 import com.running.strava.analysis.DateRange
 import com.running.strava.analysis.Format
+import com.running.strava.analysis.isRun
+import com.running.strava.analysis.speedMs
 import com.running.strava.analysis.RunAggregates
 import com.running.strava.analysis.WeeklyVolume
 import com.running.strava.spi.ActivityRepository
@@ -112,12 +115,12 @@ class FrontendController(
         model.addAttribute("hasData", runs.isNotEmpty())
         model.addAttribute("stats", mapOf<String, Any>(
             "totalRuns" to runs.size,
-            "totalDistance" to "%.1f".format(agg.totalDistanceMeters / 1000),
-            "totalTime" to "%.1f".format(agg.totalMovingTimeSeconds / 3600.0),
+            "totalDistance" to "%.1f".format(Locale.ROOT, agg.totalDistanceMeters / 1000),
+            "totalTime" to "%.1f".format(Locale.ROOT, agg.totalMovingTimeSeconds / 3600.0),
             "avgPace" to Format.pace(agg.avgSpeedMs),
             "avgHeartrate" to Format.hr(agg.avgHr, unit = false),
             "hrCoverage" to "${agg.hrCount} van ${runs.size} runs met HR",
-            "avgCadence" to (agg.avgCadenceSpm?.let { "%.0f".format(it) } ?: "-"),
+            "avgCadence" to (agg.avgCadenceSpm?.let { "%.0f".format(Locale.ROOT, it) } ?: "-"),
             "cadenceCoverage" to "${agg.cadenceCount} van ${runs.size} runs met cadans",
             "lastSync" to lastSync,
         ))
@@ -198,19 +201,20 @@ class FrontendController(
         detail["date"] = ActivityTime.local(a).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " (lokale tijd)"
         detail["type"] = a.type
         detail["typeClass"] = typeClass(a.type)
-        detail["distance"] = "%.2f km".format(a.distance / 1000)
-        detail["pace"] = Format.pace(a.averageSpeed.toDouble())
+        detail["distance"] = "%.2f km".format(Locale.ROOT, a.distance / 1000)
+        detail["pace"] = Format.pace(a.speedMs())
         detail["duration"] = Format.duration(a.movingTime)
         detail["elapsed"] = Format.duration(a.elapsedTime)
         detail["avgHr"] = Format.hr(a.averageHeartrate)
         detail["maxHr"] = Format.hr(a.maxHeartrate)
         detail["cadence"] = Cadence.formatSpm(a.averageCadence, a.type)
-        detail["elevation"] = "%.0f m".format(a.totalElevationGain)
+        detail["isRun"] = a.isRun()
+        detail["elevation"] = "%.0f m".format(Locale.ROOT, a.totalElevationGain)
         // max_speed is m/s: fastest instantaneous pace (Strava, GPS-sensitive)
         detail["maxSpeed"] = Format.pace(a.maxSpeed.toDouble())
-        detail["avgWatts"] = a.averageWatts?.let { "%.0f W".format(it) } ?: "-"
-        detail["maxWatts"] = a.maxWatts?.let { "%.0f W".format(it) } ?: "-"
-        detail["calories"] = a.calories?.let { "%.0f".format(it) } ?: "-"
+        detail["avgWatts"] = a.averageWatts?.let { "%.0f W".format(Locale.ROOT, it) } ?: "-"
+        detail["maxWatts"] = a.maxWatts?.let { "%.0f W".format(Locale.ROOT, it) } ?: "-"
+        detail["calories"] = a.calories?.let { "%.0f".format(Locale.ROOT, it) } ?: "-"
         detail["sufferScore"] = a.sufferScore?.toString() ?: "-"
         detail["description"] = a.description?.take(500) ?: "-"
         detail["stravaUrl"] = "https://www.strava.com/activities/${a.id}"
@@ -239,12 +243,12 @@ class FrontendController(
             laps.forEachIndexed { i, lap ->
                 appendLine(listOf(
                     lap.lapIndex,
-                    "%.0f".format(lap.distance),
+                    "%.0f".format(Locale.ROOT, lap.distance),
                     lap.movingTime,
-                    Format.pace(lap.averageSpeed.toDouble(), unit = false),
+                    Format.pace(lap.speedMs(), unit = false),
                     lap.averageHeartrate?.let { Format.hr(it, unit = false) } ?: "",
                     lap.maxHeartrate?.let { Format.hr(it, unit = false) } ?: "",
-                    Cadence.toSpm(lap.averageCadence, activity.type)?.let { "%.0f".format(it) } ?: "",
+                    Cadence.toSpm(lap.averageCadence, activity.type)?.let { "%.0f".format(Locale.ROOT, it) } ?: "",
                     labels[i],
                 ).joinToString(","))
             }
@@ -273,9 +277,9 @@ class FrontendController(
         return laps.mapIndexed { i, lap ->
             LapRow(
                 index = lap.lapIndex,
-                distance = "%.0f m".format(lap.distance),
+                distance = "%.0f m".format(Locale.ROOT, lap.distance),
                 duration = Format.duration(lap.movingTime),
-                pace = Format.pace(lap.averageSpeed.toDouble()),
+                pace = Format.pace(lap.speedMs()),
                 avgHr = Format.hr(lap.averageHeartrate, unit = false),
                 maxHr = Format.hr(lap.maxHeartrate, unit = false),
                 cadence = Cadence.formatSpm(lap.averageCadence, activity.type, unit = false),
@@ -338,7 +342,7 @@ class FrontendController(
         val result = syncStravaData.execute()
         val msg = buildString {
             append("Synchronisatie voltooid. ")
-            append("${result.newActivities} nieuw, ${result.streamsFetched} streams opgehaald")
+            append("${result.newActivities} nieuw, ${result.updatedActivities} bijgewerkt (aangepast op Strava), ${result.streamsFetched} streams opgehaald")
             if (result.errors.isNotEmpty()) {
                 append(", ${result.errors.size} fout(en)")
             }
@@ -408,7 +412,7 @@ class FrontendController(
             appendLine("  \"activities\": [")
             activities.forEachIndexed { i, a ->
                 val streams = activityRepository.findStreams(a.id)
-                val pace = Format.pace(a.averageSpeed.toDouble(), unit = false).takeIf { it != "-" }
+                val pace = Format.pace(a.speedMs(), unit = false).takeIf { it != "-" }
                 appendLine("    {")
                 appendLine("      \"id\": ${a.id},")
                 appendLine("      \"name\": ${jsonStr(a.name)},")
@@ -417,7 +421,7 @@ class FrontendController(
                 appendLine("      \"type\": ${jsonStr(a.type)},")
                 appendLine("      \"sportType\": ${jsonStr(a.sportType)},")
                 appendLine("      \"timezone\": ${jsonStr(a.timezone)},")
-                appendLine("      \"distanceKm\": ${"%.3f".format(a.distance / 1000)},")
+                appendLine("      \"distanceKm\": ${"%.3f".format(Locale.ROOT, a.distance / 1000)},")
                 appendLine("      \"movingTimeMin\": ${a.movingTime / 60},")
                 appendLine("      \"elapsedTimeMin\": ${a.elapsedTime / 60},")
                 appendLine("      \"averagePace\": ${jsonStr(pace)},")
@@ -462,6 +466,7 @@ class FrontendController(
     @GetMapping("/ai")
     fun aiPrompt(model: Model): String {
         model.addAttribute("title", "AI-analyse")
+        model.addAttribute("promptIntro", "Deze prompt bevat je recente historiek: de laatste ${AiAnalysisService.RECENT_COUNT} loopactiviteiten plus totalen en weekkilometers van de laatste ${AiAnalysisService.SUMMARY_WEEKS} weken.")
         model.addAttribute("prompt", aiAnalysisService.buildAiPrompt())
         return "ai"
     }
@@ -509,6 +514,7 @@ class FrontendController(
         @RequestParam(name = "notes") notes: String? = null,
     ): String {
         model.addAttribute("title", "Volgende training-prompt")
+        model.addAttribute("promptIntro", "Deze prompt bevat je recente historiek (laatste ${AiAnalysisService.RECENT_COUNT} loopactiviteiten, totalen van de laatste ${AiAnalysisService.SUMMARY_WEEKS} weken) en de parameters die je invulde.")
         model.addAttribute("prompt", aiAnalysisService.buildNextTrainingPrompt(resolveNextTrainingParams(
             distanceKm, trainingType, goalRace, raceDate, goalTime, trainingDate, notes,
         )))
@@ -595,6 +601,7 @@ class FrontendController(
         val prompt = aiAnalysisService.buildActivityRatingPrompt(activityId)
             ?: return "redirect:/rate-training"
         model.addAttribute("title", "Training-beoordeling-prompt")
+        model.addAttribute("promptIntro", "Deze prompt bevat de gekozen training met al haar rondes/laps, plus je recente trainingscontext.")
         model.addAttribute("prompt", prompt)
         model.addAttribute("backUrl", "/rate-training")
         model.addAttribute("downloadUrl", "/rate-training/prompt/download?activityId=$activityId")
@@ -652,6 +659,7 @@ class FrontendController(
     ): String {
         val (a, b) = resolveComparisonRanges(fromA, tillA, fromB, tillB)
         model.addAttribute("title", "Vergelijk-prompt")
+        model.addAttribute("promptIntro", "Deze prompt bevat de berekende statistieken van de twee gekozen periodes en de indicatie van de app.")
         model.addAttribute("prompt", aiAnalysisService.buildComparisonPrompt(a, b, periodLabel("A", a), periodLabel("B", b)))
         model.addAttribute("downloadUrl", "/compare/prompt/download?fromA=${a.from}&tillA=${a.till}&fromB=${b.from}&tillB=${b.till}")
         model.addAttribute("backUrl", "/compare")
@@ -755,12 +763,12 @@ class FrontendController(
         date = ActivityTime.local(a).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
         type = displayType(a.type),
         typeClass = typeClass(a.type),
-        distance = "%.2f km".format(a.distance / 1000),
-        pace = Format.pace(a.averageSpeed.toDouble()),
+        distance = "%.2f km".format(Locale.ROOT, a.distance / 1000),
+        pace = Format.pace(a.speedMs()),
         avgHr = Format.hr(a.averageHeartrate, unit = false),
         maxHr = a.maxHeartrate?.let { Format.hr(it, unit = false) },
-        cadence = Cadence.toSpm(a.averageCadence, a.type)?.let { "%.0f".format(it) },
-        elevation = "%.0f m".format(a.totalElevationGain),
+        cadence = Cadence.toSpm(a.averageCadence, a.type)?.let { "%.0f".format(Locale.ROOT, it) },
+        elevation = "%.0f m".format(Locale.ROOT, a.totalElevationGain),
         duration = Format.duration(a.movingTime),
         sufferScore = a.sufferScore?.toString(),
     )

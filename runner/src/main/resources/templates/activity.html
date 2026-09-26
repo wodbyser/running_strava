@@ -36,7 +36,7 @@
             <div class="stat">
                 <div class="value" th:text="${a.cadence}">-</div>
                 <div class="label">Cadans</div>
-                <div class="stat-sub">beide voeten</div>
+                <div class="stat-sub" th:if="${a.isRun}">beide voeten</div>
             </div>
         </div>
     </section>

@@ -84,6 +84,63 @@ class AnalysisServicesTest {
     }
 
     @Test
+    fun `period comparison - an untagged race-effort run is not an easy run`() {
+        // Easy runs: avg HR 140, max 160. One untagged 10 km at avg HR 178 / max 192 (a race not tagged on Strava).
+        // Max-HR estimate: 11 values, p95 nearest rank = 11th = 192; 85 % of 192 = 163.2 <= 178 -> hard effort.
+        val a = (1..5).map { run(it.toLong(), at("2026-01-0$it"), 10000.0, 3600, 140.0) } +
+            run(20, at("2026-01-20"), 10000.0, 2500, 178.0, maxHr = 192.0)
+        val b = (1..5).map { run(100L + it, at("2026-03-0$it"), 10000.0, 3600, 140.0) }
+        val r = PeriodComparisonService(FakeActivityRepository(a + b)).compare(
+            DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)),
+            DateRange(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31)),
+        )
+        assertEquals(5, r.periodA.easyRunCount)
+        assertEquals(1, r.periodA.excludedHardEfforts)
+        assertEquals(0, r.periodA.easyRunsWithoutHr)
+        // EF only from the 5 easy runs: 50000 / (140 * 18000)
+        assertEquals(50000.0 / (140 * 18000), r.periodA.easyEf!!, 1e-12)
+        assertEquals(EfVerdict.Status.STABLE, r.easyVerdict.status)
+    }
+
+    @Test
+    fun `period comparison - auto-lapped reps count once`() {
+        // 3 sessions of 3x 2 km (each rep auto-lapped into 2x 1 km) -> 9 reps, not 18.
+        fun lap(i: Int, d: Int, t: Int, hr: Float) =
+            Lap(i.toLong(), null, t, t, at("2026-01-01"), 0, 0, d.toFloat(), d.toFloat() / t, 0f, hr, null, 84f, i + 1, 0)
+        val rows = listOf(Triple(1000, 345, 135f), Triple(1000, 345, 140f)) +
+            (1..3).flatMap { listOf(Triple(1000, 270, 168f), Triple(1000, 270, 168f), Triple(400, 150, 150f)) } +
+            listOf(Triple(1000, 350, 150f))
+        val laps = rows.mapIndexed { i, (d, t, hr) -> lap(i, d, t, hr) }
+        val sessions = (1..3).map { run(it.toLong(), at("2026-01-0$it"), 10200.0, 2900, 160.0) }
+        val r = PeriodComparisonService(FakeActivityRepository(sessions, sessions.associate { it.id to laps })).compare(
+            DateRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)), DateRange(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31)),
+        )
+        assertEquals(3, r.periodA.intervalSessionCount)
+        assertEquals(9, r.periodA.intervalRepCount)
+        assertEquals(540.0, r.periodA.intervalAvgRepSeconds!!, 1e-9)
+    }
+
+    @Test
+    fun `period comparison uses the same max-HR estimate as the coach page`() {
+        // No runs in the last 12 months: both fall back to ALL runs (p95 of 12 values = 200).
+        // The old "12 months before the newest run" window would only see the 180s.
+        val now = ZonedDateTime.now()
+        val old = (1..6).map { run(it.toLong(), now.minusYears(3).plusDays(it.toLong()), 10000.0, 3600, 140.0, maxHr = 200.0) }
+        val recent = (1..6).map { run(10L + it, now.minusMonths(18).plusDays(it.toLong()), 10000.0, 3600, 140.0, maxHr = 180.0) }
+        val tempoish = run(99, now.minusMonths(18).plusDays(10), 10000.0, 3000, 165.0, maxHr = 180.0)
+        val runs = old + recent + tempoish
+        val repo = FakeActivityRepository(runs)
+        val coach = CoachService(repo, BestEffortService(repo)).calculateCoachData(runs)
+        assertEquals(200, coach.maxHr)
+        assertEquals(coach.maxHr, com.running.strava.analysis.HrZones.estimateMaxHrForRuns(runs, now))
+        // avg HR 165 < 85 % of 200 (170): an easy run, not a hard effort.
+        val from = DateRange(now.minusMonths(19).toLocalDate(), now.minusMonths(17).toLocalDate())
+        val r = PeriodComparisonService(repo).compare(from, from)
+        assertEquals(0, r.periodA.excludedHardEfforts)
+        assertEquals(7, r.periodA.easyRunCount)
+    }
+
+    @Test
     fun `personal records are best efforts over the exact distance`() {
         val now = ZonedDateTime.now()
         val tenK = run(1, now.minusDays(3), 10000.0, 2700)

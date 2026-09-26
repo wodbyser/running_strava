@@ -27,12 +27,18 @@ class SyncStravaDataImpl(
         val errors = mutableListOf<String>()
         var totalFetched = 0
         var totalNew = 0
+        var totalUpdated = 0
         var streamsFetched = 0
 
         // Look back a week before the newest stored start: activities uploaded late (watch synced days later,
-        // start time before our newest activity) would otherwise never be fetched. Already-stored ids are skipped.
+        // start time before our newest activity) would otherwise never be fetched. Also always re-check the last
+        // RECHECK_DAYS: activities edited on Strava (name, type, race/long-run/workout tag, trainer, cropped
+        // distance/time) are updated. Unchanged stored activities cost no extra API calls.
         val lastSync = activityRepository.findLatestActivityTimestamp()
-        val afterEpoch = lastSync?.minusDays(OVERLAP_DAYS)?.toEpochSecond()
+        val afterEpoch = lastSync?.let {
+            minOf(it.minusDays(OVERLAP_DAYS), ZonedDateTime.now().minusDays(RECHECK_DAYS)).toEpochSecond()
+        }
+        val knownIds = activityRepository.findAllIds().toMutableSet()
 
         var page = 1
         var hasMore = true
@@ -50,15 +56,30 @@ class SyncStravaDataImpl(
                     hasMore = false
                 } else {
                     totalFetched += activities.size
-                    val newActivities = activities.filter { activityRepository.findById(it.id) == null }
+                    val newActivities = activities.filter { it.id !in knownIds }
                     totalNew += newActivities.size
 
-                    activityRepository.saveAll(newActivities)
+                    // Edited on Strava: update the summary fields; re-fetch laps/streams when the recording itself
+                    // changed (distance or time, e.g. a crop).
+                    val needDetails = mutableListOf<Activity>()
+                    activities.filter { it.id in knownIds }.forEach { summary ->
+                        val stored = activityRepository.findById(summary.id) ?: return@forEach
+                        if (summaryChanged(stored, summary)) {
+                            activityRepository.save(mergeSummary(stored, summary))
+                            totalUpdated++
+                            if (recordingChanged(stored, summary)) needDetails += summary
+                            log.info("Activity {} was edited on Strava; updated", summary.id)
+                        }
+                    }
 
-                    newActivities.forEach { activity ->
+                    activityRepository.saveAll(newActivities)
+                    knownIds += newActivities.map { it.id }
+
+                    (newActivities + needDetails).forEach { activity ->
+                        val base = activityRepository.findById(activity.id)?.takeIf { activity in needDetails } ?: activity
                         try {
                             val detail = stravaApiClient.getActivity(refreshedToken, activity.id)
-                            val fullActivity = activity.copy(
+                            val fullActivity = base.copy(
                                 description = detail.description,
                                 calories = detail.calories,
                                 sufferScore = detail.sufferScore,
@@ -114,11 +135,49 @@ class SyncStravaDataImpl(
             lastSyncAt = ZonedDateTime.now(),
         )
 
-        return SyncStravaData.SyncResult(totalFetched, totalNew, streamsFetched, errors)
+        if (totalUpdated > 0) log.info("Sync updated {} activities edited on Strava", totalUpdated)
+        return SyncStravaData.SyncResult(totalFetched, totalNew, streamsFetched, errors, totalUpdated)
     }
 
     companion object {
         const val OVERLAP_DAYS = 7L
+
+        /** Always re-check this many days back for activities edited on Strava. */
+        const val RECHECK_DAYS = 30L
+
+        /** Fields the Strava summary list carries that a user can edit (or that change on a crop). */
+        internal fun summaryChanged(stored: Activity, summary: Activity): Boolean =
+            stored.name != summary.name ||
+                stored.type != summary.type ||
+                stored.sportType != summary.sportType ||
+                stored.workoutType != summary.workoutType ||
+                stored.isTrainer != summary.isTrainer ||
+                stored.isCommute != summary.isCommute ||
+                stored.gearId != summary.gearId && summary.gearId != null ||
+                recordingChanged(stored, summary)
+
+        internal fun recordingChanged(stored: Activity, summary: Activity): Boolean =
+            stored.distance != summary.distance ||
+                stored.movingTime != summary.movingTime ||
+                stored.elapsedTime != summary.elapsedTime
+
+        /** Stored activity with the editable summary fields taken from Strava; detail-only fields are kept. */
+        internal fun mergeSummary(stored: Activity, summary: Activity): Activity = stored.copy(
+            name = summary.name,
+            type = summary.type,
+            sportType = summary.sportType,
+            workoutType = summary.workoutType,
+            isTrainer = summary.isTrainer,
+            isCommute = summary.isCommute,
+            gearId = summary.gearId ?: stored.gearId,
+            distance = summary.distance,
+            movingTime = summary.movingTime,
+            elapsedTime = summary.elapsedTime,
+            totalElevationGain = summary.totalElevationGain,
+            averageSpeed = summary.averageSpeed,
+            maxSpeed = summary.maxSpeed,
+            laps = null,
+        )
     }
 
     private fun ensureValidToken(token: StravaToken): StravaToken {
