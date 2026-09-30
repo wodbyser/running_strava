@@ -64,7 +64,8 @@ enum class SessionType {
  * 7. An isolated single fast lap >= 1.4x E whose HR is not above the easy laps' median HR + 3 bpm is a
  *    GPS glitch → NOISE (only when HR is available).
  * 8. Every remaining lap >= 1.15x E is TEMPO, provided (when HR is available) its HR is >= 5 bpm above the
- *    median HR of the easy laps; everything else EASY.
+ *    median HR of the easy laps; everything else EASY. A fast lap directly next to such an HR-confirmed TEMPO lap is
+ *    TEMPO too (HR lag at the start/end of a block); this is not transitive.
  * For Strava races (`workout_type` = 1) no reps/floats are assigned.
  * For Strava long runs (`workout_type` = 2) reps need HR confirmation (rep HR >= other laps + 8 bpm) and, without
  * HR, faster laps are never TEMPO (downhill / tailwind km in a long run).
@@ -188,6 +189,19 @@ object LapClassifier {
             if (hr == null && isLongRun) continue
             if (hr != null && medianEasyHr != null && hr < medianEasyHr + TEMPO_HR_MARGIN) continue
             result[i] = LapKind.TEMPO
+        }
+
+        // Heart-rate lag: HR needs 1-3 min to rise at the start of a tempo block, so the first (or last) fast lap of a
+        // block can fail the HR check although it is part of the same effort. A fast lap directly adjacent to an
+        // HR-confirmed TEMPO lap is TEMPO as well. Deliberately NON-transitive (only neighbours of laps that passed
+        // the HR check themselves), so one HR spike cannot turn a whole fast-but-easy stretch into tempo.
+        val hrConfirmedTempo = valid.filter { result[it] == LapKind.TEMPO }.toSet()
+        for ((pos, i) in valid.withIndex()) {
+            if (result[i] != LapKind.EASY || speed(i) < easyRef * MIN_SPEED_RATIO) continue
+            if (laps[i].averageHeartrate == null) continue
+            val prev = valid.getOrNull(pos - 1)
+            val next = valid.getOrNull(pos + 1)
+            if (prev in hrConfirmedTempo || next in hrConfirmedTempo) result[i] = LapKind.TEMPO
         }
         return result.toList()
     }

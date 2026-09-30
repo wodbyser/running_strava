@@ -241,4 +241,33 @@ class LapClassifierGoldenTest {
         assertEquals(3, reps.size)
         assertTrue(reps.all { it.distance == 2000f && it.movingTime == 540 })
     }
+
+    @Test
+    fun `first tempo km with HR lag is still tempo`() {
+        // Real session: 2 km warm-up, 6 km tempo, stop, 2 km cool-down. HR in the first tempo km (147) is still rising
+        // and below the easy-lap median inflated by the cool-down, but the lap belongs to the tempo block.
+        val laps = GoldenLaps.laps(
+            L(1000.0, 349, 119), L(1000.0, 338, 121),
+            L(1000.0, 265, 147), L(1000.0, 268, 167), L(1000.0, 250, 178), L(1000.0, 253, 181), L(1000.0, 249, 187),
+            L(1000.0, 247, 190),
+            L(136.0, 90, 174), L(1000.0, 369, 153), L(1000.0, 352, 158), L(14.0, 7, 161),
+        )
+        assertEquals(
+            listOf(EASY, EASY, TEMPO, TEMPO, TEMPO, TEMPO, TEMPO, TEMPO, EASY, EASY, EASY, NOISE),
+            kinds(laps),
+        )
+        assertEquals(SessionType.TEMPO, session(laps))
+    }
+
+    @Test
+    fun `HR-lag promotion is not transitive`() {
+        // Fast stretch without HR response except one lap: only its direct neighbours are promoted.
+        val laps = GoldenLaps.laps(
+            GoldenLaps.p(1000.0, 360, 140), GoldenLaps.p(1000.0, 360, 140), GoldenLaps.p(1000.0, 360, 141),
+            GoldenLaps.p(1000.0, 300, 141), GoldenLaps.p(1000.0, 300, 141), GoldenLaps.p(1000.0, 300, 160),
+            GoldenLaps.p(1000.0, 300, 141), GoldenLaps.p(1000.0, 300, 141),
+            GoldenLaps.p(1000.0, 360, 140), GoldenLaps.p(1000.0, 360, 140),
+        )
+        assertEquals(listOf(EASY, EASY, EASY, EASY, TEMPO, TEMPO, TEMPO, EASY, EASY, EASY), kinds(laps))
+    }
 }
