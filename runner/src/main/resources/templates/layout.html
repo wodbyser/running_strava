@@ -302,7 +302,7 @@
         }
         textarea { padding: var(--sp-2) var(--sp-3); width: 100%; resize: vertical; line-height: 1.5; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
-        .date-field { position: relative; display: inline-flex; align-items: stretch; }
+        .date-field { position: relative; display: inline-flex; align-items: stretch; isolation: isolate; }
         .date-field input[type="text"] { width: 9.5em; padding-right: 2.4em; flex: 1 1 auto; min-width: 0; }
         .date-field .date-pick {
             position: absolute; right: 2px; top: 2px; bottom: 2px; width: 2.2em;
@@ -310,8 +310,8 @@
         }
         .date-field .date-pick:focus-visible { outline: none; box-shadow: var(--focus); }
         .date-field .date-native {
-            position: absolute; left: 0; bottom: 0; width: 100%; height: 0; min-height: 0;
-            padding: 0; border: 0; opacity: 0; pointer-events: none;
+            position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0;
+            padding: 0; margin: 0; border: 0; opacity: 0; pointer-events: none; z-index: -1;
         }
         .filter-bar {
             background: var(--surface); border-radius: var(--radius); padding: var(--sp-4) var(--sp-5);
@@ -320,6 +320,7 @@
         .card .filter-bar { box-shadow: none; padding: var(--sp-4); background: var(--surface-2); margin-bottom: 0; }
         .filter-row { display: flex; gap: var(--sp-3) var(--sp-4); align-items: flex-end; flex-wrap: wrap; }
         .filter-row + .filter-row { margin-top: var(--sp-3); }
+        .filter-row--top { align-items: flex-start; }
         .filter-group { display: inline-flex; flex-direction: column; gap: var(--sp-1); }
         fieldset.filter-group { border: 0; min-width: 0; }
         fieldset.filter-group legend { padding: 0; margin-bottom: var(--sp-1); }
