@@ -302,6 +302,17 @@
         }
         textarea { padding: var(--sp-2) var(--sp-3); width: 100%; resize: vertical; line-height: 1.5; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus); }
+        .date-field { position: relative; display: inline-flex; align-items: stretch; }
+        .date-field input[type="text"] { width: 9.5em; padding-right: 2.4em; flex: 1 1 auto; min-width: 0; }
+        .date-field .date-pick {
+            position: absolute; right: 2px; top: 2px; bottom: 2px; width: 2.2em;
+            border: 0; background: transparent; cursor: pointer; font-size: 1rem; border-radius: var(--radius-sm);
+        }
+        .date-field .date-pick:focus-visible { outline: none; box-shadow: var(--focus); }
+        .date-field .date-native {
+            position: absolute; left: 0; bottom: 0; width: 100%; height: 0; min-height: 0;
+            padding: 0; border: 0; opacity: 0; pointer-events: none;
+        }
         .filter-bar {
             background: var(--surface); border-radius: var(--radius); padding: var(--sp-4) var(--sp-5);
             margin-bottom: var(--sp-5); box-shadow: var(--shadow);
@@ -439,8 +450,9 @@
             .filter-row > fieldset.filter-group { flex: 1 1 100%; }
             .filter-group > .inline { display: flex; }
             .filter-row > .custom-dates { flex: 1 1 100%; }
-            .custom-dates .filter-group, .filter-group > .inline > input { flex: 1 1 0; min-width: 0; }
-            .filter-group select, .custom-dates input { width: 100%; }
+            .custom-dates .filter-group, .filter-group > .inline > input, .filter-group > .inline > .date-field { flex: 1 1 0; min-width: 0; }
+            .filter-group select, .custom-dates input, .custom-dates .date-field { width: 100%; }
+            .date-field input[type="text"] { width: 100%; }
             .filter-group input[type="number"] { width: auto; }
             .card-head .filter-row { width: 100%; }
             .chart-box { height: 320px; }
@@ -558,6 +570,62 @@
 
         document.querySelectorAll('.flash-close').forEach(function (b) {
             b.addEventListener('click', function () { b.closest('.flash-wrap').remove(); });
+        });
+
+        // Native date inputs display in the browser's locale (often mm/dd/yyyy). Show a dd/mm/yyyy text
+        // field instead; the original input stays (visually hidden) and still submits ISO yyyy-mm-dd.
+        function isoToNl(iso) {
+            var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+            return m ? m[3] + '/' + m[2] + '/' + m[1] : '';
+        }
+        function nlToIso(text) {
+            var m = /^\s*(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})\s*$/.exec(text || '');
+            if (!m) return null;
+            var d = +m[1], mo = +m[2], y = +m[3], dt = new Date(y, mo - 1, d);
+            if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+            return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        }
+        document.querySelectorAll('input[type="date"]').forEach(function (iso) {
+            var wrap = document.createElement('span');
+            wrap.className = 'date-field';
+            var text = document.createElement('input');
+            text.type = 'text';
+            text.inputMode = 'numeric';
+            text.placeholder = 'dd/mm/jjjj';
+            text.autocomplete = 'off';
+            text.value = isoToNl(iso.value);
+            if (iso.id) { text.id = iso.id; iso.id = iso.id + 'Iso'; }
+            if (iso.getAttribute('aria-label')) text.setAttribute('aria-label', iso.getAttribute('aria-label'));
+            if (iso.required) text.required = true;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'date-pick';
+            btn.setAttribute('aria-label', 'Kies datum in kalender');
+            btn.innerHTML = '&#128197;';
+            iso.parentNode.insertBefore(wrap, iso);
+            wrap.appendChild(text);
+            wrap.appendChild(btn);
+            wrap.appendChild(iso);
+            iso.tabIndex = -1;
+            iso.setAttribute('aria-hidden', 'true');
+            iso.classList.add('date-native');
+            text.addEventListener('change', function () {
+                if (text.value.trim() === '') { iso.value = ''; text.setCustomValidity(''); }
+                else {
+                    var v = nlToIso(text.value);
+                    if (!v) { text.setCustomValidity('Gebruik het formaat dd/mm/jjjj'); text.reportValidity(); return; }
+                    text.setCustomValidity('');
+                    iso.value = v;
+                    text.value = isoToNl(v);
+                }
+                iso.dispatchEvent(new Event('change'));
+            });
+            iso.addEventListener('input', function () { text.value = isoToNl(iso.value); text.setCustomValidity(''); });
+            iso.addEventListener('change', function () { text.value = isoToNl(iso.value); });
+            btn.addEventListener('click', function () {
+                if (iso.showPicker) { try { iso.showPicker(); return; } catch (e) {} }
+                text.focus();
+            });
         });
 
         // Filters: data-autosubmit submits the owning form on change; data-custom-target shows the

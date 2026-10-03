@@ -4,6 +4,8 @@ import com.running.strava.domain.Activity
 import java.util.Locale
 import com.running.strava.domain.Lap
 import java.time.DateTimeException
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
@@ -74,6 +76,14 @@ object Format {
 
     /** Distance in km with 2 decimals. */
     fun km(meters: Number, decimals: Int = 2): String = "%.${decimals}f km".format(Locale.ROOT, meters.toDouble() / 1000)
+
+    private val DATE: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT)
+
+    /** Date as "dd/MM/yyyy", or "-" when missing. */
+    fun date(date: LocalDate?): String = date?.format(DATE) ?: "-"
+
+    /** ISO "yyyy-MM-dd" (as sent by date inputs) reformatted to "dd/MM/yyyy"; other input is returned unchanged. */
+    fun date(iso: String): String = try { date(LocalDate.parse(iso.trim())) } catch (e: DateTimeException) { iso }
 }
 
 /**

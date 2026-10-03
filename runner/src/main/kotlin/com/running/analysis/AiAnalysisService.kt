@@ -130,11 +130,11 @@ class AiAnalysisService(
             val recent = activities.takeLast(RECENT_COUNT)
             val lapsByActivity = activityRepository.findLapsForActivities(recent.map { it.id })
             appendLine()
-            appendLine("## 1. Laatste ${recent.size} activiteiten (${ActivityTime.localDate(recent.first())} t/m ${ActivityTime.localDate(recent.last())}, oud -> nieuw)")
+            appendLine("## 1. Laatste ${recent.size} activiteiten (${Format.date(ActivityTime.localDate(recent.first()))} t/m ${Format.date(ActivityTime.localDate(recent.last()))}, oud -> nieuw)")
             appendLine("Alle waarden per activiteit zijn $TAG_MEASURED, behalve waar anders vermeld.")
             appendLine()
             recent.forEachIndexed { index, activity ->
-                appendLine("${index + 1}. ${ActivityTime.localDate(activity)}")
+                appendLine("${index + 1}. ${Format.date(ActivityTime.localDate(activity))}")
                 appendLine("   Type: ${activity.type}" + raceSuffix(activity) + if (activity.isTrainer) " (loopband: tempo/afstand onbetrouwbaar)" else "")
                 appendLine("   Naam (door gebruiker): ${activity.name}")
                 appendLine("   Afstand: ${"%.2f".format(Locale.ROOT, activity.distance / 1000)} km")
@@ -160,20 +160,20 @@ class AiAnalysisService(
             val agg = RunAggregates.of(inWindow)
             val firstRun = ActivityTime.localDate(activities.first())
             appendLine()
-            appendLine("## 2. Totalen laatste $SUMMARY_WEEKS weken $TAG_COMPUTED ($windowStart t/m $today; overlapt met de lijst hierboven)")
+            appendLine("## 2. Totalen laatste $SUMMARY_WEEKS weken $TAG_COMPUTED (${Format.date(windowStart)} t/m ${Format.date(today)}; overlapt met de lijst hierboven)")
             appendLine()
             appendLine("Aantal runs: ${inWindow.size}")
             appendLine("Totale afstand: ${"%.1f".format(Locale.ROOT, agg.totalDistanceMeters / 1000)} km")
             appendLine("Totale bewegingstijd: ${Format.duration(agg.totalMovingTimeSeconds)}")
             appendLine("Gem. tempo (totale afstand / totale bewegingstijd): ${Format.pace(agg.avgSpeedMs)}")
             appendLine("Gem. HR (tijdgewogen, over ${agg.hrCount} van ${inWindow.size} runs met HR): ${Format.hr(agg.avgHr)}")
-            if (firstRun.isAfter(windowStart)) appendLine("Let op: de historiek begint pas op $firstRun; eerdere weken hebben geen data.")
+            if (firstRun.isAfter(windowStart)) appendLine("Let op: de historiek begint pas op ${Format.date(firstRun)}; eerdere weken hebben geen data.")
 
             appendLine()
             appendLine("## 3. Wekelijkse kilometers laatste $SUMMARY_WEEKS weken $TAG_COMPUTED (week = maandag-datum; 0.0 = geen runs; huidige week kan onvolledig zijn)")
             appendLine()
             WeeklyVolume.compute(inWindow, windowStart, today).forEach { (week, km) ->
-                appendLine("  $week: ${"%.1f".format(Locale.ROOT, km)} km")
+                appendLine("  ${Format.date(week)}: ${"%.1f".format(Locale.ROOT, km)} km")
             }
 
             appendLine()
@@ -236,9 +236,9 @@ class AiAnalysisService(
             appendLine("Geplande training: ${params.distanceKm?.let { "%.1f km".format(Locale.ROOT, it) } ?: "afstand niet opgegeven"}")
             params.trainingType?.takeIf { it.isNotBlank() }?.let { appendLine("Type training (uit schema): $it") }
             params.goalRace?.takeIf { it.isNotBlank() }?.let { appendLine("Doelwedstrijd: $it") }
-            params.raceDate?.takeIf { it.isNotBlank() }?.let { appendLine("Datum doelwedstrijd: $it") }
+            params.raceDate?.takeIf { it.isNotBlank() }?.let { appendLine("Datum doelwedstrijd: ${Format.date(it)}") }
             params.goalTime?.takeIf { it.isNotBlank() }?.let { appendLine("Doeltijd: $it") }
-            params.trainingDate?.takeIf { it.isNotBlank() }?.let { appendLine("Datum van deze training: $it") }
+            params.trainingDate?.takeIf { it.isNotBlank() }?.let { appendLine("Datum van deze training: ${Format.date(it)}") }
             params.notes?.takeIf { it.isNotBlank() }?.let { appendLine("Extra context/opmerkingen: $it") }
         }
 
@@ -285,7 +285,7 @@ class AiAnalysisService(
         val detail = buildString {
             val local = ActivityTime.local(activity)
             appendLine("Gemeten data $TAG_MEASURED:")
-            appendLine("Datum: ${local.toLocalDate()} (lokale starttijd ${local.toLocalTime().withSecond(0).withNano(0)})")
+            appendLine("Datum: ${Format.date(local.toLocalDate())} (lokale starttijd ${local.toLocalTime().withSecond(0).withNano(0)})")
             appendLine("Naam (door gebruiker): ${activity.name}")
             appendLine("Type: ${activity.type}" + raceSuffix(activity) + if (activity.isTrainer) " (loopband: tempo/afstand onbetrouwbaar)" else "")
             appendLine("Afstand: ${"%.2f".format(Locale.ROOT, activity.distance / 1000)} km")

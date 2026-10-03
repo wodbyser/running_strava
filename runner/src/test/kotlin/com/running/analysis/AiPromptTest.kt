@@ -50,7 +50,7 @@ class AiPromptTest {
         assertFalse(ctx.contains("VOLLEDIGE historiek"))
         assertTrue(ctx.contains("## 2. Totalen laatste 12 weken [berekend]"))
         assertTrue(ctx.contains("Aantal runs: 36"))               // the 200-day-old run is excluded
-        val weekLines = ctx.lines().filter { Regex("""^  \d{4}-\d{2}-\d{2}: \d+\.\d km$""").matches(it) }
+        val weekLines = ctx.lines().filter { Regex("""^  \d{2}/\d{2}/\d{4}: \d+\.\d km$""").matches(it) }
         assertEquals(12, weekLines.size)
         assertTrue(ctx.contains("Gem. cadans: 168 spm"))          // 84 per foot -> 168
         assertTrue(ctx.contains("Gem. HR: 152 bpm"))              // 152.3 rounded

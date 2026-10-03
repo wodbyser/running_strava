@@ -247,7 +247,7 @@ class CoachService(
      * Interval reps are never anchors: they are run with rest in between.
      */
     private fun anchors(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, maxHr: Int?): List<RacePredictor.Anchor> {
-        val fmt = DateTimeFormatter.ofPattern("dd/MM/yy")
+        val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
         val date = { a: Activity -> ActivityTime.local(a).format(fmt) }
         val result = mutableListOf<RacePredictor.Anchor>()
 

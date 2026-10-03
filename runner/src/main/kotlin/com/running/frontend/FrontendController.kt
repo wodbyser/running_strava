@@ -681,7 +681,7 @@ class FrontendController(
             .body(bytes)
     }
 
-    private fun periodLabel(name: String, r: DateRange) = "Periode $name (${r.from} t/m ${r.till})"
+    private fun periodLabel(name: String, r: DateRange) = "Periode $name (${Format.date(r.from)} t/m ${Format.date(r.till)})"
 
     /** Both bounds inclusive local dates ("t/m"). Defaults: A = 8 to 6 months ago, B = last 2 months. */
     private fun resolveComparisonRanges(fromA: String?, tillA: String?, fromB: String?, tillB: String?): Pair<DateRange, DateRange> {
