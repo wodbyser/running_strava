@@ -18,9 +18,9 @@ Do NOT implement backlog items outside the current phase. docs/garmin-feature-ba
 
 STEP 2: FIND WHAT TO DO
 - The current phase or gate is in GARMIN_PROGRESS.md ("Current state" and "Handoff").
-- Before starting a gate or phase, check the Approvals table. The previous gate or phase must be APPROVED by the owner. If it is not, stop and report. Do not start it. Do not change an approval yourself.
+- Before starting a gate or phase, check the Approvals table. The previous gate or phase must be APPROVED by the owner. If it is not, stop or ask question and report. Do not start it. Do not change an approval yourself.
 - If the owner's approval for the current item is missing, do the design or report work only.
-- If the handoff and the roadmap disagree, stop and report the conflict.
+- If the handoff and the roadmap disagree, stop or ask question and report the conflict.
 
 STEP 3: DO THE WORK
 - Do only the work of the current gate or phase, as described in GARMIN_ROADMAP.md.
@@ -40,7 +40,7 @@ STEP 4: UPDATE THE FILES (mandatory, at the end of every session)
 - GARMIN_ROADMAP.md: do not change phase scope without the owner's approval. You may add a note with the reason.
 
 STEP 5: STOP
-- Stop at every approval point: gate end, phase end, and any decision the owner must make.
+- Stop or ask question at every approval point: gate end, phase end, and any decision the owner must make.
 - Finish with a short report: what you did, what passed, what failed, what the owner must decide, and the exact next step.
 
 HARD RULES
@@ -48,7 +48,7 @@ HARD RULES
 - Do not run, modify, or depend on the Python client at runtime. The app calls Garmin with Spring RestClient only.
 - Do not commit raw Garmin responses or real identifiers (account, activity IDs, coordinates, device serials). Fixtures keep structure, units, and value shapes only.
 - Do not change buildSrc.
-- Keep ddl-auto: update and add new tables only. Do not rename or drop Strava columns.
+- Keep ddl-auto: update. Do not rename or drop Strava columns.
 - Garmin endpoints that change state use POST. Never add state-changing GET endpoints.
 - Code, docs, and agent text in English. UI and AI prompt text in Dutch.
 - Mark any fact not proven by a live response or by the Python client source as UNVERIFIED. Never guess endpoint fields, units, limits, or retry guidance.

@@ -81,7 +81,7 @@ These are the defaults. The implementing agent must follow them. If the owner ch
 | Source precedence | Strava owns activity identity, distance, pace, route, laps, streams. Garmin owns daily physiology. Garmin activity files may add time series only after a confirmed match. | Never average incompatible measurements. |
 | Resting HR precedence | Garmin daily resting HR when recorded, else the manual `strava_tokens.resting_hr` value, else none. The UI shows the source. | Manual value exists today in `StravaTokenEntity.restingHr`. |
 | Time handling | Garmin calendar dates stored as `LocalDate`. Source timestamps stored in UTC. Activity local time follows audit decision Q4. | Consistent with `docs/audit/phase-1-report.md`. |
-| Schema changes | Keep `ddl-auto: update`. Add new tables only. Do not rename or drop Strava columns. Flyway is a separate decision. | Current app convention. |
+| Schema changes | Keep `ddl-auto: update`. Do not rename or drop Strava columns. Flyway is a separate decision. | Current app convention. |
 | Databases | Must work on PostgreSQL 17 (prod) and H2 in PostgreSQL mode (dev profile). | `application-dev.yml`. |
 | Sync endpoints | New Garmin endpoints use **POST** for actions that change state. | Audit item 2.10. The Strava state-changing endpoints are POST now (`/sync`, `/fetch-all`, `/fetch-remaining`, `/backfill-laps`), but `GET /coach/sync` in `CoachController` still changes state and must not be copied. |
 | Language | Code, docs, and agent text in English. UI and AI prompt text in Dutch. | Existing app is Dutch in its UI and prompts. |
