@@ -37,7 +37,7 @@ Body: none
 
 ### 1.2 Token lifetime
 
-- The token is valid for 24 hours, or until the key expires or is deleted, whichever comes first. (FAQ, VERIFIED)
+- Token lifetime: UNVERIFIED for the 24-hour figure. The official overview page does not state it. The official client reads the lifetime from the JWT `exp` claim, so use `exp`, not a fixed duration.
 - The official client reuses a cached token only if it was issued for the same key and base URL and has **more than 1 hour** left. Otherwise it requests a new one.
 - Revocation: a revoked or deleted key makes its tokens fail. Expect HTTP 401 on data calls.
 
@@ -56,9 +56,10 @@ Headers:
 
 ### 1.4 Key lifecycle (FAQ, VERIFIED)
 
-- Key expiry options: 30, 90, 180, or 365 days. The owner chose 365 days. Creation date: `I created it 24 october 2026. So will expire 24 october 2027`.
-- Garmin emails about one week before expiry.
-- The key can be deleted at any time on Garmin Connect Web. Deleting it invalidates all tokens from it.
+- Key expiry options: 30, 90, 180, or 365 days (UNVERIFIED: not shown on the official overview page; confirm on the Garmin FAQ or the key creation page). The owner chose 365 days.
+- Created 2026-10-24. Expires 2027-10-24.
+- Garmin emails about one week before expiry (UNVERIFIED, same source as above).
+- The key can be deleted at any time on Garmin Connect Web. Deleting it invalidates all tokens from it (UNVERIFIED for the deletion effect; the official client reference treats revocation as a 401 on data calls).
 - Expiry date to record in `docs/garmin-sync-design.md`. Set a reminder.
 
 ### 1.5 Official client settings (VERIFIED)
@@ -119,9 +120,9 @@ All are GET. Response schema **UNVERIFIED** for every row until Gate 1.
 
 ### 3.1 Endpoints in scope for Phase 1
 
-Rows 1, 3 (if useful), 5 (if useful), 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24. Rows 2 and 4 are optional. Rows 6, 7, 16, and 17 are out of scope for analytics. Row 7 may be fetched once for profile context if the owner allows it.
+Rows 1, 2, 8, 9, 10, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22, 23, 24 are in scope for Phase 1. Row 2 (steps) is included as daily context for load work. Rows 3, 4, 5, and 7 are excluded from Phase 1 (hydration, weight goals, weight, profile) because they do not feed the Phase 1 physiology data. Rows 6, 16, and 17 are out of scope for analytics and are never called.
 
-Decide the final list in Gate 1 and record the decision in the capability matrix.
+Decision (owner, 2026-10-24): the list above is final for Gate 1. Record any change in the capability matrix.
 
 ### 3.2 Units and types
 
@@ -154,7 +155,7 @@ All **UNVERIFIED**. Document from fixtures. Do not assume units.
 
 | Condition | Official client behaviour | Project handling |
 |---|---|---|
-| Missing or empty key | Error before any request | Fail startup check with a clear message, no key in the message |
+| Missing or empty key | Error before any request | Do not fail startup. Set status `NOT_CONFIGURED`, skip scheduled runs with one warning, and show the state in `GET /garmin/status`. Never include the key in messages |
 | Non-positive timeout | Error | Config validation |
 | Key rejected at token exchange | HTTP error with status and body | Mark sync as failed with category `AUTH`. Do not retry in a loop |
 | 401 on a data call | HTTP error. No automatic retry | Re-exchange the key once, then retry the call once. If it fails again, category `AUTH` |
@@ -179,28 +180,9 @@ Rate-limit behaviour: **UNVERIFIED**. The official client has no rate-limit hand
 
 ---
 
-## 8. Smoke test (run locally, do not paste output into chats)
+## 8. Manual check
 
-The official client's smoke test, adapted for this project. Use the key from the environment. Do not print the key or the token. Do not commit output.
-
-```python
-import os
-from datetime import date, timedelta
-from garmin_personal_api import PersonalApiAuthenticator, GarminPersonalApiClient
-
-api_key = os.environ["GARMIN_PERSONAL_API_KEY"]
-with PersonalApiAuthenticator() as auth:
-    token = auth.obtain_token(api_key)
-with GarminPersonalApiClient(token.access_token) as client:
-    today = date.today()
-    week_ago = today - timedelta(days=7)
-    hrv = client.get_daily_hrv_summaries(week_ago.isoformat(), today.isoformat())
-    sleep = client.get_daily_sleep(today.isoformat())
-    activities = client.search_activities(start=0, limit=20)
-    print(type(hrv).__name__, type(sleep).__name__, type(activities).__name__)
-```
-
-Note: the official client caches tokens in `~/.config/garmin/`. Delete that cache file after the test if you do not want a plaintext token on disk. The Kotlin implementation keeps tokens in memory only.
+The Python smoke test was removed on purpose. The official client writes a plaintext bearer token to `~/.config/garmin/`, which conflicts with the in-memory token rule, and it needs a Python environment. Gate 1 does the live checks through the Kotlin code path or a temporary test harness, with the same no-print and no-commit rules.
 
 ---
 

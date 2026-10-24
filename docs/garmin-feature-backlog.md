@@ -143,6 +143,9 @@ Build as a separate module. **Never** state that someone will get injured or is 
 | 78 | Longitudinal athlete model | Evolving model of fitness and physiological response. Separate slow variables (aerobic fitness, durability, adaptation) from fast ones (fatigue, HRV deviation, sleep, acute recovery) | Very high |
 | 79 | Explainable AI insights | Analyses with references to the underlying data | Very high |
 | 80 | Automated weekly coaching review | Weekly review of training, fitness, and recovery | Very high |
+| 81 | Session-type readiness | Readiness per session type (easy run, tempo, intervals, long run, race pace). Shows, for each type, whether recent recovery and load support it, with components shown. Built from the app's own data, not a Garmin score. Garmin Training Readiness is UNAVAILABLE until proven in the field inventory | Very high |
+
+**Example:** "Intervals: low readiness (resting HR 4 bpm above baseline, HRV below your 28-day norm, 2 hard sessions in 4 days). Easy run: high readiness." Each type must show its inputs, sample counts, and "association, not cause". Use this with rule 4 of `GARMIN_API.md` section 8: say "insufficient data" when history is thin.
 
 ---
 

@@ -14,8 +14,9 @@ The previous Dutch version of this file is in git history (commit `4ce225f`).
 2. This file: scope, decisions, constraints, gates.
 3. `GARMIN_API_AGENT_REFERENCE.md`: endpoint table, auth contract, library behaviour, unknowns.
 4. `docs/audit/phase-1-report.md`: defects in existing analytics that Garmin work must not inherit.
-5. `docs/garmin-feature-backlog.md`: future ideas. **Not in scope.**
-6. `connect-personal-api-python-main/`: reference implementation. Read only. Do not run it or modify it.
+5. `connect-personal-api-python-main/src/garmin_personal_api/` (`auth.py`, `client.py`, `constants.py`, `errors.py`, `downloads.py`): reference implementation. Read only. Do not run it or modify it.
+
+`docs/garmin-feature-backlog.md` is future work and is not part of the read path.
 
 ---
 
@@ -69,7 +70,7 @@ These are the defaults. The implementing agent must follow them. If the owner ch
 | Runtime | The app calls Garmin directly from Kotlin through Spring `RestClient`. It never starts a Python process. | The Python client is only a reference for endpoints and login steps. A second runtime adds installation, maintenance, and deployment cost. The calls are plain HTTPS GET requests with a bearer token. |
 | Python client | Reference only. Read-only. Stays in the repo. | Source of truth for endpoints and auth behaviour. |
 | Licensing | Apache-2.0. If code is ported, keep the license header and add attribution in a NOTICE entry. | License requirement. |
-| API key env var | `GARMIN_PERSONAL_API_KEY`. Mapped to property `garmin.api-key`. | Same name as the official client. `.env` currently has `GARMIN_API_KEY`; the owner renames it. |
+| API key env var | `GARMIN_PERSONAL_API_KEY`. Mapped to property `garmin.api-key`. | Same name as the official client. `.env` already contains this name (verified 2026-10-24). |
 | Base URL | `https://personal.connectapi.garmin.com`, property `garmin.base-url`. | Official default. Same override idea as `GARMIN_PERSONAL_API_BASE_URL`. |
 | Bearer token storage | **In memory only.** No disk cache. Exchange the key again on startup or when the token is near expiry. | Avoids a plaintext token file. Costs one POST per app start. |
 | Raw payloads | Stored in a table, controlled by `garmin.store-raw-payloads` (default `true` in Phase 1). | Allows recalculation when algorithms change. Local DB only. |
@@ -82,7 +83,7 @@ These are the defaults. The implementing agent must follow them. If the owner ch
 | Time handling | Garmin calendar dates stored as `LocalDate`. Source timestamps stored in UTC. Activity local time follows audit decision Q4. | Consistent with `docs/audit/phase-1-report.md`. |
 | Schema changes | Keep `ddl-auto: update`. Add new tables only. Do not rename or drop Strava columns. Flyway is a separate decision. | Current app convention. |
 | Databases | Must work on PostgreSQL 17 (prod) and H2 in PostgreSQL mode (dev profile). | `application-dev.yml`. |
-| Sync endpoints | New Garmin endpoints use **POST** for actions that change state. | Audit item 2.10: existing `GET /sync` and `/fetch-all` change state and must not be copied. |
+| Sync endpoints | New Garmin endpoints use **POST** for actions that change state. | Audit item 2.10. The Strava state-changing endpoints are POST now (`/sync`, `/fetch-all`, `/fetch-remaining`, `/backfill-laps`), but `GET /coach/sync` in `CoachController` still changes state and must not be copied. |
 | Language | Code, docs, and agent text in English. UI and AI prompt text in Dutch. | Existing app is Dutch in its UI and prompts. |
 | AI | Keep copy-paste prompts. If Garmin data appears in prompts, update the guardrail lines in `AiAnalysisService` that currently say HRV and sleep are not in the data. | Guardrails are currently wrong once Garmin is present. |
 | Analytics base | Phases 1 and 2 (recovery: HRV, resting HR, sleep, Body Battery, stress) do not depend on the existing performance code and may start immediately. Phase 3 (performance analytics) and Phase 5 (race predictions and readiness) must not build on the existing efficiency factor, PB, race-prediction, or lap-classification code until the defects in section 7.1 are fixed or explicitly accepted. | The defective calculations would otherwise carry their errors into every Garmin-based performance metric. |
@@ -104,6 +105,7 @@ These are the defaults. The implementing agent must follow them. If the owner ch
 
 - **`core`**: domain models, SPI interfaces, use cases. No Spring. Jackson annotations only.
 - **`runner`**: adapters (`RestClient`), JPA entities and repositories, schedulers, controllers, `@ConfigurationProperties`.
+- The shared `RestClient` bean in `AppConfig` is `RestClient.create()` with no timeout. The Garmin client uses its own `RestClient` with the 30 s timeout, built from an injected `RestClient.Builder` so tests can bind `MockRestServiceServer`.
 - Use cases are wired in `runner/.../config/AppConfig.kt` the same way as the Strava use cases.
 - Existing pattern to copy: `StravaApiClient` (SPI in core, `StravaApiClientImpl` in runner), `ActivityRepository` (SPI in core, `ActivityRepositoryImpl` in runner), `SyncStravaDataImpl` (use case with overlap and recheck windows), `StravaSyncScheduler`.
 - Business logic stays out of controllers and repositories.
@@ -136,7 +138,7 @@ Stop at each gate, report, and wait for approval before the next one.
 - Record the result in `docs/garmin-sync-design.md`.
 
 **Gate 1: Fixture capture and capability discovery**
-- Call every endpoint in the reference file's table for a small date range (about 7 days), with throttling.
+- Call the in-scope endpoints listed in `GARMIN_API_AGENT_REFERENCE.md` section 3.1 for a small date range (about 7 days), with throttling. Rows 6, 16, and 17 (food logs, menstrual cycle) are out of scope and must never be called. Row 7 only if the owner approves it.
 - Save sanitized JSON fixtures under `runner/src/test/resources/garmin/`.
 - Write `docs/garmin-field-inventory.md`: for each endpoint, every JSON path with type, nullability, unit, sample cadence, timezone or date semantics, and historical coverage (how far back data exists).
 - Download 2 to 3 activity ZIPs. Record member names, file types, and FIT field coverage (timestamp, heart rate, speed, cadence, altitude, position, power). Save metadata only, not the files.
@@ -176,7 +178,7 @@ Proposed names. The agent may adjust them to fit the existing style, but must st
 - Repository SPI for Garmin records.
 
 **runner**
-- `GarminApiClientImpl` (`RestClient`), following `StravaApiClientImpl`.
+- `GarminApiClientImpl` (`RestClient` built from an injected `RestClient.Builder`, 30 s timeout), following `StravaApiClientImpl`.
 - `GarminTokenProvider`: exchanges the key, holds the token in memory, refreshes it within 1 hour of expiry, re-exchanges once on 401, then fails clearly.
 - JPA entities and repository implementations for Garmin tables.
 - `GarminSyncScheduler`.
@@ -198,28 +200,29 @@ Proposed names. The agent may adjust them to fit the existing style, but must st
 ## 7. Existing application facts (verified in the code)
 
 - **Stack:** Kotlin 2.1.20, Spring Boot 3.4, Java 23, PostgreSQL 17 (prod), H2 dev profile, Thymeleaf, Chart.js.
-- **Persistence:** JPA entities in `runner/.../strava/db/`. Tables: `activities`, `activity_streams`, `activity_laps`, `sync_status`, `strava_tokens`. `strava_tokens.resting_hr` is a manual value.
-- **Strava sync:** `SyncStravaDataImpl` re-reads 7 days before the last stored start, and re-checks the last 30 days for edits. Detail and stream calls are per activity.
+- **Persistence:** JPA entities in `runner/.../strava/db/`. Tables: `activities`, `activity_streams`, `activity_laps`, `sync_status`, `strava_tokens` (verified `@Table` names). `strava_tokens.resting_hr` is a manual value.
+- **Strava sync:** `SyncStravaDataImpl` looks back 7 days before the newest stored start (`OVERLAP_DAYS`) and re-checks the last 30 days for edits on Strava (`RECHECK_DAYS`). Detail and stream calls are per activity.
 - **Strava parser:** `StravaApiClientImpl.parseActivity` does **not** read `device_name`, `external_id`, or `start_date_local`. The `activities` table has no Garmin column.
-- **Scheduler:** `StravaSyncScheduler`, cron `strava.sync.cron`, skips if no token.
-- **Existing analytics:** `CoachService` (max HR estimate, resting HR, %HRmax and Karvonen zones, race predictions via Riegel), `PeriodComparisonService` (efficiency factor per period), `LapClassifier` and `WorkoutStructure` (interval detection), `BestEffortFinder` (fastest segment from streams), `BestEffortService`, `AiAnalysisService` (four copy-paste prompts).
+- **Scheduler:** `StravaSyncScheduler`, cron `strava.sync.cron`, skips if no token. `@EnableScheduling` is on `Application.kt`.
+- **Existing analytics:** `CoachService` (max HR estimate, resting HR, %HRmax and Karvonen zones, race predictions via Riegel), `PeriodComparisonService` (efficiency factor per period), `LapClassifier` (in `com.running.strava.domain`) and `WorkoutStructure` (interval detection), `BestEffortFinder` (fastest segment from streams), `BestEffortService`, `AiAnalysisService` (four copy-paste prompts).
 - **No fitness-fatigue model exists.** There is no ATL, CTL, TRIMP, or training-load calculation in the code. Garmin-based load work is new, not an extension.
-- **AI:** no provider integration. Prompts are plain text for copy-paste.
-- **Config:** `application.yml` with `strava.*`. `.env` in the project root is loaded into `bootRun` by `spring-boot-module.gradle.kts` and is git-ignored.
+- **AI:** no provider integration. Prompts are plain text for copy-paste. The guardrail in `AiAnalysisService` (around line 105) says the data contains no sleep, HRV, or resting HR. That must change once Garmin data is in prompts.
+- **Config:** `application.yml` with `strava.*`. `.env` in the project root is loaded into `bootRun` by `buildSrc/.../spring-boot-module.gradle.kts` and is git-ignored.
 
-### 7.1 Known defects to resolve before Garmin analytics
+### 7.1 Known defects: status to re-verify before Garmin analytics
 
-From `docs/audit/phase-1-report.md`. Status was re-checked in code on 2026-10-24. Verify each before relying on it.
+From `docs/audit/phase-1-report.md`. The status below was checked against the code on 2026-10-24. Items marked UNVERIFIED must be checked again in code before anyone relies on them.
 
-- **Max pace:** `FrontendController` now passes `maxSpeed` (m/s) to `Format.pace`. The audit's km/h error appears fixed. Verify with a unit test.
-- **Cadence:** `Cadence.toSpm` exists. Verify that all views and prompts use it (spm, both feet).
-- **Efficiency factor** (`PeriodComparisonService`): mixes populations (speed over all runs, HR over runs with HR). Open.
-- **PBs** (`FrontendController.calculatePBs`): whole-activity ±5% selection. Open. `BestEffortFinder` is the correct method and should replace it.
-- **Race predictions** (`CoachService.predictFromAnchors`): minimum over all anchors, including interval reps. Open.
-- **Interval classification** (`LapClassifier`, `WorkoutStructure`): unvalidated thresholds. Open.
-- **Times:** weekly and monthly grouping uses UTC dates. Open (decision Q4).
-- **Averages:** dashboard averages are unweighted. Open (decision Q5).
-- **Verdict:** the efficiency verdict has no minimum sample size. Open (decision Q8).
+- **Max pace:** `FrontendController` passes `maxSpeed` (m/s) to `Format.pace` (line 214). The km/h error appears fixed. Verify with a unit test.
+- **Cadence:** `Cadence.toSpm` exists and is used in `FrontendController` and `AiAnalysisService`. No `rpm` label remains in `runner/src/main/kotlin`. Verify that all views, prompts, and CSV use it (spm, both feet).
+- **Best efforts:** now persisted as `best_efforts_json` (`ActivityRepositoryImpl`). The audit's "never stored" finding is stale. Verify that the PR-segment anchors in `CoachService` now run.
+- **PBs:** the audit's `FrontendController.calculatePBs` no longer exists. PBs now come from `BestEffortService` and `BestEffortFinder`. UNVERIFIED: whether the fastest-segment logic is correct for the golden cases in the audit.
+- **Efficiency factor:** the audit's `PeriodComparisonService.buildStats` is not found by that name. `buildMonthlyTrend` exists. UNVERIFIED: whether it still mixes populations (speed over all runs, HR over runs with HR).
+- **Race predictions:** the audit's `CoachService.predictFromAnchors` is not found by that name. UNVERIFIED: whether it still takes the minimum over all anchors, including interval reps.
+- **Interval classification:** `LapClassifier.MIN_SPEED_RATIO = 1.15` is still present. UNVERIFIED: whether the thresholds are validated.
+- **Times:** weekly and monthly grouping uses UTC dates. UNVERIFIED: whether the Q4 decision (activity local time) has been applied.
+- **Averages:** dashboard averages are unweighted. UNVERIFIED: whether the Q5 decision (weighted) has been applied.
+- **Verdict:** the efficiency verdict has no minimum sample size. UNVERIFIED: whether the Q8 decision has been applied.
 
 ---
 
@@ -250,7 +253,7 @@ These apply to every Garmin-based metric.
 6. Activity list: does any field identify a Strava upload or match a Strava start time?
 7. Activity ZIP: member list, file type (FIT?), and which FIT fields are present.
 8. Rate limits and 429 or other throttling responses: what happens, and what is the retry hint?
-9. Key expiry: the owner created a key with a 1-year expiry. **Record the creation and expiry dates here:** `<I created it 24 october 2026. So will expire 24 october 2027`.
+9. Key expiry: the owner created a key with a 1-year expiry. Created 2026-10-24, expires 2027-10-24 (365 days). Also recorded in `GARMIN_API_AGENT_REFERENCE.md` section 1.4.
 10. Swagger: loads or not, and its version if it does.
 11. Empty-day behaviour: `null` body, empty object, or HTTP error?
 
