@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "garmin-connect-personal-api-python"
+dynamic = ["version"]
+description = "Python client for the Garmin Connect Personal API"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Garmin Ltd. or its subsidiaries." }]
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31,<3",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+interactive = [
+    "rich>=13.7,<15",
+]
+dev = [
+    "garmin-connect-personal-api-python[interactive]",
+    "pytest>=8,<9",
+    "pytest-cov>=5,<7",
+    "pyright>=1.1,<2",
+    "ruff>=0.9,<1",
+]
+
+[project.scripts]
+gc-personal = "garmin_personal_api.cli:main"
+
+[project.urls]
+Repository = "https://github.com/garmin/connect-personal-api-python"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "garmin_personal_api._version.__version__"}
+
+[tool.setuptools.package-data]
+garmin_personal_api = ["py.typed"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src", "examples"]
+exclude = ["build", "dist", ".venv"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+reportMissingModuleSource = "none"
