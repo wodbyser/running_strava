@@ -124,7 +124,7 @@ These are the defaults. The implementing agent must follow them. If the owner ch
 - All automated tests run offline. No real credentials, no network.
 - Use fake SPIs and stubbed HTTP (for example Spring `MockRestServiceServer`). Follow `FakeActivityRepository` for the repository fake.
 - Build and test on Java 23: `JAVA_HOME=~/.sdkman/candidates/java/23-open ./gradlew :core:test :runner:test`. Java 21 gives a misleading "Inconsistent JVM target" error. Do not change buildSrc.
-- The existing Strava tests must still pass unchanged.
+- The existing Strava tests must still pass. A Strava test may change only when a documented audit decision requires it, with the old and new values listed.
 
 ---
 
@@ -193,7 +193,7 @@ Proposed names. The agent may adjust them to fit the existing style, but must st
 4. A failed day or endpoint is retried with backoff and does not stop the whole run.
 5. Sync status shows last run time, last success, records written per endpoint, and last error category. No secrets.
 6. With `garmin.enabled=false`, there are no Garmin HTTP calls and no scheduler activity. With the flag on and no key or an invalid key, the app starts, `GET /garmin/status` reports `NOT_CONFIGURED` or `AUTH_FAILED`, and no retry loop runs.
-7. All offline tests pass, and the existing Strava tests pass unchanged.
+7. All offline tests pass, and the existing Strava tests pass. Any Strava test change follows the audit-decision rule in section 4.4.
 
 ---
 

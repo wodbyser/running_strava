@@ -76,7 +76,7 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 | 4 | Failed day or endpoint retried with backoff; run continues | NOT STARTED |
 | 5 | Status shows last run, last success, records per endpoint, last error category | NOT STARTED |
 | 6 | Flag off: no Garmin calls. Flag on, no or invalid key: app starts, status reports state | NOT STARTED |
-| 7 | Offline tests pass; existing Strava tests pass unchanged | NOT STARTED |
+| 7 | Offline tests pass; existing Strava tests pass (changes only per the audit-decision rule, old and new values listed) | NOT STARTED |
 
 ## Other phases
 

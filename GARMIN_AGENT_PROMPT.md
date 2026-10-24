@@ -26,7 +26,7 @@ STEP 3: DO THE WORK
 - Do only the work of the current gate or phase, as described in GARMIN_ROADMAP.md.
 - Write the design doc before code for any phase.
 - Build and test: JAVA_HOME=~/.sdkman/candidates/java/23-open ./gradlew :core:test :runner:test
-- Existing Strava tests must pass unchanged.
+- Existing Strava tests must pass. A Strava test may change only when a documented audit decision requires it, with the old and new values listed in the design doc and the progress log.
 - If you need a decision that is not in the files, ask the owner. Do not invent one. Record it under "Open questions" in GARMIN_PROGRESS.md.
 
 STEP 4: UPDATE THE FILES (mandatory, at the end of every session)

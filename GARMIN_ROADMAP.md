@@ -58,7 +58,7 @@ Work, in this order:
    - Interval classification: at least 2 reps, glitch filter, tempo category, races excluded from easy EF (Q2).
    - Local time everywhere (Q4), weighted averages (Q5), 150 bpm reference pace removed (Q7), verdict minimum n (Q8).
    - Prompt guardrails in `AiAnalysisService` must match the data (no "not in the data" claims once Garmin is present).
-3. Golden tests for every case in the audit. The strava regression tests must still pass.
+3. Golden tests for every case in the audit. The Strava regression tests must pass. A Strava test may change only when a documented audit decision requires it, with the old and new values listed in `docs/garmin-audit-remediation.md`.
 4. Owner decision: the Strava client secret. Check that `test-strava-connection.sh` has no fallback secret (it has none as of 2026-10-24). Rotation is an owner action; record whether it was done.
 
 **Exit criteria:** every section 7.1 item is FIXED with a passing test, or the owner has explicitly accepted it as OPEN. Owner approval.
