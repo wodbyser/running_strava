@@ -6,7 +6,7 @@ Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md
 
 **Last updated:** 2026-10-25 by: Gate 3 session (no item changed status)
 
-Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). Stress durations in seconds and the Body Battery time series are not stored (design D1). No analytics were built, so every item stays NOT STARTED.
+Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). The Body Battery 180 s series is stored (owner decision 2026-10-25). Stress durations are already in the daily summary and are not stored twice. No analytics were built, so every item stays NOT STARTED.
 
 ## Phase mapping (confirmed by owner 2026-10-25)
 

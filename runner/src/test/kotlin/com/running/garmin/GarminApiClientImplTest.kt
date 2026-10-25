@@ -192,6 +192,17 @@ class GarminApiClientImplTest {
     }
 
     @Test
+    fun `raw payload text does not depend on the key order Garmin used`() {
+        fun raw(body: String): String {
+            val t = GarminTestSupport()
+            t.token()
+            t.json("$BASE/biometric-service/heartRateZones/v2", body)
+            return t.client.getHeartRateZones().single().source.rawJson!!
+        }
+        assertEquals(raw("""[{"sport":"RUNNING","a":{"y":1,"x":2},"z":3}]"""), raw("""[{"z":3,"a":{"x":2,"y":1},"sport":"RUNNING"}]"""))
+    }
+
+    @Test
     fun `a 401 re-exchanges the key exactly once and repeats the call once`() {
         val t = GarminTestSupport()
         t.token("1")
@@ -247,6 +258,18 @@ class GarminApiClientImplTest {
     }
 
     private val zonesUrl = "$BASE/biometric-service/heartRateZones/v2"
+
+    @Test
+    fun `429 keeps the Retry-After header value in the message (not the body)`() {
+        val t = GarminTestSupport()
+        t.token()
+        t.server.expect(requestTo("$BASE/biometric-service/heartRateZones/v2"))
+            .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS).header("Retry-After", "30").body("secret"))
+        val e = assertThrows(GarminApiException::class.java) { t.client.getHeartRateZones() }
+        assertEquals(GarminErrorCategory.RATE_LIMIT, e.category)
+        assertTrue(e.message!!.contains("Retry-After: 30"))
+        assertFalse(e.message!!.contains("secret"))
+    }
 
     @Test
     fun `network failure is NETWORK and a socket timeout is TIMEOUT`() {

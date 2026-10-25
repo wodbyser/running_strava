@@ -149,3 +149,11 @@ Gate 2 uses this evidence for the matching design.
 ## 11. Fixture set
 
 `runner/src/test/resources/garmin/` (22 files). Identifiers (account, device, activity IDs, names, URLs, coordinates, UUIDs) are replaced by constants. Health values and dates are real but contain no identifier. Series arrays are cut to a few points. Empty-day shapes are included. No JWT, no key, no ZIP, no FIT file is committed.
+
+## 12. Additions from Gate 3 verification (2026-10-25)
+
+| Item | Result | Label |
+|---|---|---|
+| HTTP 429 | Seen live once: 3 calls in a row after about 860 sequential calls in about 15 minutes (1 s pause between chunks). `Retry-After` was not captured then. The limit is unknown. A run with a 2 s pause made 426 calls without 429. | Occurrence VERIFIED. Limit and hint UNVERIFIED |
+| Body Battery report with `chunks=480` | About one reading per 180 s, each reading twice, some with a null twin. 257 to 480 distinct readings per stored day. Optional status and version columns never returned. | VERIFIED. Columns UNVERIFIED |
+| Key order in activity search JSON | Varies between calls (same content). | VERIFIED |

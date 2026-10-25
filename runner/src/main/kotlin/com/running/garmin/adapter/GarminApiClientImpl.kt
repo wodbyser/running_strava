@@ -3,6 +3,7 @@ package com.running.garmin.adapter
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.running.garmin.domain.EP_ACTIVITY_SEARCH
 import com.running.garmin.domain.EP_BODY_BATTERY_REPORT
@@ -48,6 +49,7 @@ class GarminApiClientImpl(
 ) : GarminApiClient {
 
     private val log = LoggerFactory.getLogger(GarminApiClientImpl::class.java)
+    private val sortedWriter = mapper.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
 
     override fun getDailySummaries(start: LocalDate, end: LocalDate): List<GarminDailySummary> {
         val root = get("/usersummary-service/v2/dailysummaries", mapOf("startDate" to start, "endDate" to end)) ?: return emptyList()
@@ -91,7 +93,7 @@ class GarminApiClientImpl(
             response = send(path, query)
             if (response.status == 401) throw statusToException(401, path)
         }
-        if (response.status !in 200..299) throw statusToException(response.status, path)
+        if (response.status !in 200..299) throw statusToException(response.status, path, response.retryAfter)
         if (response.status == 204 || response.body.isBlank()) return null
         return try {
             mapper.readTree(response.body)
@@ -123,11 +125,12 @@ class GarminApiClientImpl(
 
     // --- mapping ---
 
+    /** Garmin does not always send object keys in the same order, so the stored text is key-sorted to stay stable between syncs. */
     private fun raw(node: JsonNode, drop: Set<String> = emptySet()): String? {
         if (!storeRawPayloads) return null
         val copy = node.deepCopy<JsonNode>()
         if (copy is ObjectNode) copy.remove(drop)
-        return redactor.redact(copy.toString())
+        return redactor.redact(sortedWriter.writeValueAsString(mapper.treeToValue(copy, Any::class.java)))
     }
 
     private fun source(endpoint: String, units: String, node: JsonNode, drop: Set<String> = emptySet()) =

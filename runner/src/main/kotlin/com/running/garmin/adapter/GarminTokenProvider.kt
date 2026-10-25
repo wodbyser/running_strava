@@ -59,7 +59,7 @@ class GarminTokenProvider(
             throw if (response.status in 400..499 && response.status != 429) {
                 GarminApiException(GarminErrorCategory.AUTH, response.status, "Garmin rejected the API key (HTTP ${response.status})")
             } else {
-                statusToException(response.status, "token exchange")
+                statusToException(response.status, "token exchange", response.retryAfter)
             }
         }
         val jwt = response.body.trim()

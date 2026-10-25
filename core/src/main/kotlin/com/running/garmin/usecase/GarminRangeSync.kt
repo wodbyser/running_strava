@@ -10,6 +10,7 @@ import com.running.garmin.domain.GarminSyncStatus
 import com.running.garmin.spi.GarminApiClient
 import com.running.garmin.spi.GarminRepository
 import com.running.garmin.spi.GarminSyncStatusRepository
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -52,6 +53,8 @@ class GarminRangeSync(
     private val clock: Clock,
     private val pause: (Long) -> Unit = { if (it > 0) Thread.sleep(it) },
 ) {
+    private val log = LoggerFactory.getLogger(GarminRangeSync::class.java)
+
     val zone: ZoneId get() = settings.zone
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(settings.zone))
@@ -69,6 +72,7 @@ class GarminRangeSync(
             return try {
                 retry.execute(block)
             } catch (e: GarminApiException) {
+                log.warn("Garmin call failed after retries: {} ({})", endpoint, e.message)
                 failures += GarminCallFailure(endpoint, rangeFrom, rangeTo, e.category)
                 if (e.category == GarminErrorCategory.AUTH || e.category == GarminErrorCategory.NOT_CONFIGURED) aborted = true
                 null

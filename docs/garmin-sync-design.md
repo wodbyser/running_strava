@@ -125,3 +125,37 @@ JSON: `state` (`DISABLED`, `NOT_CONFIGURED`, `RUNNING`, `AUTH_FAILED`, `NEVER_RU
 ### Tests (all offline)
 
 core: retry policy, range sync (chunking, idempotency, null handling, partial failure continues, AUTH aborts, overlap), matcher (provenance section 10 items 1 to 7, 10, 11). runner: token provider and client with `MockRestServiceServer` and the fixtures (401 gives exactly one re-exchange, 204, empty shapes, 429 and 5xx mapping, no secret in messages), controller and coordinator (409, flag off, no key), redactor, properties validation, JPA idempotency with H2, scheduler off.
+
+## Gate 3: owner decisions applied (2026-10-25, second Gate 3 session)
+
+| Topic | Decision | Change made |
+|---|---|---|
+| Body Battery series, stress durations (D1) | Store only if they add information beyond the daily summary and the semantics are verified. No duplicate storage. | **Body Battery series stored** in `garmin_body_battery_sample` (calendar_date, `timestamp_gmt_ms` as key, level). Verified live: `chunks=480` returns about one reading per 180 s (default is 6 points a day), level 0 to 100, timestamps epoch ms UTC, each reading appears twice with the same value, some with a null twin. The loader merges duplicate timestamps and drops nulls. The `charged` and `drained` values of the report are not stored (same as the daily summary). Not stored and UNVERIFIED: the optional status and version columns, which Garmin never returned live. How two different non-null values at one timestamp would be handled is UNVERIFIED (never seen; the first one is kept). **Stress durations are not stored again**: the daily summary already has them (milliseconds). Stress daily (row 1, seconds) and steps daily (row 2) stay uncalled. |
+| Retry (D4) | 3 calls in total, waits 1 s and 4 s. | Default delays changed from `1s,4s,16s` to `1s,4s` (code, properties, `application.yml`). Tests added. |
+| Matching (D7 to D9) | On demand in Phase 1. Type mapping unchanged. Position is a supporting component, thresholds stay provisional. | Position difference can only move a pair to Weak (review), never reject or link it. The 2 km fail limit was removed. |
+| HTTP 403 | Non-retryable client error, no token re-exchange. | New category `FORBIDDEN`. Test: exactly one data call and one token exchange. |
+
+Additions found during verification: the 429 message now carries the `Retry-After` header value (or "absent"), never the body. A failed call is logged once after retries (endpoint and message, no body). Raw payload text is key-sorted because Garmin sends object keys in changing order (same content, different text); without that, 348 of 448 activity raw rows were rewritten with different text on every run.
+
+## Gate 3: verification against PostgreSQL (2026-10-25)
+
+**Environment.** Production stayed untouched: a one-way `pg_dump` of `running-db` (read only) was restored into a new container `running-test-db` (postgres:17, port 5433, copy of the Strava data). The app ran with `DB_URL` pointing at the copy, both cron jobs off. No Strava API call was made (the copy holds a Strava token; a refresh could rotate the real one). The production database has no Garmin table, no new column, and still 585 activities. The test container is stopped, not removed. Raw responses were kept in `/tmp/opencode` only and deleted.
+
+**A. Schema.** Spring/Hibernate `ddl-auto: update` created the 11 Garmin tables and the two nullable Strava columns on PostgreSQL 17. Content hashes of all five Strava tables (activities, laps, streams, token, sync status, without the two new columns) were identical before the boot, after the boot, after all syncs and at the end.
+
+**D. Idempotency (test copy, real key).**
+
+| Run | Result | Compared |
+|---|---|---|
+| 1. `POST /garmin/sync` (no earlier success, so default range 730 days) | OK, 0 failed calls, 432 GET calls | Baseline |
+| 409 check while run 1 was active | HTTP 409, no HTTP call | |
+| 2. `POST /garmin/sync` (incremental, last 3 days) | OK | 0 added, 0 removed, 0 changed in all 10 Garmin tables |
+| 3. `POST /garmin/backfill` (full default range, 1 s pause) | PARTIAL_FAILURE: HTTP 429 (RATE_LIMIT) on 3 calls after retries, run continued | Rows written identical, 0 duplicates. Only raw activity text differed (key order, see above) |
+| 4. `POST /garmin/backfill` (full range, `GARMIN_BACKFILL_PAUSE=2s`) | OK, 0 failed calls, 426 GET calls | 0 added, 0 removed, 0 changed in the 9 data tables. Raw activity payloads equal as JSON (0 differences) |
+| 5 and 6. Two short backfills (2026-10-01 to 2026-10-24) after the key-sort fix | OK both | Run 6 vs run 5: 0 added, 0 removed, 0 changed in all 10 tables including raw payloads. Run 5 vs before: only 83 raw rows reformatted once |
+
+Final per-table counts (identical after every run): activity refs 448, Body Battery samples 69 743, daily Body Battery 669, HRV 624, resting HR 669, sleep 620, steps 676, stress 676, HR zones 2, raw payloads 2 370. Duplicate keys: 0 (activity IDs, HRV dates, sample timestamps, raw keys). Status after the clean runs: `OK`, `failedCalls` 0. Null counts: stress 42, steps 14, sleep 212, HRV 92, activities 4, others 0 (these count null metric fields in stored rows).
+
+**429 finding (UNVERIFIED limit).** The first 429 appeared in run 3, after about 860 sequential calls in roughly 15 minutes (1 s pause between chunks, no pause between the 4 calls of one chunk). Three consecutive attempts (waits 1 s and 4 s) did not clear it. The `Retry-After` header was not logged at that time, so the retry hint is unknown. Run 4 with a 2 s pause made 426 calls without a 429. The limit itself is still unknown.
+
+**Key safety.** The key string appears in none of the three app logs (checked by search, nothing printed), none of the committed files and none of the docs.

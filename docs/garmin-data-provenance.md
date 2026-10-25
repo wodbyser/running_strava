@@ -149,3 +149,21 @@ Offline, with fixtures from `runner/src/test/resources/garmin/`:
 1. Match review in Phase 1 is a **read-only list**. No confirm or reject POST endpoints in Phase 1. Sections 4 and 10 items 8 apply to a later phase (decisions persist only if endpoints are added later).
 2. A report-only dry run in Gate 3 comes before the thresholds are fixed. The owner approves final thresholds from that report.
 3. Two nullable Strava columns (`external_id`, `device_name`) may be added in Gate 3 (additive only).
+
+## 12. Dry-run result and owner decisions (2026-10-25, second Gate 3 session)
+
+Owner decisions: matching stays on demand in Phase 1; type mapping stays as is (run, walk, ride, swim); position is a supporting component only (it can move a pair to REVIEW, never reject or link it); thresholds stay provisional until the owner reviews the report below.
+
+**Report-only dry run** on a copy of the production database (448 Garmin activities synced from the live API, 585 Strava activities, 451 of them in the Garmin period). Nothing was written, no match stored, no Strava row changed.
+
+| Result | Value |
+|---|---|
+| Tiers | MATCHED 440, REVIEW 0, UNMATCHED 8 |
+| Start difference of the nearest compatible pair (441 pairs within 1 h) | min 0 s, median 0 s, p90 0 s, max 40 s (Strong limit 120 s, Weak 600 s) |
+| Distance difference (percent of the larger value) | median 0.0004 %, p90 0.02 %, max 3.14 % (Strong limit 2 %, Weak 5 %) |
+| Elapsed-time difference (percent) | median 0.009 %, p90 0.029 %, max 33.5 % (Strong limit 3 % or 10 s, Weak 10 %) |
+| Strava `external_id` present among time-matched pairs | 0 of 441 (the column was empty in the copy because no Strava fetch was made). Step 1 (shared ID) stays UNVERIFIED and off |
+
+The 8 UNMATCHED Garmin activities: 1 run without any Strava activity within 1 hour; 2 walks without a Strava activity within 1 hour; 1 `resort_skiing`, 1 `assistance`, 1 `other`, 1 `rowing_v2` (unmapped types, never matched); 1 run with the same start time as a Strava run, distance 3.1 % apart and elapsed time 33.5 % apart (586 s), which fails the elapsed limit. Nothing fell in the Weak band for start time, so REVIEW is empty. Strava activities in the Garmin period without any Garmin activity within 10 minutes: 8 of 451. Strava activities before the first Garmin activity: 134.
+
+Reading for the owner: on this history every start difference is at most 40 s and almost every distance and elapsed difference is far inside the Strong limits, so the proposed limits are loose compared with the observed data. This is evidence for one account and one device and is not a reason to tighten anything by itself. Thresholds stay as proposed until the owner decides.
