@@ -4,9 +4,9 @@ Status of every item in `docs/garmin-feature-backlog.md`. Update this file whene
 
 Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md`.
 
-**Last updated:** 2026-10-24 by: planning session
+**Last updated:** 2026-10-25 by: Gate 1 session (notes only; no item changed status)
 
-## Phase mapping (proposed, owner to confirm)
+## Phase mapping (confirmed by owner 2026-10-25)
 
 `GARMIN_API.md` defines Phase 1 (data foundation) and Phase 2 (physiology baselines). Phases 3 to 5 are referenced in the spec (section 3, analytics base) but not defined. The mapping below is a proposal.
 
@@ -25,13 +25,13 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 
 | # | Feature | Section | Priority | Proposed phase | Status | Blocked by / notes |
 |---|---|---|---|---|---|---|
-| 1 | Personal HRV baseline | A | Very high | Phase 2 | NOT STARTED | Verified HRV field (Gate 1) |
+| 1 | Personal HRV baseline | A | Very high | Phase 2 | NOT STARTED | Gate 1: HRV nightly average, weekly average, 5-minute readings, Garmin baseline band all available since 2024-12-20. HRV measure/unit UNVERIFIED (owner decision on labelling) |
 | 2 | HRV trend analysis | A | Very high | Phase 2 | NOT STARTED | #1 |
-| 3 | Resting heart rate analysis | A | Very high | Phase 2 | NOT STARTED | Verified resting HR field (Gate 1) |
+| 3 | Resting heart rate analysis | A | Very high | Phase 2 | NOT STARTED | Gate 1: daily `restingHeartRate` verified (dailyHeartRate, dailysummaries). Measurement method UNVERIFIED |
 | 4 | Recovery Readiness (overall score) | A | Very high | Phase 2 | NOT STARTED | #1, #3, #6, #8, components shown |
 | 5 | Training response analysis | A | Very high | Phase 4 | NOT STARTED | Load model (Phase 4), #1 |
 | 6 | Sleep quality analysis | A | Very high | Phase 2 | NOT STARTED | Verified sleep fields (Gate 1) |
-| 7 | Sleep debt | A | High | Phase 2 | NOT STARTED | #6, personal sleep need (owner input) |
+| 7 | Sleep debt | A | High | Phase 2 | NOT STARTED | #6. Owner input (2026-10-25): sleep need at least 7h30 and enough deep sleep. Garmin also returns its own `sleepNeed` (baseline 480, unit UNVERIFIED). Owner to confirm the exact number and the deep-sleep target |
 | 8 | Body Battery trends | A | High | Phase 2 | NOT STARTED | Verified Body Battery cadence (Gate 1) |
 | 9 | Autonomic stress analysis | A | High | Phase 2 | NOT STARTED | Verified stress fields (Gate 1) |
 | 10 | Recovery time estimation | A | Very high | Phase 4 | NOT STARTED | Load model, #1 to #9 history |
@@ -47,7 +47,7 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 | 20 | Running economy proxy | B | High | Phase 3 | NOT STARTED | #16, power only if reliable |
 | 21 | Fitness trend model | B | Very high | Phase 3 | NOT STARTED | #16, #17, #22 |
 | 22 | Threshold estimation | B | Very high | Phase 3 | NOT STARTED | Audit defects fixed, validation set |
-| 23 | VO2max trend validation | B | High | Later | UNAVAILABLE | VO2max not in client; only if proven in Gate 1 |
+| 23 | VO2max trend validation | B | High | Later | UNAVAILABLE | Gate 1: `vO2MaxValue` is in the Swagger schema but absent from all 448 live activities |
 | 24 | Heart rate zone distribution | B | Very high | Phase 3 | NOT STARTED | Streams, zones (existing `CoachService` uses estimated max HR) |
 | 25 | Durability analysis | B | Very high | Phase 3 | NOT STARTED | Streams, #18 |
 | 26 | Long run fatigue analysis | B | Very high | Phase 3 | NOT STARTED | Streams, #25, session-type classification |
@@ -87,7 +87,7 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 | 60 | Load spike detection | E | Very high | Later | NOT STARTED | Separate module, no injury claims (section E) |
 | 61 | Impact exposure tracking | E | Very high | Later | NOT STARTED | Separate module |
 | 62 | Recovery deficit detection | E | Very high | Later | NOT STARTED | Separate module, #4 |
-| 63 | Injury history correlation | E | Very high | Later | NOT STARTED | Owner injury data (none in app) |
+| 63 | Injury history correlation | E | Very high | Later | NOT STARTED | Owner gave history 2026-10-25 (stress fracture of the shin about 1.5 years ago, one knee dislocation, no current issues). Not recorded in the app. Needs input UI and medical-rules review |
 | 64 | Pain and symptoms journal | E | Very high | Later | NOT STARTED | New input UI, medical rules |
 | 65 | Return-to-running monitor | E | Very high | Later | NOT STARTED | #64, professional guidance rules |
 | 66 | Warning signal detection | E | Very high | Later | NOT STARTED | Must not predict injury (section 8 rule 9) |

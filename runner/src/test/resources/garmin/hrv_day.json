@@ -1,0 +1,58 @@
+{
+  "userProfilePk": 1000000001,
+  "hrvSummary": {
+    "calendarDate": "2026-10-24",
+    "weeklyAvg": 70,
+    "lastNightAvg": 65,
+    "lastNight5MinHigh": 94,
+    "baseline": {
+      "lowUpper": 69,
+      "balancedLow": 71,
+      "balancedUpper": 81,
+      "markerValue": 0.19674683
+    },
+    "status": "UNBALANCED",
+    "feedbackPhrase": "HRV_UNBALANCED_12",
+    "createTimeStamp": "2026-10-24T06:52:32.60"
+  },
+  "hrvReadings": [
+    {
+      "hrvValue": 57,
+      "readingTimeGMT": "2026-10-23T21:50:46.0",
+      "readingTimeLocal": "2026-10-23T23:50:46.0"
+    },
+    {
+      "hrvValue": 76,
+      "readingTimeGMT": "2026-10-23T21:55:46.0",
+      "readingTimeLocal": "2026-10-23T23:55:46.0"
+    },
+    {
+      "hrvValue": 66,
+      "readingTimeGMT": "2026-10-23T22:00:46.0",
+      "readingTimeLocal": "2026-10-24T00:00:46.0"
+    },
+    {
+      "hrvValue": 57,
+      "readingTimeGMT": "2026-10-23T22:05:46.0",
+      "readingTimeLocal": "2026-10-24T00:05:46.0"
+    },
+    {
+      "hrvValue": 59,
+      "readingTimeGMT": "2026-10-23T22:10:46.0",
+      "readingTimeLocal": "2026-10-24T00:10:46.0"
+    },
+    {
+      "hrvValue": 50,
+      "readingTimeGMT": "2026-10-23T22:15:46.0",
+      "readingTimeLocal": "2026-10-24T00:15:46.0"
+    }
+  ],
+  "startTimestampGMT": "2026-10-23T21:48:46.0",
+  "endTimestampGMT": "2026-10-24T06:10:46.0",
+  "startTimestampLocal": "2026-10-23T23:48:46.0",
+  "endTimestampLocal": "2026-10-24T08:10:46.0",
+  "sleepStartTimestampGMT": "2026-10-23T21:48:46.0",
+  "sleepEndTimestampGMT": "2026-10-24T06:13:46.0",
+  "sleepStartTimestampLocal": "2026-10-23T23:48:46.0",
+  "sleepEndTimestampLocal": "2026-10-24T08:13:46.0"
+}

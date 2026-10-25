@@ -1,0 +1,30 @@
+{
+  "chronologicalAge": 30,
+  "components": {
+    "vigorousDaysAvg": {
+      "stale": true,
+      "staleInputs": [
+        "VIGOROUS_DAYS"
+      ]
+    },
+    "rhr": {
+      "stale": true,
+      "staleInputs": [
+        "RHR"
+      ]
+    },
+    "vigorousMinutesAvg": {
+      "stale": true,
+      "staleInputs": [
+        "VIGOROUS_MINUTES"
+      ]
+    },
+    "bmi": {
+      "stale": true,
+      "staleInputs": [
+        "WEIGHT"
+      ]
+    }
+  },
+  "lastUpdated": "2023-10-24T00:00:00.0"
+}

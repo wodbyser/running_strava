@@ -1,0 +1,30 @@
+[
+  {
+    "index": 0,
+    "workoutName": "W 7 Zo Wedstrijd - Halve maratho",
+    "timeCreated": "2026-09-28T01:41:30.0",
+    "sport": "RUNNING",
+    "manufacturer": "GARMIN",
+    "multisportSet": null,
+    "steps": [
+      {
+        "stepIndex": 0,
+        "name": null,
+        "intensity": "ACTIVE",
+        "durationType": "DISTANCE",
+        "durationValue": 21100.0,
+        "targetType": "SPEED",
+        "targetValue": 0.0,
+        "targetValueLow": 3.922,
+        "targetValueHigh": 4.0,
+        "notes": "Halve marathon op 4:10-4:15/km",
+        "equipmentType": null,
+        "exerciseCategory": null,
+        "exerciseName": null,
+        "exerciseWeightValue": null,
+        "weightDisplayUnit": null
+      }
+    ],
+    "workoutPhrase": null
+  }
+]
