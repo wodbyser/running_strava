@@ -7,12 +7,12 @@ Single source of truth for where the project stands. Every agent session reads t
 - Spec: `GARMIN_API.md`, `GARMIN_API_AGENT_REFERENCE.md`
 - Backlog status (81 items): `docs/garmin-feature-backlog-progress.md`
 
-**Last updated:** 2026-10-25 by: Gate 3 verification session (owner decisions applied, PostgreSQL and live checks run on a test copy)
+**Last updated:** 2026-10-25 by: sixth session (Gate 3 closed with owner answers 18 to 20, first production backfill, Phase A verification)
 
 ## Next session starts here
 
-- **Next action:** owner reviews the Gate 3 verification results (`docs/garmin-sync-design.md` last section, `docs/garmin-data-provenance.md` section 12), answers the open questions below, and sets Gate 3 to APPROVED or says what to change.
-- **Owner must do first:** decide questions 18 to 20. Nothing else starts before that.
+- **Next action:** owner sets Phase A to APPROVED in the Approvals table (question 21 answered).
+- **Owner must do first:** set Phase A status. Phase 2 and Phase 3 do not start before Phase A is approved (Phase 3) or without the owner's go (Phase 2 needs Phase 1 approved; see Approvals).
 
 ## Approvals
 
@@ -24,7 +24,7 @@ The owner changes the status column. The agent never sets APPROVED itself. The a
 | Gate 1 | APPROVED | | Report in `docs/garmin-capability-matrix.md` |
 | Gate 2 | APPROVED | | Report in `docs/garmin-data-provenance.md` |
 | Gate 3 | APPROVED | | Code, offline tests and the live PostgreSQL verification on a test copy are done. Open items: questions 18 to 20, production not yet touched by Garmin. Design and results in `docs/garmin-sync-design.md` |
-| Phase A (audit remediation) | NOT STARTED | | |
+| Phase A (audit remediation) | APPROVED | | Report in `docs/garmin-audit-remediation.md`. Owner confirmed in session on 2026-10-25 that Phase 1 is approved and Phase A may start |
 | Phase 2 (recovery) | NOT STARTED | | |
 | Phase 3 (performance) | NOT STARTED | | |
 | Phase 4 (load) | NOT STARTED | | |
@@ -34,8 +34,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 
 ## Current state
 
-- **Current phase:** Phase 1, Gate 3 (implementation) finished in code, APPROVED. Gates 0 to 2 APPROVED.
-- **Blocked on:** owner approval of Gate 3. Phase A needs Phase 1 approved.
+- **Current phase:** Phase A (audit remediation) finished, APPROVED. Phase 1 (Gates 0 to 3) APPROVED by the owner (Gate 3 confirmed in session 2026-10-25).
+- **Blocked on:** owner approval of Phase A (question 21). Phase 2 needs the owner's go; Phase 3 needs Phase A and Phase 2 approved.
 
 ## Phase 1 gate status
 
@@ -44,7 +44,7 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 | Gate 0: environment check | DONE (approved) | Build passes; key in `.env`. Result in `docs/garmin-sync-design.md` |
 | Gate 1: fixtures and capability discovery | DONE (approved) | See `docs/garmin-capability-matrix.md` |
 | Gate 2: identity matching design | DONE (approved) | `docs/garmin-data-provenance.md`; owner answered its 3 open points |
-| Gate 3: Phase 1 implementation | AWAITING APPROVAL | Code and 151 offline tests pass. Verified live on a PostgreSQL copy: schema, token, syncs, idempotency, match dry run. NOT done: any Garmin write to the production database |
+| Gate 3: Phase 1 implementation | DONE (approved) | Code and offline tests pass (152 now). Verified live on a PostgreSQL copy: schema, token, syncs, idempotency, match dry run. First production backfill done 2026-10-25 (see log) |
 
 ## Phase 1 deliverables
 
@@ -85,8 +85,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 
 | Phase | Status | Design doc | Notes |
 |---|---|---|---|
-| Phase A: audit remediation | NOT STARTED | `docs/garmin-audit-remediation.md` | Needs Phase 1 approved |
-| Phase 2: recovery | NOT STARTED | `docs/garmin-phase-2-design.md` | Needs Phase 1 approved |
+| Phase A: audit remediation | AWAITING APPROVAL | `docs/garmin-audit-remediation.md` | All items VERIFIED or FIXED except 4 owner points. One fix: removed `GET /coach/sync`; new test |
+| Phase 2: recovery | NOT STARTED | `docs/garmin-phase-2-design.md` | Phase 1 approved. Waiting for the owner's go |
 | Phase 3: performance | NOT STARTED | `docs/garmin-phase-3-design.md` | Needs Phase A and Phase 2 approved |
 | Phase 4: load | NOT STARTED | `docs/garmin-phase-4-design.md` | Needs Phases 2 and 3 approved |
 | Phase 5: race | NOT STARTED | `docs/garmin-phase-5-design.md` | Needs Phases 3 and 4 approved, Phase A complete |
@@ -112,23 +112,26 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 15. ANSWERED 2026-10-25: 3 calls in total, waits 1 s and 4 s (done). Original text: (D4): "3 attempts" was read as 3 calls in total (waits 1 s, 4 s). Say if you meant 3 retries (4 calls, waits 1 s, 4 s, 16 s). One config value changes it.
 16. ANSWERED 2026-10-25: on demand, conservative type map, position supporting only, thresholds provisional (done). Original text: (D7, D8, D9): matches are computed on demand and not stored; the position tie-break between 200 m and 2 km counts as Weak; only four Garmin type keys map to Strava types. Confirm after reading the dry run.
 17. ANSWERED 2026-10-25: 403 is category FORBIDDEN, not retried, no re-exchange (done). Original text: the 403 status is treated as a normal client error (CLIENT), not AUTH, because no live 403 was ever seen (UNVERIFIED).
-18. OPEN: HTTP 429 appeared live after about 860 sequential calls with a 1 s pause between chunks. A 2 s pause gave a clean full backfill (426 calls). The limit and the retry hint are UNVERIFIED (the header was not captured at that time; it is logged now). Do you want the default `garmin.backfill.pause` raised from 1 s to 2 s? Daily incremental syncs (about 10 calls) are not affected.
-19. OPEN: matching thresholds. Observed: start differences at most 40 s, distance and elapsed differences almost all far below the Strong limits, 8 UNMATCHED all explained (`docs/garmin-data-provenance.md` section 12). Keep the proposed limits, or change them? The shared-ID step (Strava `external_id`) is still UNVERIFIED because no Strava fetch was made on the copy.
-20. OPEN: the real Garmin sync into the production database is not done. The schema change there is additive and happens on the next normal app start. Do you want the first production sync to be a 730-day backfill, a shorter range, or left to the daily cron? A rejected-key (real 401) live check is also still open; say if you want it.
+18. ANSWERED 2026-10-25: raise to 2 s (done: `application.yml`, `GarminProperties`, `GarminSyncSettings` default). Original text: HTTP 429 appeared live after about 860 sequential calls with a 1 s pause between chunks. A 2 s pause gave a clean full backfill (426 calls). The limit and the retry hint are UNVERIFIED (the header was not captured at that time; it is logged now). Do you want the default `garmin.backfill.pause` raised from 1 s to 2 s? Daily incremental syncs (about 10 calls) are not affected.
+19. ANSWERED 2026-10-25: keep the proposed limits. The shared-ID step stays UNVERIFIED (production dry run: `externalIdPresent` 0, no Strava fetch yet). Original text: matching thresholds. Observed: start differences at most 40 s, distance and elapsed differences almost all far below the Strong limits, 8 UNMATCHED all explained (`docs/garmin-data-provenance.md` section 12). Keep the proposed limits, or change them? The shared-ID step (Strava `external_id`) is still UNVERIFIED because no Strava fetch was made on the copy.
+20. ANSWERED 2026-10-25: 730-day backfill (done, see log). A rejected-key live check was not requested and is NOT done. Original text: the real Garmin sync into the production database is not done. The schema change there is additive and happens on the next normal app start. Do you want the first production sync to be a 730-day backfill, a shorter range, or left to the daily cron? A rejected-key (real 401) live check is also still open; say if you want it.
+
+21. ANSWERED 2026-10-25: (a) accept heuristics as labelled; (b) accept server time zone; (c) guardrail update is a Phase 2 entry condition; (d) no rotation. Phase A approval still to be set by the owner. Original text (Phase A, details in `docs/garmin-audit-remediation.md` section 2): (a) accept the lap and profile heuristics as labelled heuristics, or have the name-label confusion table re-run on production data; (b) accept that the dashboard "last sync" time uses the server time zone; (c) confirm the AI guardrail update stays a Phase 2 entry condition; (d) confirm the Strava secret stays unrotated (already accepted in question 8).
 
 ## Handoff for the next session
 
-- **Current:** Phase 1, Gate 3, AWAITING APPROVAL. Gates 0 to 2 APPROVED. Phase A not started.
-- **Finished:** owner decisions applied (Body Battery series, retry 3 calls with 1 s and 4 s, FORBIDDEN category, position as supporting component). Verified on PostgreSQL 17 against a copy of the production database (production untouched, Strava data hash-identical before and after): schema, token, two syncs and four backfills with 0 changed rows and 0 duplicates, match dry run, 409 while running, no key in any log.
-- **Not done and not claimed:** real Garmin write to the production database; live rejected-key (401) check; Strava `external_id` check (needs a Strava fetch, which could rotate the token); the 429 limit and retry hint (UNVERIFIED).
-- **Blocked:** Gate 3 approval needs the owner to review the results and answer questions 18 to 20. Phase A and later work wait for Phase 1 approval.
-- **Test environment left behind:** stopped Docker container `running-test-db` (copy of the Strava data plus the Garmin data, includes a copy of the Strava token; remove with `docker rm running-test-db` when no longer needed). Production container `running-db` was started for the dump and stopped again.
-- **Exact next step:** owner reads the verification sections and answers questions 18 to 20, then sets Gate 3 to APPROVED. If approved, the agent runs the production sync as decided in question 20, and Phase A starts only after the owner approves Phase 1.
+- **Current:** Phase A, AWAITING APPROVAL. Phase 1 approved. Phases 2 to 5 not started.
+- **Finished:** Q18 to Q20 applied. First production Garmin backfill (730 days): state OK, 0 failed calls, 448 activities, 669 days of daily data, 69 486 Body Battery samples, match dry run 440 MATCHED / 0 REVIEW / 8 UNMATCHED; Strava rows unchanged (585). Phase A: every audit item re-checked in code and mapped to a test; one defect fixed (`GET /coach/sync` removed, `NoStateChangingGetTest`). 152 offline tests, 0 failures.
+- **Not done:** live rejected-key (401) check; Strava `external_id` check (needs a Strava fetch); 429 limit stays UNVERIFIED. Daily Garmin cron will run from the next normal app start.
+- **Blocked:** Phase A approval by the owner (question 21 answered).
+- **Left behind:** `/tmp/opencode/prod-before-garmin.sql` (pg_dump of production before the Garmin write, contains the Strava token: delete when no longer needed); stopped containers `running-db` and `running-test-db` (the latter can be removed).
+- **Exact next step:** owner sets Phase A to APPROVED (question 21 answered). Then the agent starts Phase 2 only with the owner's go: first `docs/garmin-phase-2-design.md`, no code before that.
 
 ## Log
 
 Newest first. One entry per session: date, gate or phase, result, what changed, what is next.
 
+- **2026-10-25 (sixth session):** Gate 3 closed, Phase A. Result: Phase A AWAITING APPROVAL. Entry check: Approvals table said Gate 3 APPROVED while other blocks said AWAITING; the owner confirmed APPROVED in session, and also confirmed Phase 1 approved and that Phase A may start. Owner answers: Q18 pause 2 s, Q19 keep limits, Q20 730-day backfill. Changes: backfill pause default 2 s (3 places); `GET /coach/sync` removed; `NoStateChangingGetTest` added; `docs/garmin-audit-remediation.md` written. Production: pg_dump first, app started, `POST /garmin/backfill`, state OK, 0 failed calls (about 7 min), no key in the log, app and database stopped again. Tests: 152 pass, 0 fail, no existing Strava test changed. Next: owner answers question 21 and decides Phase A.
 - **2026-10-25 (fifth session):** Gate 3 verification, after the owner answered questions 14 to 17. Result: verified on a PostgreSQL copy, still AWAITING APPROVAL (questions 18 to 20 open). Code: Body Battery series (`chunks=480`, merged duplicates, nulls dropped), retry delays 1 s and 4 s, 403 as FORBIDDEN, position difference as supporting component, `Retry-After` value in 429 messages, one log line per call that fails after retries, key-sorted raw payload text (Garmin changes key order between calls). Offline tests: 151 pass, 0 fail. Live (test copy `running-test-db`, port 5433, both crons off, no Strava call): schema OK, 2 syncs plus 4 backfills idempotent, one 429 episode (3 calls) in the 1 s pause run, clean with a 2 s pause. Dry run: 440 MATCHED, 0 REVIEW, 8 UNMATCHED. Production database untouched, Strava tables hash-identical before and after. No key in logs or files. Raw responses deleted. Details: `docs/garmin-sync-design.md`, `docs/garmin-data-provenance.md` section 12. Next: owner review and decisions.
 
 - **2026-10-25 (fourth session):** Gate 3. Result: code complete, AWAITING APPROVAL, live checks pending. Entry check: Approvals table had Gate 2 APPROVED (the gate status table was stale and is aligned). Wrote the Gate 3 design first (decisions D1 to D11). Built core (`com.running.garmin`: records, SPI, `GarminRetry`, `GarminRangeSync`, sync and backfill use cases, `GarminActivityMatcher` with report) and runner (properties, token provider, `GarminApiClientImpl`, redactor, 11 JPA tables incl. `garmin_sync_status`, coordinator with single-run lock, scheduler, controller, wiring in `AppConfig` and `GarminConfig`, `garmin:` block in `application.yml`). Strava: nullable `external_id` and `device_name` (parser, entity, repository keeps stored value when a summary has none). Tests: 144 pass, 0 fail (`:core:test :runner:test`, Java 23, offline: fakes, MockRestServiceServer, H2). No existing Strava test changed (no old or new values to list). Checked the key is in no committed or doc file (presence and length only). No live Garmin call was made; no raw response, no real identifier added. Next: owner manual checks, answers to questions 14 to 17, Gate 3 approval.

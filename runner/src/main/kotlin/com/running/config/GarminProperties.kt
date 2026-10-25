@@ -26,7 +26,7 @@ data class GarminProperties(
     data class Backfill(
         val defaultDays: Int = 730,
         val chunkDays: Int = 7,
-        val pause: Duration = Duration.ofSeconds(1),
+        val pause: Duration = Duration.ofSeconds(2),
     )
 
     data class Retry(

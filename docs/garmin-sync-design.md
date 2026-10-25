@@ -78,7 +78,7 @@ Entry check: Approvals table shows Gates 0, 1, 2 APPROVED. (The Phase 1 gate sta
 | D7 | Matches are **computed on demand, not stored** in Phase 1. Two read-only GET endpoints: report and review list. | Thresholds are not approved until the dry run is read (provenance section 11). Nothing to persist, nothing can be mislinked. |
 | D8 | Coordinate tie-break: both start positions known: at most 200 m keeps a pair Strong-compatible, over 2 km fails the pair, between is Weak. | Provenance only defines the two ends. |
 | D9 | Garmin type mapping used: `running` to run, `walking` to walk, `cycling` to ride, `lap_swimming` to swim. Other keys never match. | Only keys seen live; trail or treadmill keys UNVERIFIED. |
-| D10 | Extra config keys: `garmin.retry.max-attempts` (3), `garmin.retry.delays` (1s,4s,16s), `garmin.backfill.chunk-days` (7), `garmin.backfill.pause` (1s), `garmin.sync.overlap-days` (3), `garmin.activity-page-size` (100). | Defaults from the owner decisions, made configurable for tests. |
+| D10 | Extra config keys: `garmin.retry.max-attempts` (3), `garmin.retry.delays` (1s,4s,16s), `garmin.backfill.chunk-days` (7), `garmin.backfill.pause` (2s since 2026-10-25, owner answer Q18; was 1s), `garmin.sync.overlap-days` (3), `garmin.activity-page-size` (100). | Defaults from the owner decisions, made configurable for tests. |
 | D11 | Sync and backfill POSTs start the run on a background thread and return 202. Busy returns 409. Flag off or no key returns 503 with the state. No HTTP call is made in those cases. | A 2-year backfill takes minutes. |
 
 ### Tables (all new, `ddl-auto: update`, PostgreSQL and H2)
@@ -159,3 +159,7 @@ Final per-table counts (identical after every run): activity refs 448, Body Batt
 **429 finding (UNVERIFIED limit).** The first 429 appeared in run 3, after about 860 sequential calls in roughly 15 minutes (1 s pause between chunks, no pause between the 4 calls of one chunk). Three consecutive attempts (waits 1 s and 4 s) did not clear it. The `Retry-After` header was not logged at that time, so the retry hint is unknown. Run 4 with a 2 s pause made 426 calls without a 429. The limit itself is still unknown.
 
 **Key safety.** The key string appears in none of the three app logs (checked by search, nothing printed), none of the committed files and none of the docs.
+
+## First production backfill (2026-10-25)
+
+Owner decision (Q20): a 730-day backfill. A pg_dump of production was taken first. The app ran against production with the default 2 s pause. Result: state OK, 0 failed calls, about 7 minutes. Rows: 448 activities, 668 to 675 daily rows per endpoint (619 sleep, 623 HRV), 69 486 Body Battery samples, 2 HR-zone rows, 2 367 raw payloads. Strava `activities` count unchanged at 585. Match dry run on production: 440 MATCHED, 0 REVIEW, 8 UNMATCHED, `externalIdPresent` 0 (shared-ID step stays UNVERIFIED). No key in the log. Not done: a live rejected-key check.

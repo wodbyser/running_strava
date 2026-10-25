@@ -56,9 +56,6 @@ class CoachController(
         return "redirect:/coach"
     }
 
-    @GetMapping("/coach/sync")
-    fun syncGet(ra: RedirectAttributes): String = sync(ra)
-
     @PostMapping("/coach/rhr")
     fun saveRhr(@RequestParam rhr: Int, ra: RedirectAttributes): String {
         if (rhr in 30..100) {

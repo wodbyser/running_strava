@@ -17,7 +17,7 @@ import java.time.ZoneId
 
 data class GarminSyncSettings(
     val chunkDays: Int = 7,
-    val pauseMillis: Long = 1_000L,
+    val pauseMillis: Long = 2_000L,
     val overlapDays: Int = 3,
     val activityPageSize: Int = 100,
     val defaultBackfillDays: Int = 730,

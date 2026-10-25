@@ -50,7 +50,7 @@ garmin:
   backfill:
     default-days: 730
     chunk-days: 7
-    pause: 1s
+    pause: 2s
   retry:
     max-attempts: 3
     delays: 1s,4s
