@@ -69,5 +69,6 @@ DEFAULT DECISIONS (use these unless the owner overrides them in writing; record 
 CONFIG (prefix garmin, bound with @ConfigurationProperties)
 - enabled (default true), api-key (from GARMIN_PERSONAL_API_KEY), base-url (default https://personal.connectapi.garmin.com, override via GARMIN_PERSONAL_API_BASE_URL), store-raw-payloads (default true), sync.cron (default 0 30 6 * * *), timeout (default 30 s, must be > 0), backfill.default-days (default 730).
 
+If you have any questions, you can ask me here in this session. 
 Start by reading GARMIN_PROGRESS.md, then do Step 2.
 ```
