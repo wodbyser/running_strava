@@ -2,6 +2,7 @@ package com.running.garmin.spi
 
 import com.running.garmin.domain.GarminActivityRef
 import com.running.garmin.domain.GarminBodyBatteryDay
+import com.running.garmin.domain.GarminBodyBatterySeriesDay
 import com.running.garmin.domain.GarminHeartRateZones
 import com.running.garmin.domain.GarminHrvDay
 import com.running.garmin.domain.GarminRestingHrDay
@@ -18,6 +19,8 @@ interface GarminRepository {
     fun upsertSleep(records: List<GarminSleepDay>, syncedAt: Instant): Int
     fun upsertRestingHr(records: List<GarminRestingHrDay>, syncedAt: Instant): Int
     fun upsertBodyBattery(records: List<GarminBodyBatteryDay>, syncedAt: Instant): Int
+    /** Replaces all samples of each given day. Returns the number of samples written. */
+    fun replaceBodyBatterySeries(records: List<GarminBodyBatterySeriesDay>, syncedAt: Instant): Int
     fun upsertStress(records: List<GarminStressDay>, syncedAt: Instant): Int
     fun upsertSteps(records: List<GarminStepsDay>, syncedAt: Instant): Int
     fun upsertActivities(records: List<GarminActivityRef>, syncedAt: Instant): Int

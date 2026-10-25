@@ -84,6 +84,19 @@ class GarminRepositoryImplTest @Autowired constructor(
     }
 
     @Test
+    fun `body battery series replaces the day and stays idempotent`() {
+        val src = GarminSource("/wellness-service/wellness/bodyBattery/reports/daily", null, "index")
+        fun day(vararg lv: Int) = GarminBodyBatterySeriesDay(d, lv.mapIndexed { i, l -> GarminBodyBatterySample(1000L + i, l) }, src)
+        repo.replaceBodyBatterySeries(listOf(day(10, 11, 12)), t1)
+        repo.replaceBodyBatterySeries(listOf(day(10, 11, 12)), t2)
+        em.flush(); em.clear()
+        assertEquals(3L, (em.createNativeQuery("select count(*) from garmin_body_battery_sample").singleResult as Number).toLong())
+        repo.replaceBodyBatterySeries(listOf(day(20, 21)), t2)
+        em.flush(); em.clear()
+        assertEquals(2L, (em.createNativeQuery("select count(*) from garmin_body_battery_sample").singleResult as Number).toLong())
+    }
+
+    @Test
     fun `sync status survives a round trip`() {
         assertEquals(GarminSyncStatus.EMPTY, statusRepo.get())
         val s = GarminSyncStatus(GarminRunKind.SYNC, t1, t2, t2, d, GarminErrorCategory.SERVER, "hrv: SERVER", mapOf("hrv" to 3), mapOf("hrv" to 1), 2)

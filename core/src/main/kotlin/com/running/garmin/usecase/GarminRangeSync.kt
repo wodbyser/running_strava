@@ -31,6 +31,7 @@ data class GarminSyncSettings(
 
 const val DS_RESTING_HR = "resting_hr"
 const val DS_BODY_BATTERY = "body_battery"
+const val DS_BODY_BATTERY_SERIES = "body_battery_series"
 const val DS_STRESS = "stress"
 const val DS_STEPS = "steps"
 const val DS_SLEEP = "sleep"
@@ -98,6 +99,9 @@ class GarminRangeSync(
             }
             guarded(DS_SLEEP, chunkStart, chunkEnd) { client.getSleepSummaries(chunkStart, chunkEnd) }?.let {
                 store(DS_SLEEP, repository.upsertSleep(it, syncedAt), nullCount(it))
+            }
+            guarded(DS_BODY_BATTERY_SERIES, chunkStart, chunkEnd) { client.getBodyBatterySeries(chunkStart, chunkEnd) }?.let {
+                store(DS_BODY_BATTERY_SERIES, repository.replaceBodyBatterySeries(it, syncedAt), 0)
             }
             guarded(DS_HRV, chunkStart, chunkEnd) { client.getHrvSummaries(chunkStart, chunkEnd) }?.let {
                 store(DS_HRV, repository.upsertHrv(it, syncedAt), nullCount(it))

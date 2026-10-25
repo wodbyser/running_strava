@@ -34,10 +34,12 @@ class FakeGarminClient : GarminApiClient {
     var dailyHandler: (LocalDate, LocalDate) -> List<GarminDailySummary> = { s, e -> days(s, e).map { summary(it) } }
     var sleepHandler: (LocalDate, LocalDate) -> List<GarminSleepDay> = { s, e -> days(s, e).map { sleep(it) } }
     var hrvHandler: (LocalDate, LocalDate) -> List<GarminHrvDay> = { s, e -> days(s, e).map { hrv(it) } }
+    var batteryHandler: (LocalDate, LocalDate) -> List<GarminBodyBatterySeriesDay> = { s, e -> days(s, e).map { GarminBodyBatterySeriesDay(it, listOf(GarminBodyBatterySample(1, 50), GarminBodyBatterySample(2, 51)), source()) } }
     var activityHandler: (Int, Int) -> List<GarminActivityRef> = { _, _ -> emptyList() }
 
     override fun getDailySummaries(start: LocalDate, end: LocalDate): List<GarminDailySummary> { calls += "daily $start $end"; return dailyHandler(start, end) }
     override fun getSleepSummaries(start: LocalDate, end: LocalDate): List<GarminSleepDay> { calls += "sleep $start $end"; return sleepHandler(start, end) }
+    override fun getBodyBatterySeries(start: LocalDate, end: LocalDate): List<GarminBodyBatterySeriesDay> { calls += "battery $start $end"; return batteryHandler(start, end) }
     override fun getHrvSummaries(start: LocalDate, end: LocalDate): List<GarminHrvDay> { calls += "hrv $start $end"; return hrvHandler(start, end) }
     override fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): List<GarminActivityRef> { calls += "activities $offset $limit"; return activityHandler(offset, limit) }
     override fun getHeartRateZones(): List<GarminHeartRateZones> { calls += "zones"; return emptyList() }
@@ -52,12 +54,14 @@ class FakeGarminRepository : GarminRepository {
     val bodyBattery = sortedMapOf<LocalDate, GarminBodyBatteryDay>()
     val stress = sortedMapOf<LocalDate, GarminStressDay>()
     val steps = sortedMapOf<LocalDate, GarminStepsDay>()
+    val batterySamples = sortedMapOf<LocalDate, Int>()
     val activities = sortedMapOf<Long, GarminActivityRef>()
 
     override fun upsertHrv(records: List<GarminHrvDay>, syncedAt: Instant) = records.onEach { hrv[it.calendarDate] = it }.size
     override fun upsertSleep(records: List<GarminSleepDay>, syncedAt: Instant) = records.onEach { sleep[it.calendarDate] = it }.size
     override fun upsertRestingHr(records: List<GarminRestingHrDay>, syncedAt: Instant) = records.onEach { restingHr[it.calendarDate] = it }.size
     override fun upsertBodyBattery(records: List<GarminBodyBatteryDay>, syncedAt: Instant) = records.onEach { bodyBattery[it.calendarDate] = it }.size
+    override fun replaceBodyBatterySeries(records: List<GarminBodyBatterySeriesDay>, syncedAt: Instant) = records.onEach { batterySamples[it.calendarDate] = it.samples.size }.sumOf { it.samples.size }
     override fun upsertStress(records: List<GarminStressDay>, syncedAt: Instant) = records.onEach { stress[it.calendarDate] = it }.size
     override fun upsertSteps(records: List<GarminStepsDay>, syncedAt: Instant) = records.onEach { steps[it.calendarDate] = it }.size
     override fun upsertActivities(records: List<GarminActivityRef>, syncedAt: Instant) = records.onEach { activities[it.activityId] = it }.size

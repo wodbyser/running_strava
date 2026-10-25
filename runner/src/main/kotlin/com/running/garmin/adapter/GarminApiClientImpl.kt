@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.running.garmin.domain.EP_ACTIVITY_SEARCH
+import com.running.garmin.domain.EP_BODY_BATTERY_REPORT
+import com.running.garmin.domain.GarminBodyBatterySample
+import com.running.garmin.domain.GarminBodyBatterySeriesDay
 import com.running.garmin.domain.EP_DAILY_SUMMARIES
 import com.running.garmin.domain.EP_HEART_RATE_ZONES
 import com.running.garmin.domain.EP_HRV_SUMMARIES
@@ -54,6 +57,12 @@ class GarminApiClientImpl(
     override fun getSleepSummaries(start: LocalDate, end: LocalDate): List<GarminSleepDay> {
         val root = get("/sleep-service/sleep/dailySleepSummariesByDate", mapOf("startDate" to start, "endDate" to end)) ?: return emptyList()
         return elements(root, EP_SLEEP_SUMMARIES).mapNotNull { mapSleep(it) }.also { count(EP_SLEEP_SUMMARIES, it.size) }
+    }
+
+    override fun getBodyBatterySeries(start: LocalDate, end: LocalDate): List<GarminBodyBatterySeriesDay> {
+        // chunks=480 gives the 180 s resolution (verified live 2026-10-25); the default returns 6 points a day.
+        val root = get("/wellness-service/wellness/bodyBattery/reports/daily", mapOf("startDate" to start, "endDate" to end, "chunks" to BODY_BATTERY_CHUNKS)) ?: return emptyList()
+        return elements(root, EP_BODY_BATTERY_REPORT).mapNotNull { mapBodyBattery(it) }.also { count(EP_BODY_BATTERY_REPORT, it.size) }
     }
 
     override fun getHrvSummaries(start: LocalDate, end: LocalDate): List<GarminHrvDay> {
@@ -172,6 +181,27 @@ class GarminApiClientImpl(
         return s.takeIf { hasData }
     }
 
+    private fun mapBodyBattery(n: JsonNode): GarminBodyBatterySeriesDay? {
+        val d = date(n, "date") ?: return null
+        // Column positions come from the descriptor list; without it, the live layout is [timestamp, level].
+        val descriptors = n.path("bodyBatteryValueDescriptorDTOList")
+        fun index(key: String, default: Int) = descriptors.firstOrNull { it.str("bodyBatteryValueDescriptorKey") == key }
+            ?.int("bodyBatteryValueDescriptorIndex") ?: default
+        val tsIdx = index("timestamp", 0)
+        val levelIdx = index("bodyBatteryLevel", 1)
+        val samples = sortedMapOf<Long, Int>()
+        n.path("bodyBatteryValuesArray").forEach { row ->
+            val ts = row.path(tsIdx).takeIf { it.isNumber }?.asLong()
+            val level = row.path(levelIdx).takeIf { it.isNumber }?.asInt()
+            if (ts != null && level != null) samples.putIfAbsent(ts, level)
+        }
+        if (samples.isEmpty()) return null
+        return GarminBodyBatterySeriesDay(
+            d, samples.map { GarminBodyBatterySample(it.key, it.value) },
+            GarminSource(EP_BODY_BATTERY_REPORT, null, "Garmin Body Battery index 0 to 100 (Garmin estimate), timestamps epoch ms UTC, about 180 s apart; status and version columns not stored (UNVERIFIED)", null),
+        )
+    }
+
     private fun mapHrv(n: JsonNode): GarminHrvDay? {
         val d = date(n, "calendarDate") ?: return null
         val b = n.path("baseline")
@@ -210,6 +240,7 @@ class GarminApiClientImpl(
     }
 
     private companion object {
+        const val BODY_BATTERY_CHUNKS = 480
         val GMT_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
         val PROFILE_IMAGE_FIELDS = setOf("ownerProfileImageUrlSmall", "ownerProfileImageUrlMedium", "ownerProfileImageUrlLarge")
     }

@@ -22,6 +22,17 @@ class GarminRetryTest {
     }
 
     @Test
+    fun `default policy is 3 calls in total with waits of 1 s and 4 s`() {
+        val waits = mutableListOf<Long>()
+        var calls = 0
+        assertThrows(GarminApiException::class.java) {
+            GarminRetry(sleeper = { waits += it }).execute<Unit> { calls++; throw fail(GarminErrorCategory.NETWORK) }
+        }
+        assertEquals(3, calls)
+        assertEquals(listOf(1000L, 4000L), waits)
+    }
+
+    @Test
     fun `succeeds after a transient failure`() {
         var calls = 0
         val result = GarminRetry(3, listOf(1, 1, 1)) {}.execute { if (calls++ == 0) throw fail(GarminErrorCategory.RATE_LIMIT) else "ok" }
@@ -31,7 +42,7 @@ class GarminRetryTest {
 
     @Test
     fun `does not retry auth, client, parse or not configured`() {
-        for (c in listOf(GarminErrorCategory.AUTH, GarminErrorCategory.CLIENT, GarminErrorCategory.PARSE, GarminErrorCategory.NOT_CONFIGURED)) {
+        for (c in listOf(GarminErrorCategory.AUTH, GarminErrorCategory.FORBIDDEN, GarminErrorCategory.CLIENT, GarminErrorCategory.PARSE, GarminErrorCategory.NOT_CONFIGURED)) {
             var calls = 0
             assertThrows(GarminApiException::class.java) { GarminRetry(3, listOf(1)) {}.execute<Unit> { calls++; throw fail(c) } }
             assertEquals(1, calls, "category $c")

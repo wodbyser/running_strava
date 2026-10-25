@@ -53,7 +53,7 @@ garmin:
     pause: 1s
   retry:
     max-attempts: 3
-    delays: 1s,4s,16s
+    delays: 1s,4s
 
 logging:
   level:

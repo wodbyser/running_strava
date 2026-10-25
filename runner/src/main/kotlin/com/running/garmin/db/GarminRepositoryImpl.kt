@@ -16,6 +16,9 @@ interface GarminHrvJpaRepository : JpaRepository<GarminHrvEntity, LocalDate>
 interface GarminSleepJpaRepository : JpaRepository<GarminSleepEntity, LocalDate>
 interface GarminRestingHrJpaRepository : JpaRepository<GarminRestingHrEntity, LocalDate>
 interface GarminBodyBatteryJpaRepository : JpaRepository<GarminBodyBatteryEntity, LocalDate>
+interface GarminBodyBatterySampleJpaRepository : JpaRepository<GarminBodyBatterySampleEntity, Long> {
+    fun deleteByCalendarDate(calendarDate: LocalDate)
+}
 interface GarminStressJpaRepository : JpaRepository<GarminStressEntity, LocalDate>
 interface GarminStepsJpaRepository : JpaRepository<GarminStepsEntity, LocalDate>
 interface GarminActivityJpaRepository : JpaRepository<GarminActivityEntity, Long> {
@@ -33,6 +36,7 @@ class GarminRepositoryImpl(
     private val sleepRepo: GarminSleepJpaRepository,
     private val restingHrRepo: GarminRestingHrJpaRepository,
     private val bodyBatteryRepo: GarminBodyBatteryJpaRepository,
+    private val bodyBatterySampleRepo: GarminBodyBatterySampleJpaRepository,
     private val stressRepo: GarminStressJpaRepository,
     private val stepsRepo: GarminStepsJpaRepository,
     private val activityRepo: GarminActivityJpaRepository,
@@ -87,6 +91,19 @@ class GarminRepositoryImpl(
             GarminBodyBatteryEntity(it.calendarDate, it.minValue, it.maxValue, it.charged, it.drained, it.latestValue, prov(it.source, it.calendarDate.toString(), syncedAt))
         })
         return records.size
+    }
+
+    @Transactional
+    override fun replaceBodyBatterySeries(records: List<GarminBodyBatterySeriesDay>, syncedAt: Instant): Int {
+        records.forEach { day ->
+            bodyBatterySampleRepo.deleteByCalendarDate(day.calendarDate)
+            bodyBatterySampleRepo.flush()
+            val provenance = { prov(day.source, day.calendarDate.toString(), syncedAt) }
+            bodyBatterySampleRepo.saveAll(day.samples.map {
+                GarminBodyBatterySampleEntity(it.timestampGmtMs, day.calendarDate, it.level, provenance())
+            })
+        }
+        return records.sumOf { it.samples.size }
     }
 
     @Transactional

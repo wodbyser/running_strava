@@ -26,6 +26,7 @@ internal fun RestClient.RequestHeadersSpec<*>.fetch(label: String): GarminHttpRe
 
 internal fun statusToException(status: Int, label: String): GarminApiException = when {
     status == 401 -> GarminApiException(GarminErrorCategory.AUTH, status, "Garmin rejected the credentials for $label")
+    status == 403 -> GarminApiException(GarminErrorCategory.FORBIDDEN, status, "Garmin refused access (HTTP 403) for $label")
     status == 429 -> GarminApiException(GarminErrorCategory.RATE_LIMIT, status, "Garmin rate limit (HTTP 429) for $label")
     status in 500..599 -> GarminApiException(GarminErrorCategory.SERVER, status, "Garmin server error (HTTP $status) for $label")
     else -> GarminApiException(GarminErrorCategory.CLIENT, status, "Garmin returned HTTP $status for $label")

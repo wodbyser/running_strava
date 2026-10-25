@@ -61,9 +61,12 @@ class GarminActivityMatcherTest {
         assertEquals(MatchTier.REVIEW, one(activity(1), strava(10, manual = true)).tier)
     }
 
-    @Test fun `start positions over 2 km apart fail the pair, between 200 m and 2 km are weak`() {
+    @Test fun `start position is only a supporting component, far apart means review and never a rejection or a link`() {
         val far = one(activity(1, lat = 51.0, lon = 4.0), strava(10).copy(startLatlng = listOf(51.05, 4.0)))
-        assertEquals(MatchTier.UNMATCHED, far.tier)
+        assertEquals(MatchTier.REVIEW, far.tier)
+        assertNull(far.stravaActivityId)
+        val farButTimeWrong = one(activity(1, lat = 51.0, lon = 4.0), strava(10, start = "2026-10-20T08:30:00Z").copy(startLatlng = listOf(51.0, 4.0)))
+        assertEquals(MatchTier.UNMATCHED, farButTimeWrong.tier)
         val mid = one(activity(1, lat = 51.0, lon = 4.0), strava(10).copy(startLatlng = listOf(51.005, 4.0)))
         assertEquals(MatchTier.REVIEW, mid.tier)
     }

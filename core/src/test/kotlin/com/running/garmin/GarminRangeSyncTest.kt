@@ -24,6 +24,8 @@ class GarminRangeSyncTest {
         assertEquals(listOf("daily 2026-10-01 2026-10-07", "daily 2026-10-08 2026-10-14", "daily 2026-10-15 2026-10-15"), dailyCalls)
         assertEquals(15, repo.hrv.size)
         assertEquals(15, r1.recordsPerEndpoint[DS_RESTING_HR])
+        assertEquals(30, r1.recordsPerEndpoint[DS_BODY_BATTERY_SERIES])
+        assertEquals(15, repo.batterySamples.size)
         assertTrue(r1.success)
         assertEquals(2, pauses.size)
 

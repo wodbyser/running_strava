@@ -23,6 +23,7 @@ private fun countNulls(vararg values: Any?): Int = values.count { it == null }
 const val EP_DAILY_SUMMARIES = "/usersummary-service/v2/dailysummaries"
 const val EP_SLEEP_SUMMARIES = "/sleep-service/sleep/dailySleepSummariesByDate"
 const val EP_HRV_SUMMARIES = "/hrv-service/hrv/daily/{start}/{end}"
+const val EP_BODY_BATTERY_REPORT = "/wellness-service/wellness/bodyBattery/reports/daily"
 const val EP_ACTIVITY_SEARCH = "/activitylist-service/activities/search/activities"
 const val EP_HEART_RATE_ZONES = "/biometric-service/heartRateZones/v2"
 
@@ -123,6 +124,19 @@ data class GarminStepsDay(
 ) : GarminDailyRecord {
     override fun nullFieldCount() = countNulls(steps, distanceMeters, stepGoal)
 }
+
+/**
+ * Body Battery readings of one day from the report endpoint (about one point per 180 s with `chunks=480`).
+ * Level is the Garmin index 0 to 100 (Garmin estimate). Timestamps are epoch ms UTC. Null levels are dropped,
+ * duplicate timestamps are merged. Not stored per day: charged and drained (same values as in the daily summary).
+ */
+data class GarminBodyBatterySeriesDay(
+    val calendarDate: LocalDate,
+    val samples: List<GarminBodyBatterySample>,
+    val source: GarminSource,
+)
+
+data class GarminBodyBatterySample(val timestampGmtMs: Long, val level: Int)
 
 /** Everything one `dailysummaries` day gives us. A part is `null` when Garmin sent no such block or only nulls. */
 data class GarminDailySummary(

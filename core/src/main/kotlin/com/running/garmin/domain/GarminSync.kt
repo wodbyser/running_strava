@@ -3,7 +3,8 @@ package com.running.garmin.domain
 import java.time.Instant
 import java.time.LocalDate
 
-enum class GarminErrorCategory { NOT_CONFIGURED, AUTH, NETWORK, TIMEOUT, RATE_LIMIT, SERVER, CLIENT, PARSE }
+/** FORBIDDEN is HTTP 403: not retried and never answered with a token re-exchange. CLIENT is any other 4xx. */
+enum class GarminErrorCategory { NOT_CONFIGURED, AUTH, FORBIDDEN, NETWORK, TIMEOUT, RATE_LIMIT, SERVER, CLIENT, PARSE }
 
 /** Never carries a key, token, response body or health value. */
 class GarminApiException(

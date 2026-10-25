@@ -92,6 +92,44 @@ class GarminApiClientImplTest {
     }
 
     @Test
+    fun `body battery series uses chunks 480, merges duplicate timestamps and drops null levels`() {
+        val t = GarminTestSupport()
+        t.token()
+        val body = """[{"date":"2026-10-18","bodyBatteryValuesArray":[[1000,46],[1000,46],[1180,null],[1180,47],[1360,null]],
+            "bodyBatteryValueDescriptorDTOList":[{"bodyBatteryValueDescriptorIndex":0,"bodyBatteryValueDescriptorKey":"timestamp"},{"bodyBatteryValueDescriptorIndex":1,"bodyBatteryValueDescriptorKey":"bodyBatteryLevel"}]},
+            {"date":"2026-10-19","bodyBatteryValuesArray":[[5,null]]}]"""
+        t.json("$BASE/wellness-service/wellness/bodyBattery/reports/daily?startDate=2026-10-18&endDate=2026-10-19&chunks=480", body)
+        val days = t.client.getBodyBatterySeries(start, end)
+        assertEquals(1, days.size)
+        assertEquals(listOf(1000L to 46, 1180L to 47), days.single().samples.map { it.timestampGmtMs to it.level })
+        assertTrue(days.single().source.originalUnits.contains("UNVERIFIED"))
+    }
+
+    @Test
+    fun `body battery fixtures parse`() {
+        val t = GarminTestSupport()
+        t.token()
+        t.json("$BASE/wellness-service/wellness/bodyBattery/reports/daily?startDate=2026-10-18&endDate=2026-10-19&chunks=480", fixture("body_battery"))
+        assertEquals(2, t.client.getBodyBatterySeries(start, end).size)
+        val e = GarminTestSupport()
+        e.token()
+        e.json("$BASE/wellness-service/wellness/bodyBattery/reports/daily?startDate=2026-10-18&endDate=2026-10-19&chunks=480", fixture("body_battery_empty"))
+        assertTrue(e.client.getBodyBatterySeries(start, end).isEmpty())
+    }
+
+    @Test
+    fun `403 is FORBIDDEN, makes exactly one data call and no second token exchange`() {
+        val t = GarminTestSupport()
+        t.token()
+        t.server.expect(requestTo("$BASE/biometric-service/heartRateZones/v2")).andRespond(withStatus(HttpStatus.FORBIDDEN).body("x"))
+        val e = assertThrows(GarminApiException::class.java) { t.client.getHeartRateZones() }
+        assertEquals(GarminErrorCategory.FORBIDDEN, e.category)
+        assertFalse(e.retryable)
+        assertEquals(1, t.tokens.exchangeCount)
+        t.server.verify()
+    }
+
+    @Test
     fun `hrv HTTP 204 is no data`() {
         val t = GarminTestSupport()
         t.token()

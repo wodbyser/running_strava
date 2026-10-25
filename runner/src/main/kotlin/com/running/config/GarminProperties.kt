@@ -31,7 +31,7 @@ data class GarminProperties(
 
     data class Retry(
         val maxAttempts: Int = 3,
-        val delays: List<Duration> = listOf(Duration.ofSeconds(1), Duration.ofSeconds(4), Duration.ofSeconds(16)),
+        val delays: List<Duration> = listOf(Duration.ofSeconds(1), Duration.ofSeconds(4)),
     )
 
     val configured: Boolean get() = apiKey.isNotBlank()

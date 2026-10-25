@@ -4,11 +4,11 @@ import com.running.garmin.domain.GarminApiException
 
 /**
  * Retries only network, timeout, 429 and 5xx failures. `maxAttempts` counts all calls, including the first.
- * `delaysMillis[i]` is the wait after failed attempt i + 1.
+ * `delaysMillis[i]` is the wait after failed attempt i + 1. Default: 3 calls in total, waits 1 s and 4 s (owner decision 2026-10-25).
  */
 class GarminRetry(
     private val maxAttempts: Int = 3,
-    private val delaysMillis: List<Long> = listOf(1_000L, 4_000L, 16_000L),
+    private val delaysMillis: List<Long> = listOf(1_000L, 4_000L),
     private val sleeper: (Long) -> Unit = { Thread.sleep(it) },
 ) {
     init {

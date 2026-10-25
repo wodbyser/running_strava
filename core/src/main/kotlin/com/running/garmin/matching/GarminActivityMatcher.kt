@@ -23,7 +23,6 @@ data class MatchThresholds(
     val elapsedStrongSeconds: Double = 10.0,
     val elapsedWeakRatio: Double = 0.10,
     val coordinateStrongMeters: Double = 200.0,
-    val coordinateFailMeters: Double = 2_000.0,
 )
 
 data class MatchCandidate(
@@ -159,8 +158,7 @@ class GarminActivityMatcher(private val thresholds: MatchThresholds = MatchThres
         val position = posDiff?.let {
             when {
                 it <= thresholds.coordinateStrongMeters -> Strength.STRONG
-                it <= thresholds.coordinateFailMeters -> Strength.WEAK
-                else -> Strength.FAIL
+                else -> Strength.WEAK // supporting component only: it can send a pair to review, never reject it alone
             }
         }
         return MatchCandidate(s.id, startDiff, dist, elapsedRatio, elapsedSeconds, posDiff, start, distance, elapsedStrength, position)

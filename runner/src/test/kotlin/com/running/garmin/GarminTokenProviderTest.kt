@@ -103,6 +103,8 @@ class GarminTokenProviderTest {
         assertThrows(IllegalArgumentException::class.java) { GarminProperties(timeout = Duration.ZERO) }
         assertThrows(IllegalArgumentException::class.java) { GarminProperties(timeout = Duration.ofSeconds(-1)) }
         assertEquals(730, GarminProperties().backfill.defaultDays)
+        assertEquals(listOf(Duration.ofSeconds(1), Duration.ofSeconds(4)), GarminProperties().retry.delays)
+        assertEquals(3, GarminProperties().retry.maxAttempts)
         assertEquals(Duration.ofSeconds(30), GarminProperties().timeout)
     }
 }

@@ -89,6 +89,15 @@ class GarminBodyBatteryEntity(
 )
 
 @Entity
+@Table(name = "garmin_body_battery_sample")
+class GarminBodyBatterySampleEntity(
+    @Id @Column(name = "timestamp_gmt_ms") var timestampGmtMs: Long = 0,
+    @Column(name = "calendar_date") var calendarDate: LocalDate = LocalDate.EPOCH,
+    var level: Int = 0,
+    @Embedded var provenance: GarminProvenance = GarminProvenance(),
+)
+
+@Entity
 @Table(name = "garmin_daily_stress")
 class GarminStressEntity(
     @Id @Column(name = "calendar_date") var calendarDate: LocalDate = LocalDate.EPOCH,
