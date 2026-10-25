@@ -1,0 +1,404 @@
+package com.running.analysis
+
+import com.running.garmin.recovery.BaselineResult
+import com.running.garmin.recovery.BaselineStatus
+import com.running.garmin.recovery.BodyBatteryResult
+import com.running.garmin.recovery.DeviationBand
+import com.running.garmin.recovery.MetricAnalysis
+import com.running.garmin.recovery.PeriodKind
+import com.running.garmin.recovery.PeriodMetricKind
+import com.running.garmin.recovery.PeriodReport
+import com.running.garmin.recovery.ReadinessKind
+import com.running.garmin.recovery.RecoveryReport
+import com.running.garmin.recovery.RestingHrSource
+import com.running.garmin.recovery.SustainedDirection
+import java.time.LocalDate
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+/** Fact labels (GARMIN_API.md section 4.3). */
+enum class RecoveryTag(val text: String, val css: String) {
+    MEASURED("[gemeten]", "badge-ok"),
+    COMPUTED("[berekend]", "badge-calc"),
+    ESTIMATE("[app-schatting]", "badge-est"),
+    NA("[onbeschikbaar]", "badge-calc"),
+}
+
+data class RecoveryRow(val label: String, val value: String, val reference: String, val deviation: String, val tag: RecoveryTag)
+
+data class RecoverySection(val id: String, val title: String, val notes: List<String>, val rows: List<RecoveryRow>)
+
+enum class HeroLevel(val label: String, val css: String) {
+    WITHIN("Binnen je eigen norm", "hero-ok"),
+    SLIGHT("Licht afwijkend", "hero-warn"),
+    CLEAR("Duidelijk afwijkend", "hero-alert"),
+    INSUFFICIENT("Onvoldoende data", "hero-na"),
+}
+
+/** One spectrum bar. `position` is 0 to 100 on a scale of -3 to +3 robust SD, null without data. */
+data class HeroComponent(val label: String, val value: String, val norm: String, val deviation: String, val css: String, val position: Double?, val aria: String)
+
+data class Hero(
+    val level: HeroLevel,
+    val headline: String,
+    val conclusion: List<String>,
+    val facts: List<Pair<String, String>>,
+    val components: List<HeroComponent>,
+    val method: List<String>,
+)
+
+data class RecoveryPage(
+    val hero: Hero,
+    val date: LocalDate,
+    val isToday: Boolean,
+    val algorithmVersion: String,
+    val summary: String,
+    val sections: List<RecoverySection>,
+    val recentNights: List<String>,
+    val safety: String,
+)
+
+/**
+ * Dutch wording for the recovery page and the AI block. Deviations are reported in both directions; the text never says
+ * higher or lower is better, and never says someone is ready or safe to train.
+ */
+object RecoveryText {
+    const val SAFETY =
+        "Geen medische beoordeling. Pijn of klachten wegen zwaarder dan elke score. " +
+            "Normale waarden zijn geen bewijs dat een blessure of ziekte hersteld is."
+    const val ESTIMATE_LEGEND =
+        "Slaapfasen, Body Battery, stress en HRV zijn Garmin-schattingen, geen klinische metingen. " +
+            "Eenheid en berekening van de HRV-waarde zijn niet bevestigd."
+
+    private val nl = Locale.forLanguageTag("nl-BE")
+    private fun f(v: Double, digits: Int = 1) = String.format(nl, "%.${digits}f", v)
+    private fun signed(v: Double) = String.format(nl, "%+.1f", v)
+    private fun hm(minutes: Double): String { val m = minutes.roundToInt(); return "${m / 60}:${(m % 60).toString().padStart(2, '0')} u" }
+    private fun hmSeconds(s: Long): String = hm(s / 60.0)
+
+    fun bandText(b: DeviationBand) = when (b) {
+        DeviationBand.WITHIN -> "binnen eigen norm"
+        DeviationBand.DEVIATING -> "afwijkend"
+        DeviationBand.STRONG -> "sterk afwijkend"
+    }
+
+    fun directionText(deviation: Double) = if (deviation > 0) "hoger dan jouw eigen norm" else "lager dan jouw eigen norm"
+
+    fun deviationText(b: BaselineResult): String {
+        val d = b.deviation ?: return "geen afwijking berekend"
+        val band = b.band!!
+        return if (band == DeviationBand.WITHIN) "${bandText(band)} (${signed(d)} SD)" else "${bandText(band)}: ${directionText(d)} (${signed(d)} SD)"
+    }
+
+    fun referenceText(b: BaselineResult, unit: String): String = when (b.status) {
+        BaselineStatus.OK -> "mediaan ${f(b.median!!)} $unit, n=${b.n} van ${b.windowDays} dagen"
+        BaselineStatus.INSUFFICIENT -> "onvoldoende data (n=${b.n} van ${b.windowDays} dagen, minimaal ${b.needed})"
+    }
+
+    fun trendText(m: MetricAnalysis, unit: String): String {
+        val t = m.trend
+        val sustained = when (t.sustained) {
+            SustainedDirection.HIGHER -> "aanhoudend hoger dan jouw eigen norm (${t.sustainedDaysHigher} van ${t.sustainedDaysEvaluated} dagen)"
+            SustainedDirection.LOWER -> "aanhoudend lager dan jouw eigen norm (${t.sustainedDaysLower} van ${t.sustainedDaysEvaluated} dagen)"
+            SustainedDirection.NONE -> "geen aanhoudende afwijking"
+            SustainedDirection.INSUFFICIENT -> "onvoldoende data voor aanhoudende afwijking (${t.sustainedDaysEvaluated} van 7 dagen, minimaal 5)"
+        }
+        val level = if (t.status == BaselineStatus.OK) {
+            "7-daagse mediaan ${f(t.recentMedian!!)} $unit tegenover 60-daagse norm ${f(t.baselineMedian!!)} $unit (${signed(t.deviation!!)} SD); "
+        } else "onvoldoende data voor 7 tegenover 60 dagen (n=${t.recentN} en n=${t.baselineN}); "
+        return level + sustained
+    }
+
+    private fun na(label: String, reason: String) = RecoveryRow(label, "onbeschikbaar", reason, "-", RecoveryTag.NA)
+
+    /** Value, reference and deviation rows of one metric: measured value, 28 day norm, and trend. */
+    private fun metricRows(label: String, unit: String, m: MetricAnalysis, valueText: String, tag: RecoveryTag, noValueReason: String): List<RecoveryRow> {
+        if (m.value == null) return listOf(na(label, noValueReason))
+        val p = m.primary
+        val suffix = if (m.incomplete) " (onvolledig, dag nog bezig)" else ""
+        return listOf(
+            RecoveryRow(label + suffix, valueText, referenceText(p, unit), if (p.status == BaselineStatus.OK) deviationText(p) else "-", tag),
+            RecoveryRow("$label: trend", "-", trendText(m, unit), "-", RecoveryTag.ESTIMATE),
+        )
+    }
+
+    private fun windowRows(label: String, unit: String, m: MetricAnalysis) =
+        m.windows.filter { it.windowDays != 28 }.map {
+            RecoveryRow("$label: norm ${it.windowDays} d", "-", referenceText(it, unit), "-", RecoveryTag.COMPUTED)
+        }
+
+    fun component(kind: ReadinessKind) = when (kind) {
+        ReadinessKind.HRV -> "HRV"
+        ReadinessKind.RESTING_HR -> "rusthartslag"
+        ReadinessKind.SLEEP -> "slaapduur"
+        ReadinessKind.BODY_BATTERY -> "Body Battery bij ontwaken"
+    }
+
+    fun summaryText(r: RecoveryReport): String {
+        val s = r.readiness.summary
+        if (!s.available) return "Onvoldoende data voor een samenvatting (${s.componentsWithData} van 4 componenten hebben data, minimaal 3). De componenten staan hieronder apart."
+        val base = "${s.within} van ${s.componentsWithData} componenten binnen eigen norm"
+        if (s.deviating.isEmpty()) return base
+        val list = s.deviating.joinToString(", ") { "${component(it.kind)} ${directionText(it.deviation)} (${bandText(it.band)})" }
+        return "$base, ${s.deviating.size} afwijkend: $list"
+    }
+
+    fun page(r: RecoveryReport, sleepTargetMinutes: Int): RecoveryPage {
+        val sections = mutableListOf<RecoverySection>()
+
+        sections += RecoverySection("readiness", "Herstel: componenten", listOf("Geen score en geen weging tussen componenten: er bestaan geen gevalideerde gewichten. Recente belasting is nog geen component."),
+            r.readiness.components.map { c ->
+                if (c.value == null) na(component(c.kind), "geen waarde voor deze dag (eigen norm: n=${c.n} van 28 dagen)")
+                else if (!c.hasData) na(component(c.kind), "onvoldoende data voor een eigen norm (n=${c.n} van 28 dagen)")
+                else RecoveryRow(component(c.kind), f(c.value!!), "mediaan ${f(c.median!!)}, n=${c.n} van 28 dagen", "${bandText(c.band!!)}" + if (c.band != DeviationBand.WITHIN) ": ${directionText(c.deviation!!)}" else "", RecoveryTag.ESTIMATE)
+            })
+
+        val h = r.hrv
+        sections += RecoverySection("hrv", "HRV (Garmin, nachtgemiddelde)", listOf(ESTIMATE_LEGEND, "Garmin-bereik en -status staan apart en worden nooit gemengd met de eigen norm van de app."),
+            metricRows("HRV nachtgemiddelde", "ms", h.metric, h.lastNightAvg?.let { "$it ms" } ?: "-", RecoveryTag.MEASURED, "geen HRV voor deze nacht") +
+                windowRows("HRV", "ms", h.metric) +
+                listOfNotNull(
+                    h.weeklyAvg?.let { RecoveryRow("Garmin weekgemiddelde", "$it ms", "-", "-", RecoveryTag.MEASURED) },
+                    if (h.garminBalancedLow != null && h.garminBalancedUpper != null)
+                        RecoveryRow("Garmin-bereik (balanced)", "${h.garminBalancedLow} tot ${h.garminBalancedUpper} ms", "-", h.garminStatus ?: "-", RecoveryTag.MEASURED) else null,
+                ))
+
+        val rr = r.restingHr
+        val rhrRows = when (rr.source) {
+            RestingHrSource.GARMIN -> metricRows("Rusthartslag", "bpm", rr.metric!!, "${rr.value} bpm", RecoveryTag.MEASURED, "") +
+                windowRows("Rusthartslag", "bpm", rr.metric!!) + RecoveryRow("Bron", "Garmin", "-", "-", RecoveryTag.MEASURED)
+            RestingHrSource.MANUAL -> listOf(
+                RecoveryRow("Rusthartslag", "${rr.value} bpm", "geen basislijn (alleen handmatige waarde)", "-", RecoveryTag.MEASURED),
+                RecoveryRow("Bron", "handmatig ingevoerd", "-", "-", RecoveryTag.MEASURED),
+            )
+            RestingHrSource.NONE -> listOf(na("Rusthartslag", "geen Garmin-waarde en geen handmatige waarde"))
+        }
+        sections += RecoverySection("rhr", "Rusthartslag", listOf("Meetmethode van Garmin (slaapgebaseerd of niet) is niet bevestigd. Hoger en lager worden beide gemeld, zonder oordeel."), rhrRows)
+
+        val s = r.sleep
+        val n = s.night
+        val sleepRows = mutableListOf<RecoveryRow>()
+        sleepRows += metricRows("Slaapduur", "min", s.duration, n?.durationSeconds?.let { hmSeconds(it.toLong()) } ?: "-", RecoveryTag.MEASURED, "geen slaapduur voor deze nacht")
+        sleepRows += if (n?.awakeSharePercent != null) metricRows("Wakker-aandeel", "%", s.awakeShare, "${f(n.awakeSharePercent!!)} %", RecoveryTag.COMPUTED, "")
+            else listOf(na("Wakker-aandeel", "ontbrekende waarden; aantal keer wakker wordt niet opgeslagen"))
+        if (n == null || n.stagesHidden) {
+            sleepRows += na("Slaapfasen", if (n == null) "geen nacht" else "meer dan 10 % van de nacht niet meetbaar (${f(n.unmeasurableSharePercent ?: 0.0)} %)")
+        } else if (n.deepSharePercent != null) {
+            sleepRows += metricRows("Diepe slaap (Garmin-schatting)", "%", s.deepShare, "${f(n.deepSharePercent!!)} %", RecoveryTag.COMPUTED, "")
+            sleepRows += RecoveryRow("Diepe slaap: indicatieve referentie", "${s.deepReferenceLowPercent} tot ${s.deepReferenceHighPercent} %", "los van slaaptekort", "-", RecoveryTag.ESTIMATE)
+            n.lightSharePercent?.let { sleepRows += RecoveryRow("Lichte slaap (Garmin-schatting)", "${f(it)} %", "-", "-", RecoveryTag.COMPUTED) }
+            n.remSharePercent?.let { sleepRows += RecoveryRow("REM (Garmin-schatting)", "${f(it)} %", "-", "-", RecoveryTag.COMPUTED) }
+        }
+        sleepRows += n?.overallScore?.let { RecoveryRow("Garmin slaapscore", "$it" + (n.overallQualifier?.let { q -> " ($q)" } ?: ""), "naast, niet in de plaats van, de analyse hierboven", "-", RecoveryTag.MEASURED) }
+            ?: na("Garmin slaapscore", "geen score")
+        val reg = s.regularity
+        sleepRows += if (reg.status == BaselineStatus.OK)
+            RecoveryRow("Regelmaat (laatste 14 nachten)", "inslapen SD ${f(reg.startSdMinutes!!, 0)} min, ontwaken SD ${f(reg.endSdMinutes!!, 0)} min", "n=${reg.nights} nachten, tijden in Europe/Brussels", "-", RecoveryTag.COMPUTED)
+        else na("Regelmaat", "onvoldoende data (n=${reg.nights} van 7 nachten)")
+        sections += RecoverySection("sleep", "Slaapkwaliteit", listOf("Geen gecombineerde slaapscore van de app. Slaapfasen zijn Garmin-schattingen."), sleepRows)
+
+        val d = r.sleepDebt
+        val debtRows = if (d.status == BaselineStatus.OK) listOfNotNull(
+            RecoveryRow("Geschat slaaptekort (7 nachten)", hmSeconds(d.shortfallSeconds!!), "doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsWithData} van 7 nachten met data", "${d.nightsBelowTarget} nacht(en) onder het doel", RecoveryTag.COMPUTED),
+            RecoveryRow("Netto saldo (tweede getal)", (if (d.netBalanceSeconds!! < 0) "-" else "+") + hmSeconds(abs(d.netBalanceSeconds!!)), "lange nachten vullen het tekort hierboven niet aan", "-", RecoveryTag.COMPUTED),
+            d.garminSleepNeedBaseline?.let { RecoveryRow("Garmin slaapbehoefte", "$it", "eenheid niet bevestigd, niet gebruikt in de berekening", "-", RecoveryTag.MEASURED) },
+        ) else listOf(na("Geschat slaaptekort", "onvoldoende data (n=${d.nightsWithData} van 7 nachten, minimaal 5)"))
+        sections += RecoverySection("debt", "Slaaptekort", listOf("Doel van de eigenaar. Diepe slaap veroorzaakt nooit slaaptekort. Dutjes tellen niet mee."), debtRows)
+
+        sections += RecoverySection("bb", "Body Battery (Garmin-schatting)", listOf("Alleen een patroon, geen oorzaak."), bbRows(r.bodyBattery))
+
+        val st = r.stress
+        val stressRows = metricRows("Gemiddeld stressniveau", "punten", st.avgLevelMetric, st.avgLevel?.toString() ?: "-", RecoveryTag.MEASURED, "geen stressdata") +
+            when {
+                st.highSharePercent != null -> metricRows("Aandeel gemiddeld/hoog stress", "%", st.highShareMetric, "${f(st.highSharePercent!!)} %", RecoveryTag.COMPUTED, "")
+                st.tooShort -> listOf(na("Aandeel gemiddeld/hoog stress", "te weinig meetduur (${f(st.measuredHours ?: 0.0)} u, minimaal 8 u)"))
+                else -> listOf(na("Aandeel gemiddeld/hoog stress", "geen stressdata"))
+            }
+        sections += RecoverySection("stress", "Stress (Garmin-schatting)", listOf("Er is geen stressreeks binnen de dag beschikbaar. Geen verband met trainingen getoond."), stressRows)
+
+        val recent = r.recentNights.map {
+            "${it.date}: HRV ${it.hrv?.let { v -> "$v ms" } ?: "-"}, rusthartslag ${it.restingHr?.let { v -> "$v bpm" } ?: "-"}, slaap ${it.sleepMinutes?.let { m -> hm(m.toDouble()) } ?: "-"}"
+        }
+        return RecoveryPage(hero(r, sleepTargetMinutes), r.date, r.isToday, r.algorithmVersion, summaryText(r), sections, recent, SAFETY)
+    }
+
+    private fun bbRows(b: BodyBatteryResult): List<RecoveryRow> {
+        val rows = mutableListOf<RecoveryRow>()
+        rows += metricRows("Niveau bij ontwaken", "punten", b.wakeLevelMetric, b.wakeLevel?.toString() ?: "-", RecoveryTag.MEASURED, "geen meetpunt binnen 15 minuten van het ontwaken")
+        rows += metricRows("Herstel tijdens de slaap", "punten", b.rechargeMetric, b.recharge?.let { signed(it.toDouble()) } ?: "-", RecoveryTag.COMPUTED, "geen meetpunt rond inslapen en ontwaken (binnen 15 minuten)")
+        b.maxValue?.let { rows += RecoveryRow("Dagmaximum", "$it", "-", "-", RecoveryTag.MEASURED) }
+        b.minValue?.let { rows += RecoveryRow("Dagminimum", "$it", "-", "-", RecoveryTag.MEASURED) }
+        rows += metricRows("Opgeladen", "punten", b.chargedMetric, b.charged?.toString() ?: "-", RecoveryTag.MEASURED, "geen waarde")
+        rows += metricRows("Verbruikt", "punten", b.drainedMetric, b.drained?.toString() ?: "-", RecoveryTag.MEASURED, "geen waarde")
+        return rows
+    }
+
+    // ---------------------------------------------------------------- hero: conclusion at a glance
+
+    fun heroLevel(r: RecoveryReport): HeroLevel {
+        val s = r.readiness.summary
+        return when {
+            !s.available -> HeroLevel.INSUFFICIENT
+            s.deviating.isEmpty() -> HeroLevel.WITHIN
+            s.deviating.size >= 2 || s.deviating.any { it.band == DeviationBand.STRONG } -> HeroLevel.CLEAR
+            else -> HeroLevel.SLIGHT
+        }
+    }
+
+    private fun bandCss(b: DeviationBand?) = when (b) {
+        DeviationBand.WITHIN -> "hero-ok"
+        DeviationBand.DEVIATING -> "hero-warn"
+        DeviationBand.STRONG -> "hero-alert"
+        null -> "hero-na"
+    }
+
+    private fun metricOf(r: RecoveryReport, k: ReadinessKind): MetricAnalysis? = when (k) {
+        ReadinessKind.HRV -> r.hrv.metric
+        ReadinessKind.RESTING_HR -> r.restingHr.metric
+        ReadinessKind.SLEEP -> r.sleep.duration
+        ReadinessKind.BODY_BATTERY -> r.bodyBattery.wakeLevelMetric
+    }
+
+    private fun valueText(r: RecoveryReport, k: ReadinessKind): String = when (k) {
+        ReadinessKind.HRV -> r.hrv.lastNightAvg?.let { "$it ms" }
+        ReadinessKind.RESTING_HR -> r.restingHr.value?.let { "$it bpm" }
+        ReadinessKind.SLEEP -> r.sleep.night?.durationSeconds?.let { hmSeconds(it.toLong()) }
+        ReadinessKind.BODY_BATTERY -> r.bodyBattery.wakeLevel?.toString()
+    } ?: "-"
+
+    private fun normText(r: RecoveryReport, k: ReadinessKind, median: Double): String = when (k) {
+        ReadinessKind.HRV -> "${f(median, 0)} ms"
+        ReadinessKind.RESTING_HR -> "${f(median, 0)} bpm"
+        ReadinessKind.SLEEP -> hm(median)
+        ReadinessKind.BODY_BATTERY -> f(median, 0)
+    }
+
+    fun hero(r: RecoveryReport, sleepTargetMinutes: Int): Hero {
+        val level = heroLevel(r)
+        val comps = r.readiness.components.map { c ->
+            val label = component(c.kind).replaceFirstChar { it.uppercase() }
+            if (!c.hasData) {
+                val why = if (c.value == null) "geen waarde voor deze dag" else "onvoldoende data voor een eigen norm"
+                HeroComponent(label, valueText(r, c.kind), "-", why, "hero-na", null, "$label: $why")
+            } else {
+                val dev = c.deviation!!
+                val pos = (dev.coerceIn(-3.0, 3.0) + 3.0) / 6.0 * 100.0
+                val words = if (c.band == DeviationBand.WITHIN) "binnen eigen norm" else "${bandText(c.band!!)}, ${directionText(dev)}"
+                val norm = normText(r, c.kind, c.median!!)
+                HeroComponent(label, valueText(r, c.kind), "norm $norm", "$words (${signed(dev)} SD)", bandCss(c.band), pos,
+                    "$label: ${valueText(r, c.kind)}, eigen norm $norm, $words")
+            }
+        }
+
+        val s = r.readiness.summary
+        val conclusion = mutableListOf<String>()
+        if (!s.available) {
+            conclusion += "Er is te weinig data voor een conclusie: ${s.componentsWithData} van 4 componenten hebben een waarde en een eigen norm (minimaal 3 nodig). Bekijk hieronder per component wat ontbreekt."
+        } else {
+            val within = r.readiness.components.filter { it.hasData && it.band == DeviationBand.WITHIN }.map { component(it.kind) }
+            if (within.isNotEmpty()) conclusion += "Binnen je eigen norm: ${within.joinToString(", ")}."
+            if (s.deviating.isNotEmpty()) {
+                conclusion += "Afwijkend van je eigen norm: " + s.deviating.joinToString("; ") {
+                    "${component(it.kind)} ${directionText(it.deviation)} (${signed(it.deviation)} SD, ${bandText(it.band)})"
+                } + "."
+            }
+        }
+        val sustained = ReadinessKind.entries.mapNotNull { k ->
+            val t = metricOf(r, k)?.trend ?: return@mapNotNull null
+            when (t.sustained) {
+                SustainedDirection.HIGHER -> "${component(k)} aanhoudend hoger dan je eigen norm (${t.sustainedDaysHigher} van ${t.sustainedDaysEvaluated} dagen)"
+                SustainedDirection.LOWER -> "${component(k)} aanhoudend lager dan je eigen norm (${t.sustainedDaysLower} van ${t.sustainedDaysEvaluated} dagen)"
+                else -> null
+            }
+        }
+        if (sustained.isNotEmpty()) conclusion += "Over de laatste dagen: ${sustained.joinToString("; ")}."
+        val d = r.sleepDebt
+        if (d.status == BaselineStatus.OK) {
+            conclusion += "Geschat slaaptekort over 7 nachten: ${hmSeconds(d.shortfallSeconds!!)} (doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsBelowTarget} nacht(en) eronder)."
+        }
+        conclusion += "Dit is een patroon in je eigen cijfers, geen diagnose. Een hogere of lagere waarde is op zich geen goed of slecht teken. Hoe je je voelt weegt zwaarder dan deze cijfers."
+
+        val facts = listOf(
+            "Dag" to r.date.toString() + if (r.isToday) " (vandaag)" else "",
+            "Componenten met data" to "${s.componentsWithData} van 4",
+            "Eigen norm" to "mediaan van 28 dagen",
+        )
+        val method = listOf(
+            "Elke component vergelijkt de waarde van deze dag met de mediaan van je 28 vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
+            "Conclusie: alle componenten binnen eigen norm = \"Binnen je eigen norm\". Eén component afwijkend (1 tot 2 SD) = \"Licht afwijkend\". Twee of meer afwijkend, of één sterk afwijkend = \"Duidelijk afwijkend\". Minder dan 3 componenten met data = \"Onvoldoende data\".",
+            "Geen getal en geen weging: er bestaan geen gevalideerde gewichten tussen HRV, rusthartslag, slaap en Body Battery. De drempels zijn app-schattingen zonder externe validatie.",
+            "Recente trainingsbelasting is nog geen onderdeel. Garmin-waarden zoals HRV, slaapfasen en Body Battery zijn Garmin-schattingen.",
+        )
+        return Hero(level, level.label, conclusion, facts, comps, method)
+    }
+
+    // ---------------------------------------------------------------- week and month view
+
+    data class PeriodPage(
+        val title: String,
+        val subtitle: String,
+        val rows: List<RecoveryRow>,
+        val dayHeaders: List<String>,
+        val dayRows: List<List<String>>,
+        val notes: List<String>,
+    )
+
+    private fun periodLabel(k: PeriodMetricKind) = when (k) {
+        PeriodMetricKind.HRV -> "HRV nachtgemiddelde (ms)"
+        PeriodMetricKind.RESTING_HR -> "Rusthartslag (bpm)"
+        PeriodMetricKind.SLEEP_DURATION -> "Slaapduur"
+        PeriodMetricKind.BODY_BATTERY_WAKE -> "Body Battery bij ontwaken"
+        PeriodMetricKind.STRESS_AVG -> "Gemiddeld stressniveau"
+    }
+
+    fun periodPage(r: PeriodReport, sleepTargetMinutes: Int): PeriodPage {
+        val dutch = if (r.kind == PeriodKind.WEEK) "Week" else "Maand"
+        val sleep = { v: Double -> hm(v) }
+        val rows = r.metrics.map { m ->
+            val fmt: (Double) -> String = if (m.kind == PeriodMetricKind.SLEEP_DURATION) sleep else { v -> f(v) }
+            val tag = RecoveryTag.COMPUTED
+            val delta = m.difference
+            if (m.status == BaselineStatus.INSUFFICIENT) {
+                RecoveryRow(periodLabel(m.kind), "onbeschikbaar", "onvoldoende data (n=${m.n} van ${r.elapsedDays} dagen, minimaal ${m.needed})", "-", RecoveryTag.NA)
+            } else {
+                val diff = when {
+                    delta == null -> "vorige periode: onvoldoende data (n=${m.previousN})"
+                    m.kind == PeriodMetricKind.SLEEP_DURATION -> "vorige periode ${fmt(m.previousMedian!!)}, verschil ${if (delta < 0) "-" else "+"}${hm(abs(delta))}"
+                    else -> "vorige periode ${fmt(m.previousMedian!!)}, verschil ${signed(delta)}"
+                }
+                RecoveryRow(periodLabel(m.kind), "mediaan ${fmt(m.median!!)}", "bereik ${fmt(m.min!!)} tot ${fmt(m.max!!)}, n=${m.n} van ${r.elapsedDays} dagen", diff, tag)
+            }
+        }.toMutableList()
+        val d = r.sleepDebt
+        rows += if (d.status == BaselineStatus.OK)
+            RecoveryRow("Geschat slaaptekort", hmSeconds(d.shortfallSeconds!!), "doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsWithData} nachten met data", "${d.nightsBelowTarget} nacht(en) onder het doel; netto saldo ${if (d.netBalanceSeconds!! < 0) "-" else "+"}${hmSeconds(abs(d.netBalanceSeconds!!))}", RecoveryTag.COMPUTED)
+        else na("Geschat slaaptekort", "onvoldoende data (n=${d.nightsWithData} van ${r.elapsedDays} nachten, minimaal ${d.needed})")
+        val dash = { v: Int? -> v?.toString() ?: "-" }
+        val dayRows = r.days.map { listOf(it.date.toString(), dash(it.hrv), dash(it.restingHr), it.sleepMinutes?.let { m -> hm(m.toDouble()) } ?: "-", dash(it.bodyBatteryWake), dash(it.stressAvg)) }
+        return PeriodPage(
+            "$dutch ${r.from} tot ${r.to}",
+            (if (r.partial) "Lopende periode: ${r.elapsedDays} dagen tot en met ${r.to}. " else "") + "Vergeleken met ${r.previousFrom} tot ${r.previousTo}.",
+            rows, listOf("Dag", "HRV (ms)", "Rusthartslag (bpm)", "Slaap", "Body Battery ontwaken", "Stress gem."), dayRows,
+            listOf("Mediaan van de dagen met data. Het verschil met de vorige periode is een berekend verschil, geen oordeel: hoger of lager zegt op zich niets over herstel.",
+                "Een rusthartslag telt enkel als Garmin-waarde. Stress van vandaag telt niet mee (dag is niet af)."),
+        )
+    }
+
+    /** The `<herstel>` block of a copy-paste prompt. Values, norms, deviations, n and labels; no raw payloads, no identifiers. */
+    fun promptBlock(r: RecoveryReport, sleepTargetMinutes: Int): String = buildString {
+        val p = page(r, sleepTargetMinutes)
+        appendLine("<herstel algoritme=\"${p.algorithmVersion}\" datum=\"${p.date}\">")
+        appendLine("Samenvatting ${AiAnalysisService.TAG_ESTIMATE}: ${p.summary}")
+        p.sections.forEach { sec ->
+            appendLine("${sec.title}:")
+            sec.rows.forEach { row ->
+                appendLine("- ${row.label}: ${row.value}; ${row.reference}; ${row.deviation} ${row.tag.text}")
+            }
+        }
+        appendLine("Laatste 7 dagen ${AiAnalysisService.TAG_MEASURED}:")
+        p.recentNights.forEach { appendLine("- $it") }
+        appendLine(SAFETY)
+        appendLine("</herstel>")
+    }
+}

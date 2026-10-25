@@ -7,12 +7,11 @@ Single source of truth for where the project stands. Every agent session reads t
 - Spec: `GARMIN_API.md`, `GARMIN_API_AGENT_REFERENCE.md`
 - Backlog status (81 items): `docs/garmin-feature-backlog-progress.md`
 
-**Last updated:** 2026-10-25 by: seventh session (Phase 2 design doc written, no code)
+**Last updated:** 2026-10-25 by: eighth session (Phase 2 built, AWAITING APPROVAL)
 
 ## Next session starts here
 
-- **Next action:** owner sets the Phase 2 row in the Approvals table to APPROVED (P2-1 to P2-8 answered, design accepted verbally in session).
-- **Owner must do first:** change the status cell. The agent may not set APPROVED, even when asked in session. Phase 3 does not start before Phase 2 is approved.
+- **Next action:** owner reviews Phase 2 (`/recovery`, `docs/garmin-phase-2-design.md` sections 7 and 10) and sets the Phase 2 row to APPROVED or REJECTED. The agent may not set APPROVED. Phase 3 does not start before that.
 
 ## Approvals
 
@@ -25,7 +24,7 @@ The owner changes the status column. The agent never sets APPROVED itself. The a
 | Gate 2 | APPROVED | | Report in `docs/garmin-data-provenance.md` |
 | Gate 3 | APPROVED | | Code, offline tests and the live PostgreSQL verification on a test copy are done. Open items: questions 18 to 20, production not yet touched by Garmin. Design and results in `docs/garmin-sync-design.md` |
 | Phase A (audit remediation) | APPROVED | | Report in `docs/garmin-audit-remediation.md`. Owner confirmed in session on 2026-10-25 that Phase 1 is approved and Phase A may start |
-| Phase 2 (recovery) | APPROVED | | Design doc only (`docs/garmin-phase-2-design.md`), no code. Owner answered P2-1 to P2-8 (all defaults) and asked in session 2026-10-25 for approval; the agent cannot set APPROVED, so the owner must change this cell |
+| Phase 2 (recovery) | AWAITING APPROVAL | | Design was APPROVED (owner set the cell, confirmed in session 2026-10-25 that it also covers building the code). Code and offline tests done (224 pass; owner asked for sync button and week/month view in session, see log). Agent reset the cell to AWAITING for the phase-end approval. Report: `docs/garmin-phase-2-design.md` sections 7 and 10 |
 | Phase 3 (performance) | NOT STARTED | | |
 | Phase 4 (load) | NOT STARTED | | |
 | Phase 5 (race) | NOT STARTED | | |
@@ -34,8 +33,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 
 ## Current state
 
-- **Current phase:** Phase 2 (recovery), design stage. Phase 1 and Phase A APPROVED (Approvals table).
-- **Blocked on:** owner review of `docs/garmin-phase-2-design.md` and questions P2-1 to P2-8. Phase 3 needs Phase 2 approved.
+- **Current phase:** Phase 2 (recovery), built, AWAITING APPROVAL. Phase 1 and Phase A APPROVED.
+- **Blocked on:** owner approval of Phase 2. Phase 3 needs Phase 2 approved and the owner's confirmation of the Phase 3 mapping.
 
 ## Phase 1 gate status
 
@@ -86,7 +85,7 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 | Phase | Status | Design doc | Notes |
 |---|---|---|---|
 | Phase A: audit remediation | DONE (approved, see Approvals table) | `docs/garmin-audit-remediation.md` | All items VERIFIED or FIXED except 4 owner points. One fix: removed `GET /coach/sync`; new test |
-| Phase 2: recovery | IN PROGRESS (design written, AWAITING APPROVAL) | `docs/garmin-phase-2-design.md` | Design only. No code, no tests added. Entry condition from Phase A (AI guardrail update) is part of the design, section 5 |
+| Phase 2: recovery | DONE, AWAITING APPROVAL | `docs/garmin-phase-2-design.md` | Backlog #1 to #4, #6 to #9 built (`recovery-v1`): `core/.../garmin/recovery`, `RecoveryService`, `RecoveryText`, `RecoveryController` (`/recovery`, `/recovery/data`), `recovery.html`, conditional AI guardrail (`/ai?herstel=true`). 68 new offline tests, plus sync button and week/month view requested by the owner in session. Owner opened the page on real data: first view showed an empty today (sync not run yet) |
 | Phase 3: performance | NOT STARTED | `docs/garmin-phase-3-design.md` | Needs Phase A and Phase 2 approved |
 | Phase 4: load | NOT STARTED | `docs/garmin-phase-4-design.md` | Needs Phases 2 and 3 approved |
 | Phase 5: race | NOT STARTED | `docs/garmin-phase-5-design.md` | Needs Phases 3 and 4 approved, Phase A complete |
@@ -121,16 +120,22 @@ Phase 2 design questions P2-1 to P2-8 (details in `docs/garmin-phase-2-design.md
 
 ## Handoff for the next session
 
-- **Current:** Phase 2 (recovery), design written, AWAITING APPROVAL. No code started. Phases 3 to 5 not started.
-- **Finished:** Fixed stale status text (Phase A is APPROVED per the Approvals table). Wrote `docs/garmin-phase-2-design.md`: common baseline machinery (median, robust SD, windows 7/28/60/90, 70 % minimum data), formulas, abstain rules, labels and tests for backlog #1, #2, #3, #4, #6, #7, #8, #9, code layout, AI guardrail change, hand-computed test cases, open questions P2-1 to P2-8. Nothing built, so no test run and no test counts changed (still 152 offline tests from the last run, not re-run this session).
-- **Not done:** all Phase 2 code. Live rejected-key check, Strava `external_id` check, 429 limit (unchanged, see sixth session).
-- **Blocked:** the owner setting the Phase 2 Approvals cell to APPROVED. P2-1 to P2-8 are answered (defaults).
+- **Current:** Phase 2 (recovery), built and tested offline, AWAITING APPROVAL. Phases 3 to 5 not started.
+- **Finished:** SPI read methods and JPA implementation; `core/.../garmin/recovery` (baseline machinery, HRV, resting HR, sleep quality and debt, Body Battery, stress, readiness components without score); `RecoveryService`, `RecoveryText` (Dutch), `RecoveryController`, `recovery.html`, nav entry "Herstel"; `garmin.recovery.sleep-target-minutes` (450); conditional AI guardrail and `<herstel>` block only on request. `:core:test :runner:test` on Java 23: 224 pass, 0 fail (152 before, 72 new). No Strava test changed. No key or token handled, no network call.
+- **Not done / UNVERIFIED:** the page was not opened in a browser on real data (only rendered in a Spring test context); HRV unit and measure, resting HR method, 10 % unmeasurable and 8 h stress thresholds, deviation bands stay UNVERIFIED app estimates. Live rejected-key check, Strava `external_id` check, 429 limit (unchanged).
+- **Blocked:** the owner setting the Phase 2 Approvals cell to APPROVED.
 - **Left behind:** `/tmp/opencode/prod-before-garmin.sql` (contains the Strava token: delete when no longer needed); stopped containers `running-db`, `running-test-db`.
-- **Exact next step:** owner sets the Phase 2 Approvals cell to APPROVED. Then the agent builds Phase 2: SPI read methods and fakes, `core/.../garmin/recovery`, `RecoveryService`, `RecoveryController` and `recovery.html`, conditional AI guardrail, tests, and stops at "AWAITING APPROVAL".
+- **Exact next step:** owner starts the app, opens `/recovery` and `/ai?herstel=true`, checks the numbers against the Garmin app, then sets the Phase 2 cell to APPROVED (or REJECTED with a reason). Only after that: ask the owner to confirm the Phase 3 scope, then write `docs/garmin-phase-3-design.md` (design before code).
 
 ## Log
 
 Newest first. One entry per session: date, gate or phase, result, what changed, what is next.
+
+- **2026-10-25 (eighth session, hero card):** at the owner's request the day view of `/recovery` now opens with a conclusion card. Owner chose the option without a number (question asked in session: spectrum + conclusion card, no score), so P2-2 and spec section 8 rule 6 stay intact. Changed: `RecoveryText.hero`/`heroLevel` (4 levels: Binnen je eigen norm, Licht afwijkend, Duidelijk afwijkend, Onvoldoende data; rule: 0 deviating = within, 1 deviating (1 to 2 SD) = slight, 2 or more or any 2+ SD = clear, under 3 components with data = insufficient; app estimates, no external validation), per-component spectrum bar (-3 to +3 SD, own norm in the middle), conclusion text with sustained trends and sleep shortfall, collapsible "Hoe komt deze conclusie tot stand?", CSS in `layout.html`, details sections kept below. Tests: 224 pass, 0 fail (4 new). Not seen in a browser by the agent. Next: owner review.
+
+- **2026-10-25 (eighth session, follow-up):** Phase 2 changes at the owner's written request in session (scope note: a sync button and a week/month view go beyond the design doc; the owner asked for both). Cause of the many `[onbeschikbaar]`: today had no Garmin rows yet (sync not run). Changed: `POST /recovery/garmin-update` (button "Garmin synchroniseren" on `/recovery`; same coordinator and lock as `POST /garmin/sync`, async, redirect with flash, no call without key or flag; the old JSON endpoints stay); sync status line on the page; default day falls back to the latest day with data; misleading text "onvoldoende data (n=28)" replaced by "geen waarde voor deze dag"; `view=week|month` (Mon to Sun, calendar month; medians of days with data, 70 % minimum, same number of days of the previous period, differences only, sleep shortfall of the period; `core/.../recovery/Period.kt`). Tests: 224 pass, 0 fail (11 new). No Strava test changed. Next: owner review.
+
+- **2026-10-25 (eighth session):** Phase 2 build. Result: built, AWAITING APPROVAL. Entry check: the Approvals table said APPROVED for Phase 2 while the handoff said the owner still had to set it; I asked, and the owner confirmed in session that he set it and that it covers building the code. Changed: core `com.running.garmin.recovery` (`Baseline`, `Trend`, `MetricAnalyzer`, `HrvAnalysis`, `RestingHrAnalysis`, `SleepAnalysis`, `BodyBatteryAnalysis`, `StressAnalysis`, `ReadinessAnalysis`, `RecoveryAnalyzer`); six read methods on `GarminRepository` (+ fake, + JPA); runner `RecoveryService`, `RecoveryText`, `RecoveryController`, `recovery.html`, nav entry; `GarminProperties.recovery`; `AiAnalysisService` guardrail conditional and `<herstel>` block (`/ai?herstel=true`); `NoStateChangingGetTest` covers the new controller. Build decisions the design left open are in `docs/garmin-phase-2-design.md` section 10. Tests: 209 pass, 0 fail (57 new, offline). No Strava test changed. Backlog #1 to #4, #6 to #9 DONE. No key or token handled, no network call, no schema change. Next: owner review and approval.
 
 - **2026-10-25 (seventh session):** Phase 2 design. Result: design doc written, AWAITING APPROVAL, no code. Entry check: Approvals table had Phase A APPROVED while the handoff and the phase status row still said AWAITING; I asked the owner, who gave the go for the Phase 2 design doc. Changed: created `docs/garmin-phase-2-design.md` (algorithm version `recovery-v1`); aligned stale status text in this file; backlog items #1 to #4, #6 to #9 marked IN PROGRESS (design only). Scope note: backlog #4 mentions recent load; no load model exists until Phase 4, so the design proposes four components without load (question P2-2). No code, no tests, no Strava tests touched; build not re-run. No key or token handled, no network call. Next: owner review of the design.
 - **2026-10-25 (sixth session):** Gate 3 closed, Phase A. Result: Phase A AWAITING APPROVAL. Entry check: Approvals table said Gate 3 APPROVED while other blocks said AWAITING; the owner confirmed APPROVED in session, and also confirmed Phase 1 approved and that Phase A may start. Owner answers: Q18 pause 2 s, Q19 keep limits, Q20 730-day backfill. Changes: backfill pause default 2 s (3 places); `GET /coach/sync` removed; `NoStateChangingGetTest` added; `docs/garmin-audit-remediation.md` written. Production: pg_dump first, app started, `POST /garmin/backfill`, state OK, 0 failed calls (about 7 min), no key in the log, app and database stopped again. Tests: 152 pass, 0 fail, no existing Strava test changed. Next: owner answers question 21 and decides Phase A.

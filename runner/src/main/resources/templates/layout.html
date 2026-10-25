@@ -428,6 +428,36 @@
         .ext-links { display: inline-flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; font-size: var(--fs-sm); }
         .ext-links a { min-height: 36px; display: inline-flex; align-items: center; }
 
+        /* ---------- Recovery hero: conclusion at a glance, spectrum = position against own norm ---------- */
+        .hero { border-left: 8px solid var(--line-strong); }
+        .hero.hero-ok { border-left-color: #2f8f5b; }
+        .hero.hero-warn { border-left-color: #d99a1c; }
+        .hero.hero-alert { border-left-color: #c2410c; }
+        .hero.hero-na { border-left: 8px dashed var(--line-strong); }
+        .hero-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-5); margin-bottom: var(--sp-3); }
+        .hero-label { font-family: var(--font-display); font-size: var(--fs-2xl); font-weight: 700; line-height: 1.1; }
+        .hero-ok .hero-label { color: var(--ok); }
+        .hero-warn .hero-label { color: var(--warn); }
+        .hero-alert .hero-label { color: #9a3412; }
+        .hero-na .hero-label { color: var(--muted); }
+        .hero-sub { color: var(--ink-2); max-width: 70ch; }
+        .hero-facts { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); font-size: var(--fs-sm); color: var(--muted); margin: var(--sp-3) 0 var(--sp-4); }
+        .hero-facts strong { color: var(--ink-2); font-weight: 600; }
+        .hero-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-4) var(--sp-5); margin: var(--sp-4) 0; }
+        .hero-comp-head { display: flex; justify-content: space-between; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-sm); }
+        .hero-comp-head strong { font-weight: 600; }
+        .hero-comp-value { font-family: var(--font-display); font-size: var(--fs-lg); font-weight: 600; }
+        .spectrum {
+            position: relative; height: 14px; border-radius: 7px; margin: var(--sp-2) 0 var(--sp-1); border: 1px dashed var(--est-line);
+            background: linear-gradient(to right, #f4b8a8 0 16.67%, #ffe2a8 16.67% 33.33%, #cfe8d8 33.33% 66.67%, #ffe2a8 66.67% 83.33%, #f4b8a8 83.33% 100%);
+        }
+        .spectrum.is-empty { background: var(--surface-2); border-color: var(--line-strong); }
+        .spectrum-marker { position: absolute; top: -5px; width: 5px; height: 22px; background: var(--ink); border-radius: 3px; transform: translateX(-50%); box-shadow: 0 0 0 2px #fff; }
+        .spectrum-axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); }
+        .hero-dev { font-size: var(--fs-sm); color: var(--ink-2); }
+        .hero-conclusion p { max-width: 80ch; }
+        .hero-conclusion p + p { margin-top: var(--sp-2); }
+
         /* ---------- Utilities ---------- */
         .mt-2 { margin-top: var(--sp-4); }
         .mb-2 { margin-bottom: var(--sp-4); }
@@ -515,6 +545,7 @@
             <div class="nav-group" role="group" aria-labelledby="nav-analyse">
                 <span class="nav-label" id="nav-analyse">Analyse</span>
                 <a href="/coach">Coach</a>
+                <a href="/recovery" data-match="/recovery">Herstel</a>
                 <a href="/compare" data-match="/compare">Vergelijken</a>
             </div>
             <div class="nav-group" role="group" aria-labelledby="nav-ai">

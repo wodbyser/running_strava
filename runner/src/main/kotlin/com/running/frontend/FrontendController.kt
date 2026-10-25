@@ -464,16 +464,19 @@ class FrontendController(
     }
 
     @GetMapping("/ai")
-    fun aiPrompt(model: Model): String {
+    fun aiPrompt(model: Model, @RequestParam(name = "herstel", required = false, defaultValue = "false") herstel: Boolean): String {
         model.addAttribute("title", "AI-analyse")
         model.addAttribute("promptIntro", "Deze prompt bevat je recente historiek: de laatste ${AiAnalysisService.RECENT_COUNT} loopactiviteiten plus totalen en weekkilometers van de laatste ${AiAnalysisService.SUMMARY_WEEKS} weken.")
-        model.addAttribute("prompt", aiAnalysisService.buildAiPrompt())
+        model.addAttribute("prompt", aiAnalysisService.buildAiPrompt(herstel))
+        model.addAttribute("includesRecovery", herstel)
+        model.addAttribute("recoveryToggleUrl", if (herstel) "/ai" else "/ai?herstel=true")
+        if (herstel) model.addAttribute("downloadUrl", "/ai/download?herstel=true")
         return "ai"
     }
 
     @GetMapping("/ai/download")
-    fun aiPromptDownload(): ResponseEntity<ByteArray> {
-        val bytes = aiAnalysisService.buildAiPrompt().toByteArray()
+    fun aiPromptDownload(@RequestParam(name = "herstel", required = false, defaultValue = "false") herstel: Boolean): ResponseEntity<ByteArray> {
+        val bytes = aiAnalysisService.buildAiPrompt(herstel).toByteArray()
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"ai-prompt.txt\"")
             .contentType(MediaType.TEXT_PLAIN)

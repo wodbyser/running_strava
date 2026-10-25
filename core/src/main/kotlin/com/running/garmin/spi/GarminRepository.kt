@@ -2,6 +2,7 @@ package com.running.garmin.spi
 
 import com.running.garmin.domain.GarminActivityRef
 import com.running.garmin.domain.GarminBodyBatteryDay
+import com.running.garmin.domain.GarminBodyBatterySample
 import com.running.garmin.domain.GarminBodyBatterySeriesDay
 import com.running.garmin.domain.GarminHeartRateZones
 import com.running.garmin.domain.GarminHrvDay
@@ -28,6 +29,14 @@ interface GarminRepository {
 
     fun findActivities(from: Instant, to: Instant): List<GarminActivityRef>
     fun findAllActivities(): List<GarminActivityRef>
+
+    /** Read access for the recovery analysis. Date ranges are inclusive, results are sorted by date. */
+    fun findHrv(from: LocalDate, to: LocalDate): List<GarminHrvDay>
+    fun findSleep(from: LocalDate, to: LocalDate): List<GarminSleepDay>
+    fun findRestingHr(from: LocalDate, to: LocalDate): List<GarminRestingHrDay>
+    fun findBodyBattery(from: LocalDate, to: LocalDate): List<GarminBodyBatteryDay>
+    fun findBodyBatterySamples(fromMs: Long, toMs: Long): List<GarminBodyBatterySample>
+    fun findStress(from: LocalDate, to: LocalDate): List<GarminStressDay>
 }
 
 interface GarminSyncStatusRepository {

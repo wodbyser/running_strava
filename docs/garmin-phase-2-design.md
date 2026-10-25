@@ -1,6 +1,6 @@
 # Garmin Phase 2 design: recovery baselines and assessment
 
-Date: 2026-10-25. Status: DESIGN, owner answers P2-1 to P2-8 recorded (all defaults), awaiting the owner's APPROVED in the Approvals table. **No code written.** Algorithm version for everything below: `recovery-v1`.
+Date: 2026-10-25. Status: BUILT, AWAITING PHASE APPROVAL. Owner answers P2-1 to P2-8 recorded (all defaults). Code and offline tests done (section 7, section 10). Algorithm version for everything below: `recovery-v1`.
 
 Scope (roadmap Phase 2): backlog #1 HRV baseline, #2 HRV trend, #3 resting HR analysis, #4 recovery readiness, #6 sleep quality, #7 sleep debt, #8 Body Battery trends, #9 stress analysis. Nothing else.
 
@@ -188,14 +188,14 @@ Strava tests: none expected to change. If one must, old and new values go in thi
 
 Temporal validation (spec rule 10): not applicable, Phase 2 builds no predictive model. Baselines use only days before D by construction (tested: a future spike changes nothing).
 
-## 7. Exit criteria check (roadmap, filled in at the end of the build)
+## 7. Exit criteria check (filled in at the end of the build)
 
 | Criterion | Status |
 |---|---|
-| Design doc approved | AWAITING OWNER |
-| Each metric has normal, abstain and deviation tests | NOT STARTED |
-| No health data in logs | NOT STARTED |
-| Owner approval of the phase | NOT STARTED |
+| Design doc approved | Approvals table shows APPROVED (set by the owner, confirmed in session 2026-10-25) |
+| Each metric has normal, abstain and deviation tests | DONE: `BaselineTest` (11), `RecoveryAnalysisTest` (33), `RecoveryTest`, `RecoveryControllerTest`, `AiPromptRecoveryGuardrailTest` |
+| No health data in logs | DONE: `RecoveryService` logs counts and the version only; a test captures its log and checks no fixture value appears |
+| Owner approval of the phase | AWAITING OWNER |
 
 ## 8. Questions for the owner: ALL ANSWERED 2026-10-25, every default accepted (record in `GARMIN_PROGRESS.md`)
 
@@ -213,3 +213,21 @@ Temporal validation (spec rule 10): not applicable, Phase 2 builds no predictive
 ## 9. Not in Phase 2
 
 Training load, training response (#5), recovery time (#10), fatigue detection (#11), illness (#12), rest or deload effectiveness, any link between sessions and recovery values, race readiness, injury module, FIT decoding, writing to Garmin, any external AI call.
+
+## 10. Build notes (2026-10-25, details the design left open)
+
+- **Unmeasurable share:** `unmeasurableSleepSeconds / (sleepTimeSeconds + awakeSleepSeconds + unmeasurableSleepSeconds)`. Above 10 % (strictly) hides the stage shares. A null `unmeasurableSleepSeconds` does not hide them (UNVERIFIED).
+- **Regularity SD:** population standard deviation of minutes after 18:00 local (Europe/Brussels), 7 nights needed in the last 14.
+- **Units of the baseline series:** sleep duration in minutes, shares in percent, so the SD floor of 1.0 means 1 minute or 1 percentage point.
+- **Sustained rule:** counted over the days of the last 7 that have a value and an OK 28 day baseline. Needs at least 5 such days, and at least 5 with the same sign and |deviation| >= 1.
+- **Stress:** `avgLevel` is analysed on every day with data; only `highShare` needs 8 h measured time.
+- **Body Battery:** wake level and recharge baselines include today (they belong to the wake-up date); `charged` and `drained` of today are excluded.
+- **Readiness component values:** HRV last night, resting HR, sleep duration in minutes, Body Battery wake level, each against its 28 day median.
+- **P2-1 implementation:** `GET /ai?herstel=true` and `/ai/download?herstel=true` add the `<herstel>` block and switch the guardrail. Default prompts and the other three prompts are unchanged. Owner Strava prompt tests unchanged.
+- **P2-8:** `/recovery` (Thymeleaf), `/recovery/data` (JSON, read only), nav entry "Herstel". Config: `garmin.recovery.sleep-target-minutes` (450).
+- **Repository SPI:** six read methods added (`findHrv`, `findSleep`, `findRestingHr`, `findBodyBattery`, `findBodyBatterySamples`, `findStress`). No schema change, no new table.
+- **Not verified:** the page was rendered in a Spring test context (H2), not opened in a browser against production data. Chart.js loads from a CDN as on the other pages.
+- **Strava tests:** none changed. `NoStateChangingGetTest` now also covers `RecoveryController`.
+- **Tests:** 209 pass, 0 fail (`:core:test :runner:test`, Java 23): 152 before, 57 new.
+- **Owner additions in session (2026-10-25, after first look at the page):** (1) `POST /recovery/garmin-update` button, same coordinator and single-run lock as `POST /garmin/sync`; Phase 1 had "status UI JSON only", this adds a button, not a state-changing GET. (2) Week (Monday to Sunday) and month (calendar month) views: median, range and n per metric over the days with data (minimum 70 % of the elapsed days), set beside the same number of days of the previous period; difference only, no judgement; period sleep shortfall by the day-view rule. (3) Default day = latest day with data when today has none. (4) The readiness text distinguishes "no value for this day" from "not enough history". Tests: 220 pass in total.
+- **Hero card (owner request, option "spectrum + conclusion card, no number"):** levels and rules as in the progress log; spectrum position = (clamp(deviation, -3, 3) + 3) / 6 x 100; no numeric score anywhere (test checks the output type has no score field). Thresholds are UNVERIFIED app estimates.

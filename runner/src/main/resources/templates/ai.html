@@ -16,6 +16,8 @@
             <a href="/ai/download" class="btn btn-secondary btn-sm" th:if="${downloadUrl == null}">Download als .txt</a>
             <a th:if="${downloadUrl != null}" th:href="${downloadUrl}" class="btn btn-secondary btn-sm">Download als .txt</a>
             <a th:if="${backUrl != null}" th:href="${backUrl}" class="btn btn-secondary btn-sm">&larr; Aanpassen</a>
+            <a th:if="${recoveryToggleUrl != null}" th:href="${recoveryToggleUrl}" class="btn btn-secondary btn-sm"
+               th:text="${includesRecovery} ? 'Garmin-herstelgegevens weglaten' : 'Garmin-herstelgegevens toevoegen'">Garmin-herstelgegevens toevoegen</a>
             <span class="ext-links">Plakken in:
                 <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT<span class="sr-only"> (nieuw tabblad)</span> &rarr;</a>
                 <a href="https://claude.ai/" target="_blank" rel="noopener">Claude<span class="sr-only"> (nieuw tabblad)</span> &rarr;</a>
@@ -24,9 +26,14 @@
         </div>
         <label for="aiPrompt" class="sr-only">Gegenereerde prompt</label>
         <textarea id="aiPrompt" class="prompt-box" readonly th:text="${prompt}"></textarea>
-        <p class="callout mt-2">
+        <p class="callout mt-2" th:unless="${includesRecovery}">
             De prompt bevat enkel Strava-data (geen weer, slaap, HRV of klachten) en markeert elke waarde als
             gemeten, berekend of app-schatting. Een AI-antwoord blijft een interpretatie, geen diagnose of meting.
+        </p>
+        <p class="callout mt-2" th:if="${includesRecovery}">
+            Deze prompt bevat ook Garmin-gezondheidsgegevens (HRV, rusthartslag, slaap, Body Battery, stress). De app stuurt niets
+            door: je plakt de tekst zelf. Plak die enkel in een dienst waar je dat wilt. Een AI-antwoord blijft een interpretatie,
+            geen diagnose of meting.
         </p>
     </section>
 

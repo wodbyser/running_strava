@@ -54,6 +54,8 @@ garmin:
   retry:
     max-attempts: 3
     delays: 1s,4s
+  recovery:
+    sleep-target-minutes: 450
 
 logging:
   level:

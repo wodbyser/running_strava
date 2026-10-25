@@ -42,6 +42,8 @@ data class NextTrainingParams(
 class AiAnalysisService(
     private val activityRepository: ActivityRepository,
     private val periodComparisonService: PeriodComparisonService,
+    private val recoveryService: RecoveryService? = null,
+    private val garminProperties: com.running.config.GarminProperties? = null,
 ) {
 
     companion object {
@@ -100,11 +102,21 @@ class AiAnalysisService(
     }
 
     /** Instructions that keep the AI within what the data can support. */
-    private fun guardrailsBlock(withLaps: Boolean): String = buildString {
+    private fun guardrailsBlock(withLaps: Boolean, withRecovery: Boolean = false): String = buildString {
         appendLine("<werkwijze>")
-        appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, slaap, HRV, rusthartslag, ziekte, pijn/klachten,")
-        appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")
-        appendLine("  Hangt een conclusie daarvan af, zeg dan expliciet 'niet bepaalbaar uit deze data' in plaats van te gokken.")
+        if (withRecovery) {
+            appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, ziekte, pijn/klachten,")
+            appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")
+            appendLine("  Hangt een conclusie daarvan af, zeg dan expliciet 'niet bepaalbaar uit deze data' in plaats van te gokken.")
+            appendLine("- Het blok <herstel> bevat Garmin-herstelwaarden (HRV-nachtgemiddelde, rusthartslag, slaap, Body Battery, stress),")
+            appendLine("  gelabeld met $TAG_MEASURED, $TAG_COMPUTED of $TAG_ESTIMATE. Slaapfasen, Body Battery, stress en HRV zijn Garmin-schattingen.")
+            appendLine("  Conclusies over blessure, ziekte of trainingsgereedheid zijn niet bepaalbaar uit deze data; geef daar geen oordeel over.")
+            appendLine("  Rapporteer afwijkingen in beide richtingen zonder te zeggen dat hoger of lager 'beter' is.")
+        } else {
+            appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, slaap, HRV, rusthartslag, ziekte, pijn/klachten,")
+            appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")
+            appendLine("  Hangt een conclusie daarvan af, zeg dan expliciet 'niet bepaalbaar uit deze data' in plaats van te gokken.")
+        }
         appendLine("- Zeg het expliciet als er te weinig data is voor een conclusie (bv. weinig sessies, ontbrekende HR) en hoe zeker je bent.")
         appendLine("- Behandel waarden met $TAG_ESTIMATE als ruwe indicatie van de app, niet als feit of als gevestigde sportwetenschap.")
         if (withLaps) {
@@ -199,9 +211,16 @@ class AiAnalysisService(
 
     // ---------------------------------------------------------------- prompts
 
-    fun buildAiPrompt(): String {
+    /** Garmin `<herstel>` block, or null when not requested or no recovery service is wired. Only on explicit request. */
+    private fun recoveryBlock(include: Boolean): String? {
+        if (!include || recoveryService == null) return null
+        return RecoveryText.promptBlock(recoveryService.report(), garminProperties?.recovery?.sleepTargetMinutes ?: 450)
+    }
+
+    fun buildAiPrompt(includeRecovery: Boolean = false): String {
         val context = buildTrainingContext()
         if (context == NO_DATA) return context
+        val recovery = recoveryBlock(includeRecovery)
 
         return """
             |Je bent een ervaren hardloopcoach. Analyseer onderstaande trainingshistoriek en geef concreet advies.
@@ -220,10 +239,10 @@ class AiAnalysisService(
             |Geef je antwoord in het Nederlands, met concrete cijfers en per punt een duidelijk actieplan.
             |
             |${definitionsBlock(withLaps = false, withEf = false)}
-            |${guardrailsBlock(withLaps = false)}
+            |${guardrailsBlock(withLaps = false, withRecovery = recovery != null)}
             |<trainingshistoriek>
             |$context
-            |</trainingshistoriek>
+            |</trainingshistoriek>${recovery?.let { "\n$it" } ?: ""}
         """.trimMargin()
     }
 

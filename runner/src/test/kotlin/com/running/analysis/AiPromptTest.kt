@@ -118,3 +118,51 @@ class AiPromptTest {
         assertEquals(AiAnalysisService.NO_DATA, s.buildAiPrompt())
     }
 }
+
+class AiPromptRecoveryGuardrailTest {
+    private val now = ZonedDateTime.now()
+    private val runs = (1..5).map { com.running.analysis.Fixtures.run(it.toLong(), now.minusDays(10L - it), 10000.0, 3000, 150.0) }
+    private val repo = FakeActivityRepository(runs)
+
+    private class EmptyRepo : com.running.garmin.spi.GarminRepository by org.mockito.Mockito.mock(com.running.garmin.spi.GarminRepository::class.java) {
+        override fun findHrv(from: LocalDate, to: LocalDate) = emptyList<com.running.garmin.domain.GarminHrvDay>()
+        override fun findSleep(from: LocalDate, to: LocalDate) = emptyList<com.running.garmin.domain.GarminSleepDay>()
+        override fun findRestingHr(from: LocalDate, to: LocalDate) = emptyList<com.running.garmin.domain.GarminRestingHrDay>()
+        override fun findBodyBattery(from: LocalDate, to: LocalDate) = emptyList<com.running.garmin.domain.GarminBodyBatteryDay>()
+        override fun findBodyBatterySamples(fromMs: Long, toMs: Long) = emptyList<com.running.garmin.domain.GarminBodyBatterySample>()
+        override fun findStress(from: LocalDate, to: LocalDate) = emptyList<com.running.garmin.domain.GarminStressDay>()
+    }
+
+    private fun recoveryService(): RecoveryService {
+        val tokens = org.mockito.Mockito.mock(com.running.strava.db.StravaTokenRepositoryImpl::class.java)
+        org.mockito.Mockito.`when`(tokens.getRestingHr()).thenReturn(null)
+        return RecoveryService(EmptyRepo(), tokens, com.running.config.GarminProperties(), java.time.Clock.systemUTC())
+    }
+
+    @Test
+    fun `default prompt keeps the original guardrail and has no recovery block`() {
+        val s = AiAnalysisService(repo, PeriodComparisonService(repo), recoveryService())
+        val p = s.buildAiPrompt()
+        assertTrue(p.contains("Deze data bevat GEEN weer, slaap, HRV, rusthartslag, ziekte, pijn/klachten,"))
+        assertFalse(p.contains("<herstel"))
+        assertEquals(p, AiAnalysisService(repo, PeriodComparisonService(repo)).buildAiPrompt())
+    }
+
+    @Test
+    fun `recovery block on request switches the guardrail`() {
+        val s = AiAnalysisService(repo, PeriodComparisonService(repo), recoveryService())
+        val p = s.buildAiPrompt(includeRecovery = true)
+        assertTrue(p.contains("<herstel algoritme=\"recovery-v1\""))
+        assertFalse(p.contains("Deze data bevat GEEN weer, slaap, HRV, rusthartslag"))
+        assertTrue(p.contains("Deze data bevat GEEN weer, ziekte, pijn/klachten,"))
+        assertTrue(p.contains("niet bepaalbaar uit deze data"))
+        assertTrue(p.contains("Garmin-schattingen"))
+    }
+
+    @Test
+    fun `other prompts keep the original guardrail`() {
+        val s = AiAnalysisService(repo, PeriodComparisonService(repo), recoveryService())
+        val p = s.buildNextTrainingPrompt(NextTrainingParams())
+        assertTrue(p.contains("Deze data bevat GEEN weer, slaap, HRV, rusthartslag"))
+    }
+}

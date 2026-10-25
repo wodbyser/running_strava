@@ -12,14 +12,25 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-interface GarminHrvJpaRepository : JpaRepository<GarminHrvEntity, LocalDate>
-interface GarminSleepJpaRepository : JpaRepository<GarminSleepEntity, LocalDate>
-interface GarminRestingHrJpaRepository : JpaRepository<GarminRestingHrEntity, LocalDate>
-interface GarminBodyBatteryJpaRepository : JpaRepository<GarminBodyBatteryEntity, LocalDate>
+interface GarminHrvJpaRepository : JpaRepository<GarminHrvEntity, LocalDate> {
+    fun findByCalendarDateBetweenOrderByCalendarDate(from: LocalDate, to: LocalDate): List<GarminHrvEntity>
+}
+interface GarminSleepJpaRepository : JpaRepository<GarminSleepEntity, LocalDate> {
+    fun findByCalendarDateBetweenOrderByCalendarDate(from: LocalDate, to: LocalDate): List<GarminSleepEntity>
+}
+interface GarminRestingHrJpaRepository : JpaRepository<GarminRestingHrEntity, LocalDate> {
+    fun findByCalendarDateBetweenOrderByCalendarDate(from: LocalDate, to: LocalDate): List<GarminRestingHrEntity>
+}
+interface GarminBodyBatteryJpaRepository : JpaRepository<GarminBodyBatteryEntity, LocalDate> {
+    fun findByCalendarDateBetweenOrderByCalendarDate(from: LocalDate, to: LocalDate): List<GarminBodyBatteryEntity>
+}
 interface GarminBodyBatterySampleJpaRepository : JpaRepository<GarminBodyBatterySampleEntity, Long> {
     fun deleteByCalendarDate(calendarDate: LocalDate)
+    fun findByTimestampGmtMsBetweenOrderByTimestampGmtMs(from: Long, to: Long): List<GarminBodyBatterySampleEntity>
 }
-interface GarminStressJpaRepository : JpaRepository<GarminStressEntity, LocalDate>
+interface GarminStressJpaRepository : JpaRepository<GarminStressEntity, LocalDate> {
+    fun findByCalendarDateBetweenOrderByCalendarDate(from: LocalDate, to: LocalDate): List<GarminStressEntity>
+}
 interface GarminStepsJpaRepository : JpaRepository<GarminStepsEntity, LocalDate>
 interface GarminActivityJpaRepository : JpaRepository<GarminActivityEntity, Long> {
     fun findByStartTimeGmtBetween(from: Instant, to: Instant): List<GarminActivityEntity>
@@ -149,6 +160,41 @@ class GarminRepositoryImpl(
 
     @Transactional(readOnly = true)
     override fun findAllActivities(): List<GarminActivityRef> = activityRepo.findAll().map { toDomain(it) }
+
+    private fun src(p: GarminProvenance) = GarminSource(p.sourceEndpoint, p.sourceTimestamp, p.originalUnits)
+
+    @Transactional(readOnly = true)
+    override fun findHrv(from: LocalDate, to: LocalDate) = hrvRepo.findByCalendarDateBetweenOrderByCalendarDate(from, to).map {
+        GarminHrvDay(it.calendarDate, it.weeklyAvg, it.lastNightAvg, it.lastNight5MinHigh, it.baselineLowUpper, it.baselineBalancedLow,
+            it.baselineBalancedUpper, it.baselineMarkerValue, it.status, it.feedbackPhrase, src(it.provenance))
+    }
+
+    @Transactional(readOnly = true)
+    override fun findSleep(from: LocalDate, to: LocalDate) = sleepRepo.findByCalendarDateBetweenOrderByCalendarDate(from, to).map {
+        GarminSleepDay(it.calendarDate, it.sleepTimeSeconds, it.deepSleepSeconds, it.lightSleepSeconds, it.remSleepSeconds, it.awakeSleepSeconds,
+            it.unmeasurableSleepSeconds, it.napTimeSeconds, it.sleepStartGmtMs, it.sleepEndGmtMs, it.avgRespiration, it.avgSleepStress,
+            it.avgHeartRate, it.overallScore, it.overallQualifier, it.garminSleepNeedBaseline, it.garminSleepNeedActual, src(it.provenance))
+    }
+
+    @Transactional(readOnly = true)
+    override fun findRestingHr(from: LocalDate, to: LocalDate) = restingHrRepo.findByCalendarDateBetweenOrderByCalendarDate(from, to).map {
+        GarminRestingHrDay(it.calendarDate, it.restingHr, it.minHr, it.maxHr, src(it.provenance))
+    }
+
+    @Transactional(readOnly = true)
+    override fun findBodyBattery(from: LocalDate, to: LocalDate) = bodyBatteryRepo.findByCalendarDateBetweenOrderByCalendarDate(from, to).map {
+        GarminBodyBatteryDay(it.calendarDate, it.minValue, it.maxValue, it.charged, it.drained, it.latestValue, src(it.provenance))
+    }
+
+    @Transactional(readOnly = true)
+    override fun findBodyBatterySamples(fromMs: Long, toMs: Long) =
+        bodyBatterySampleRepo.findByTimestampGmtMsBetweenOrderByTimestampGmtMs(fromMs, toMs).map { GarminBodyBatterySample(it.timestampGmtMs, it.level) }
+
+    @Transactional(readOnly = true)
+    override fun findStress(from: LocalDate, to: LocalDate) = stressRepo.findByCalendarDateBetweenOrderByCalendarDate(from, to).map {
+        GarminStressDay(it.calendarDate, it.avgLevel, it.maxLevel, it.restDurationMs, it.lowDurationMs, it.mediumDurationMs, it.highDurationMs,
+            it.activityDurationMs, it.uncategorizedDurationMs, it.totalDurationMs, src(it.provenance))
+    }
 
     private fun toDomain(e: GarminActivityEntity) = GarminActivityRef(
         e.activityId, e.startTimeGmt, e.typeKey, e.parentTypeId, e.distanceMeters, e.durationSeconds, e.elapsedSeconds, e.movingSeconds,

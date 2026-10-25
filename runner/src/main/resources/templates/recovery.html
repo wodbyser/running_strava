@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Herstel</h1>
+            <p>Je eigen normen voor HRV, rusthartslag, slaap, Body Battery en stress, uit je Garmin-data. Afwijkingen worden in beide richtingen gemeld, zonder oordeel.</p>
+        </div>
+        <div class="sync-bar">
+            <form method="post" action="/recovery/garmin-update">
+                <button type="submit" class="btn btn-primary btn-sm" th:disabled="${!syncPossible}">Garmin synchroniseren</button>
+            </form>
+            <span class="note" th:text="${syncLine}">-</span>
+        </div>
+    </div>
+
+    <script th:if="${syncRunning}">setTimeout(function () { window.location.reload(); }, 4000);</script>
+
+    <div class="filter-bar">
+        <div class="filter-row">
+            <nav class="actions" aria-label="Weergave">
+                <a class="btn btn-sm" th:classappend="${viewMode == 'day'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='day',date=${dateValue})}">Dag</a>
+                <a class="btn btn-sm" th:classappend="${viewMode == 'week'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='week',date=${dateValue})}">Week</a>
+                <a class="btn btn-sm" th:classappend="${viewMode == 'month'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='month',date=${dateValue})}">Maand</a>
+            </nav>
+            <form method="get" class="inline-form" aria-label="Dag kiezen">
+                <input type="hidden" name="view" th:value="${viewMode}">
+                <span class="filter-group">
+                    <label for="date">Dag</label>
+                    <input type="date" id="date" name="date" th:value="${dateValue}">
+                </span>
+                <button type="submit" class="btn btn-secondary btn-sm">Toon</button>
+            </form>
+            <span class="actions" th:if="${period != null}">
+                <a class="btn btn-ghost btn-sm" th:href="@{/recovery(view=${viewMode},date=${prevDate})}">&larr; Vorige</a>
+                <a class="btn btn-ghost btn-sm" th:if="${nextDate != null}" th:href="@{/recovery(view=${viewMode},date=${nextDate})}">Volgende &rarr;</a>
+            </span>
+        </div>
+    </div>
+
+    <p class="callout mb-2" th:if="${fellBackNote != null}" th:text="${fellBackNote}">-</p>
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+
+    <th:block th:if="${period != null}">
+        <section class="card" aria-labelledby="h-period">
+            <h2 id="h-period" th:text="${period.title}">Week</h2>
+            <p class="note" th:text="${period.subtitle}">-</p>
+            <p class="note" th:each="n : ${period.notes}" th:text="${n}">-</p>
+            <p class="legend" th:text="${legend}">-</p>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Meting</th><th>Periode</th><th>Bereik en aantal</th><th>Tegenover vorige periode</th><th>Soort</th></tr></thead>
+                    <tbody>
+                    <tr th:each="row : ${period.rows}">
+                        <th scope="row" th:text="${row.label}">-</th>
+                        <td class="nowrap" th:text="${row.value}">-</td>
+                        <td th:text="${row.reference}">-</td>
+                        <td th:text="${row.deviation}">-</td>
+                        <td><span class="badge" th:classappend="${row.tag.css}" th:text="${row.tag.text}">-</span></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <section class="card" aria-labelledby="h-days">
+            <h2 id="h-days">Per dag</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th th:each="h : ${period.dayHeaders}" th:text="${h}">-</th></tr></thead>
+                    <tbody>
+                    <tr th:each="r : ${period.dayRows}"><td th:each="c : ${r}" th:text="${c}">-</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </th:block>
+
+    <th:block th:if="${period == null}">
+    <section class="card hero" th:classappend="${page.hero.level.css}" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${page.hero.headline}">Binnen je eigen norm</h2>
+            <span class="badge badge-est" title="Conclusie van de app op basis van je eigen cijfers, geen meting en geen diagnose.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:text="${page.summary}">-</p>
+        <div class="hero-facts">
+            <span th:each="fact : ${page.hero.facts}"><strong th:text="${fact.first}">-</strong>: <span th:text="${fact.second}">-</span></span>
+        </div>
+        <div class="hero-grid">
+            <div th:each="c : ${page.hero.components}">
+                <div class="hero-comp-head"><strong th:text="${c.label}">HRV</strong><span class="hero-comp-value" th:text="${c.value}">-</span></div>
+                <div class="spectrum" th:classappend="${c.position == null} ? 'is-empty'" role="img" th:attr="aria-label=${c.aria}">
+                    <span class="spectrum-marker" th:if="${c.position != null}" th:style="'left:' + ${#numbers.formatDecimal(c.position, 1, 'POINT', 1, 'POINT')} + '%'"></span>
+                </div>
+                <div class="spectrum-axis" aria-hidden="true"><span>lager</span><span>eigen norm</span><span>hoger</span></div>
+                <div class="hero-dev"><span th:text="${c.norm}">-</span><span th:if="${c.norm != '-'}"> &middot; </span><span th:text="${c.deviation}">-</span></div>
+            </div>
+        </div>
+        <div class="hero-conclusion">
+            <h3>Conclusie</h3>
+            <p th:each="line : ${page.hero.conclusion}" th:text="${line}">-</p>
+        </div>
+        <details class="explain">
+            <summary>Hoe komt deze conclusie tot stand?</summary>
+            <div>
+                <p th:each="m : ${page.hero.method}" th:text="${m}">-</p>
+                <p class="note-xs">Algoritme <code th:text="${page.algorithmVersion}">recovery-v1</code>. <span th:if="${page.isToday}">Vandaag: stress en Body Battery van vandaag zijn onvolledig en tellen niet mee in normen.</span></p>
+            </div>
+        </details>
+        <p class="legend" th:text="${legend}">-</p>
+    </section>
+
+    <h2 class="mb-2">Details</h2>
+
+    <section class="card" th:each="sec : ${page.sections}" th:unless="${sec.id == 'readiness'}" th:attr="aria-labelledby='h-' + ${sec.id}">
+        <h2 th:id="'h-' + ${sec.id}" th:text="${sec.title}">Titel</h2>
+        <p class="note" th:each="n : ${sec.notes}" th:text="${n}">-</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>Meting</th><th>Waarde</th><th>Eigen norm</th><th>Afwijking</th><th>Soort</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="row : ${sec.rows}">
+                    <th scope="row" th:text="${row.label}">-</th>
+                    <td class="nowrap" th:text="${row.value}">-</td>
+                    <td th:text="${row.reference}">-</td>
+                    <td th:text="${row.deviation}">-</td>
+                    <td><span class="badge" th:classappend="${row.tag.css}" th:text="${row.tag.text}">-</span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-chart">
+        <h2 id="h-chart">Laatste 60 dagen</h2>
+        <div class="chart-box"><canvas id="hrvChart" role="img" aria-label="HRV nachtgemiddelde, laatste 60 dagen"></canvas></div>
+        <div class="chart-box mt-2"><canvas id="rhrChart" role="img" aria-label="Rusthartslag, laatste 60 dagen"></canvas></div>
+        <p class="note-xs mt-2">Doorlopende lijn = gemeten waarde, gestreepte lijn = 28-daagse mediaan (berekend).</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-recent">
+        <h2 id="h-recent">Laatste 7 dagen</h2>
+        <ul>
+            <li th:each="line : ${page.recentNights}" th:text="${line}">-</li>
+        </ul>
+    </section>
+
+    </th:block>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var labels = /*[[${hrvChartLabels}]]*/ [];
+            function draw(id, data, median, label, unit) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                var datasets = [{ label: label, data: data, borderColor: RC.s1, backgroundColor: RC.s1, spanGaps: false, pointRadius: 2, borderWidth: 2, tension: 0 }];
+                if (median !== null) {
+                    datasets.push({ label: '28-daagse mediaan', data: labels.map(function () { return median; }), borderColor: RC.s2, borderDash: [6, 4], pointRadius: 0, borderWidth: 2 });
+                }
+                new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets },
+                    options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8, callback: function (v) { return RC.monthYear(this.getLabelForValue(v)); } } }, y: { title: RC.axisTitle(unit) } } } });
+            }
+            draw('hrvChart', /*[[${hrvChart}]]*/ [], /*[[${hrvMedian}]]*/ null, 'HRV nachtgemiddelde', 'HRV (ms)');
+            draw('rhrChart', /*[[${rhrChart}]]*/ [], /*[[${rhrMedian}]]*/ null, 'Rusthartslag', 'Rusthartslag (bpm)');
+        })();
+    </script>
+</th:block>
+</html>

@@ -14,10 +14,12 @@ data class GarminProperties(
     val sync: Sync = Sync(),
     val backfill: Backfill = Backfill(),
     val retry: Retry = Retry(),
+    val recovery: Recovery = Recovery(),
 ) {
     init {
         require(!timeout.isZero && !timeout.isNegative) { "garmin.timeout must be greater than 0" }
         require(backfill.defaultDays >= 1) { "garmin.backfill.default-days must be at least 1" }
+        require(recovery.sleepTargetMinutes in 1..1440) { "garmin.recovery.sleep-target-minutes must be between 1 and 1440" }
         require(retry.maxAttempts >= 1 && retry.delays.isNotEmpty()) { "garmin.retry needs max-attempts >= 1 and at least one delay" }
     }
 
@@ -28,6 +30,9 @@ data class GarminProperties(
         val chunkDays: Int = 7,
         val pause: Duration = Duration.ofSeconds(2),
     )
+
+    /** Owner decision 2026-10-25: target 7 h 30 total sleep per night. */
+    data class Recovery(val sleepTargetMinutes: Int = 450)
 
     data class Retry(
         val maxAttempts: Int = 3,
