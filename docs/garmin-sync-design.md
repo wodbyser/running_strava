@@ -47,3 +47,16 @@ Evidence and details: `garmin-capability-matrix.md`, `garmin-field-inventory.md`
 
 - FIT file decoding for the app (the files are 1 Hz and rich). Not in Phase 1 scope unless the owner asks.
 - Whether to store the `activity search` payload (large, includes owner name fields) as raw. If raw storage stays on, owner name and image URL fields should be dropped before storing.
+
+### Further owner decisions (2026-10-25, Gate 1 review)
+
+| Topic | Decision |
+|---|---|
+| Retry and HTTP 500 | Retry rule unchanged. Activity search page size is 100. |
+| Incremental overlap | Re-fetch the last 3 days on every incremental run. |
+| Raw payloads | Drop profile image URLs before storing. Keep the owner name field. |
+| HRV label | "HRV (Garmin, nachtgemiddelde)". Never call it RMSSD. |
+| Sleep (Phase 2) | Target 7 h 30 total sleep per night. Sleep debt from total sleep only. Deep sleep 15 to 20 % of total sleep as an indicative reference, labelled app estimate, analysed separately, creates no sleep debt. Later: compare with the personal 30-day Garmin baseline when enough data exists. Sleep stages are Garmin estimates, never exact. |
+| Match review | Read-only list in Phase 1 (see `garmin-data-provenance.md`). |
+| Match thresholds | Report-only dry run first. |
+| Strava columns | `external_id` and `device_name` nullable columns allowed in Gate 3. |
