@@ -371,4 +371,44 @@ class RecoveryAnalysisTest {
         assertEquals(7, rep.recentNights.size)
         assertEquals(d, rep.recentNights.last().date)
     }
+
+    @Test
+    fun `sleep target check by hand`() {
+        // 100 min shortfall over 7 nights = 14.2857 min per night, -0.714 steps of 20 min: within
+        val a = SleepAnalysis.targetCheck(100L * 60, 7, 27000)!!
+        assertEquals(14.2857, a.averageShortfallMinutes, 1e-3)
+        assertEquals(-(100.0 / 7) / 20, a.deviation, 1e-9)
+        assertEquals(DeviationBand.WITHIN, a.band)
+        assertEquals(450, a.targetMinutes)
+        // 7 nights, 30 min short each: -1.5, deviating. 6 h every night (90 min): -4.5, strong. No shortfall: 0.0, within
+        assertEquals(DeviationBand.DEVIATING, SleepAnalysis.targetCheck(7 * 30 * 60L, 7, 27000)!!.band)
+        assertEquals(DeviationBand.STRONG, SleepAnalysis.targetCheck(7 * 90 * 60L, 7, 27000)!!.band)
+        assertEquals(0.0, SleepAnalysis.targetCheck(0, 7, 27000)!!.deviation)
+        assertNull(SleepAnalysis.targetCheck(null, 7, 27000))
+        assertNull(SleepAnalysis.targetCheck(0, 0, 27000))
+        // band edges: 19 min within, 20 min deviating, 40 min strong
+        assertEquals(DeviationBand.WITHIN, SleepAnalysis.targetCheck(19 * 60L, 1, 27000)!!.band)
+        assertEquals(DeviationBand.DEVIATING, SleepAnalysis.targetCheck(20 * 60L, 1, 27000)!!.band)
+        assertEquals(DeviationBand.STRONG, SleepAnalysis.targetCheck(40 * 60L, 1, 27000)!!.band)
+    }
+
+    @Test
+    fun `sleep counts through the target when the own norm has too little history`() {
+        val base = fullInputs(sleepDays = 0)
+        val shortNights = (0..28).map { sleepDay(before(it), if (it <= 6) 6 * 3600 else null, start = utcMs(before(it + 1), 22, 0), end = utcMs(before(it), 6, 0)) }
+        val rd = report(base.copy(sleep = shortNights)).readiness
+        assertFalse(rd.components.first { it.kind == ReadinessKind.SLEEP }.hasData) // 7 nights are not 20 of 28
+        assertEquals(4, rd.summary.componentsWithData)
+        val dev = rd.summary.deviating.single()
+        assertEquals(ReadinessKind.SLEEP, dev.kind)
+        assertEquals(ReadinessBasis.SLEEP_TARGET, dev.basis)
+        assertEquals(DeviationBand.STRONG, dev.band)
+    }
+
+    @Test
+    fun `a long night does not rescue the target check`() {
+        val nights = minutes(600, 600, 600, 600, 390, 390, 390) // 3 nights 60 min short, 4 nights 150 min over
+        val t = SleepAnalysis.debt(nights, d, 450).target!!
+        assertEquals(180.0 / 7, t.averageShortfallMinutes, 1e-9)
+    }
 }

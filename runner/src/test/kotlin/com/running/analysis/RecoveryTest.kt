@@ -197,8 +197,8 @@ class RecoveryTest {
     fun `hero conclusion names the deviating component and carries no numeric score`() {
         val hero = RecoveryText.hero(withRhr(52), 450)
         val text = hero.conclusion.joinToString(" ")
-        assertTrue("Afwijkend van je eigen norm: rusthartslag hoger dan jouw eigen norm" in text, text)
-        assertTrue("Binnen je eigen norm: HRV, slaapduur" in text, text)
+        assertTrue("Afwijkend: rusthartslag hoger dan jouw eigen norm" in text, text)
+        assertTrue("Binnen je eigen norm (slaap ook binnen je doel): HRV, slaapduur" in text, text)
         assertTrue("geen diagnose" in text)
         assertTrue(hero.components.none { it.value.matches(Regex("\\d+ ?/ ?100")) })
         forbidden.forEach { assertFalse(it in text.lowercase(), it) }
@@ -209,5 +209,46 @@ class RecoveryTest {
         val hero = RecoveryText.hero(report(StubRepo()), 450)
         assertEquals(HeroLevel.INSUFFICIENT, hero.level)
         assertTrue(hero.conclusion.first().startsWith("Er is te weinig data voor een conclusie"))
+    }
+
+    private fun structuralSleep(seconds: Int, nights: Int = 29) =
+        (0 until nights).map { GarminSleepDay(day.minusDays(it.toLong()), seconds, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, src) }
+
+    @Test
+    fun `structural short sleep is within the own norm but outside the target, and the label says so`() {
+        val inputs = RecoveryInputs(
+            hrvDays { 50 + it % 2 }, structuralSleep(6 * 3600),
+            (0..28).map { GarminRestingHrDay(day.minusDays(it.toLong()), 50 + it % 2, null, null, src) }, emptyList(), emptyList(), emptyList(), null,
+        )
+        val r = RecoveryAnalyzer.analyze(inputs, day, day.plusDays(1), 450, RecoveryService.ZONE)
+        val own = r.readiness.components.first { it.kind == com.running.garmin.recovery.ReadinessKind.SLEEP }
+        assertEquals(com.running.garmin.recovery.DeviationBand.WITHIN, own.band) // 6 h is her or his own norm
+        assertEquals(90.0, r.sleepDebt.target!!.averageShortfallMinutes, 1e-9) // 90 min under 7:30 every night
+        assertEquals(com.running.garmin.recovery.DeviationBand.STRONG, r.sleepDebt.target!!.band)
+        val dev = r.readiness.summary.deviating.single()
+        assertEquals(com.running.garmin.recovery.ReadinessBasis.SLEEP_TARGET, dev.basis)
+        assertEquals(HeroLevel.CLEAR, RecoveryText.heroLevel(r))
+        val hero = RecoveryText.hero(r, 450)
+        assertTrue(hero.conclusion.any { "slaap onder je doel van 7:30 u (gemiddeld 90 min tekort per nacht over 7 nachten" in it }, hero.conclusion.toString())
+        assertTrue(hero.components.any { it.label.startsWith("Slaaptekort (doel 7:30 u)") && it.css == "hero-alert" })
+        forbidden.forEach { assertFalse(it in hero.conclusion.joinToString(" ").lowercase(), it) }
+    }
+
+    @Test
+    fun `week hero compares the period median with the 28 days before`() {
+        val monday = LocalDate.of(2026, 1, 12)
+        fun series(f: (Int) -> Int?) = (-28..6).mapNotNull { off -> f(off)?.let { monday.plusDays(off.toLong()) to it } }
+        val hrv = series { if (it < 0) 59 + (it % 2 + 2) % 2 * 2 else 70 }.map { (d, v) -> GarminHrvDay(d, v, v, null, null, null, null, null, null, null, src) }
+        val rhr = series { 50 }.map { (d, v) -> GarminRestingHrDay(d, v, null, null, src) }
+        val sleep = series { 27000 }.map { (d, v) -> GarminSleepDay(d, v, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, src) }
+        val rep = com.running.garmin.recovery.PeriodAnalysis.analyze(RecoveryInputs(hrv, sleep, rhr, emptyList(), emptyList(), emptyList(), null),
+            com.running.garmin.recovery.PeriodKind.WEEK, monday, monday.plusDays(10), 450)
+        val page = RecoveryText.periodPage(rep, 450)
+        assertEquals(HeroLevel.CLEAR, page.hero.level) // HRV 70 against a norm of 60, 3 components with data
+        assertTrue(page.hero.conclusion.any { "HRV hoger dan jouw eigen norm" in it })
+        assertTrue(page.hero.components.any { it.label == "Slaaptekort (doel 7:30 u)" && it.css == "hero-ok" })
+        val onlyHrv = com.running.garmin.recovery.PeriodAnalysis.analyze(RecoveryInputs(hrv, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null),
+            com.running.garmin.recovery.PeriodKind.WEEK, monday, monday.plusDays(10), 450)
+        assertEquals(HeroLevel.INSUFFICIENT, RecoveryText.periodPage(onlyHrv, 450).hero.level)
     }
 }

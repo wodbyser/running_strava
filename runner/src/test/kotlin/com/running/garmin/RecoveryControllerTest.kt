@@ -72,6 +72,9 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
         val week = mvc.perform(get("/recovery?view=week&date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(week.contains("Week 2026-01-12 tot 2026-01-18"))
         assertTrue(week.contains("Tegenover vorige periode"))
+        assertTrue(week.contains("Hoe komt deze conclusie tot stand?"))
+        assertTrue(week.contains("id=\"pHrvChart\""))
+        assertTrue(week.contains("class=\"spectrum"))
         assertTrue(week.contains("Geen medische beoordeling."))
         val month = mvc.perform(get("/recovery?view=month&date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(month.contains("Maand 2026-01-01 tot 2026-01-31"))

@@ -42,11 +42,12 @@
     <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
 
     <th:block th:if="${period != null}">
+        <th:block th:replace="~{fragments :: recoveryHero(${period.hero}, ${legend})}"/>
+        <h2 class="mb-2">Details</h2>
         <section class="card" aria-labelledby="h-period">
             <h2 id="h-period" th:text="${period.title}">Week</h2>
             <p class="note" th:text="${period.subtitle}">-</p>
             <p class="note" th:each="n : ${period.notes}" th:text="${n}">-</p>
-            <p class="legend" th:text="${legend}">-</p>
             <div class="table-wrap">
                 <table>
                     <thead><tr><th>Meting</th><th>Periode</th><th>Bereik en aantal</th><th>Tegenover vorige periode</th><th>Soort</th></tr></thead>
@@ -62,6 +63,14 @@
                 </table>
             </div>
         </section>
+        <section class="card" aria-labelledby="h-pcharts">
+            <h2 id="h-pcharts">Verloop</h2>
+            <div class="chart-box"><canvas id="pHrvChart" role="img" aria-label="HRV nachtgemiddelde per dag"></canvas></div>
+            <div class="chart-box mt-2"><canvas id="pRhrChart" role="img" aria-label="Rusthartslag per dag"></canvas></div>
+            <div class="chart-box mt-2"><canvas id="pSleepChart" role="img" aria-label="Slaapduur per dag, met je doel"></canvas></div>
+            <div class="chart-box mt-2"><canvas id="pWakeChart" role="img" aria-label="Body Battery bij ontwaken per dag"></canvas></div>
+            <p class="note-xs mt-2">Doorlopende lijn = gemeten waarde, gestreepte lijn = mediaan van de periode (berekend), stippellijn bij slaap = je doel.</p>
+        </section>
         <section class="card" aria-labelledby="h-days">
             <h2 id="h-days">Per dag</h2>
             <div class="table-wrap">
@@ -76,38 +85,7 @@
     </th:block>
 
     <th:block th:if="${period == null}">
-    <section class="card hero" th:classappend="${page.hero.level.css}" aria-labelledby="h-hero">
-        <div class="hero-top">
-            <h2 id="h-hero" class="hero-label" th:text="${page.hero.headline}">Binnen je eigen norm</h2>
-            <span class="badge badge-est" title="Conclusie van de app op basis van je eigen cijfers, geen meting en geen diagnose.">app-schatting</span>
-        </div>
-        <p class="hero-sub" th:text="${page.summary}">-</p>
-        <div class="hero-facts">
-            <span th:each="fact : ${page.hero.facts}"><strong th:text="${fact.first}">-</strong>: <span th:text="${fact.second}">-</span></span>
-        </div>
-        <div class="hero-grid">
-            <div th:each="c : ${page.hero.components}">
-                <div class="hero-comp-head"><strong th:text="${c.label}">HRV</strong><span class="hero-comp-value" th:text="${c.value}">-</span></div>
-                <div class="spectrum" th:classappend="${c.position == null} ? 'is-empty'" role="img" th:attr="aria-label=${c.aria}">
-                    <span class="spectrum-marker" th:if="${c.position != null}" th:style="'left:' + ${#numbers.formatDecimal(c.position, 1, 'POINT', 1, 'POINT')} + '%'"></span>
-                </div>
-                <div class="spectrum-axis" aria-hidden="true"><span>lager</span><span>eigen norm</span><span>hoger</span></div>
-                <div class="hero-dev"><span th:text="${c.norm}">-</span><span th:if="${c.norm != '-'}"> &middot; </span><span th:text="${c.deviation}">-</span></div>
-            </div>
-        </div>
-        <div class="hero-conclusion">
-            <h3>Conclusie</h3>
-            <p th:each="line : ${page.hero.conclusion}" th:text="${line}">-</p>
-        </div>
-        <details class="explain">
-            <summary>Hoe komt deze conclusie tot stand?</summary>
-            <div>
-                <p th:each="m : ${page.hero.method}" th:text="${m}">-</p>
-                <p class="note-xs">Algoritme <code th:text="${page.algorithmVersion}">recovery-v1</code>. <span th:if="${page.isToday}">Vandaag: stress en Body Battery van vandaag zijn onvolledig en tellen niet mee in normen.</span></p>
-            </div>
-        </details>
-        <p class="legend" th:text="${legend}">-</p>
-    </section>
+    <th:block th:replace="~{fragments :: recoveryHero(${page.hero}, ${legend})}"/>
 
     <h2 class="mb-2">Details</h2>
 
@@ -148,7 +126,27 @@
 
     </th:block>
 
-    <script th:inline="javascript">
+    <script th:inline="javascript" th:if="${period != null}">
+        (function () {
+            if (!window.Chart) return;
+            var labels = /*[[${pLabels}]]*/ [];
+            function draw(id, data, median, label, unit, target) {
+                var el = document.getElementById(id);
+                if (!el) return;
+                var ds = [{ label: label, data: data, borderColor: RC.s1, backgroundColor: RC.s1, spanGaps: false, pointRadius: 3, borderWidth: 2, tension: 0 }];
+                if (median !== null) ds.push({ label: 'Mediaan periode', data: labels.map(function () { return median; }), borderColor: RC.s2, borderDash: [6, 4], pointRadius: 0, borderWidth: 2 });
+                if (target !== null && target !== undefined) ds.push({ label: 'Doel', data: labels.map(function () { return target; }), borderColor: RC.accent, borderDash: [2, 3], pointRadius: 0, borderWidth: 2 });
+                new Chart(el, { type: 'line', data: { labels: labels, datasets: ds },
+                    options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10, callback: function (v) { var l = this.getLabelForValue(v); return l.slice(8) + '/' + l.slice(5, 7); } } }, y: { title: RC.axisTitle(unit) } } } });
+            }
+            draw('pHrvChart', /*[[${pHrv}]]*/ [], /*[[${pHrvMedian}]]*/ null, 'HRV nachtgemiddelde', 'HRV (ms)', null);
+            draw('pRhrChart', /*[[${pRhr}]]*/ [], /*[[${pRhrMedian}]]*/ null, 'Rusthartslag', 'Rusthartslag (bpm)', null);
+            draw('pSleepChart', /*[[${pSleep}]]*/ [], /*[[${pSleepMedian}]]*/ null, 'Slaapduur', 'Slaap (uur)', /*[[${pSleepTarget}]]*/ null);
+            draw('pWakeChart', /*[[${pWake}]]*/ [], /*[[${pWakeMedian}]]*/ null, 'Body Battery bij ontwaken', 'Body Battery', null);
+        })();
+    </script>
+
+    <script th:inline="javascript" th:if="${period == null}">
         (function () {
             if (!window.Chart) return;
             var labels = /*[[${hrvChartLabels}]]*/ [];

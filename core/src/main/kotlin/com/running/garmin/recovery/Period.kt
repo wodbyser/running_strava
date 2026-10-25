@@ -33,6 +33,7 @@ data class PeriodSleepDebt(
     val shortfallSeconds: Long?,
     val nightsBelowTarget: Int?,
     val netBalanceSeconds: Long?,
+    val target: SleepTargetCheck? = null,
 )
 
 data class PeriodReport(
@@ -47,6 +48,7 @@ data class PeriodReport(
     val previousTo: LocalDate,
     val metrics: List<PeriodMetric>,
     val sleepDebt: PeriodSleepDebt,
+    val readiness: Readiness,
     val days: List<PeriodDay>,
 )
 
@@ -96,9 +98,10 @@ object PeriodAnalysis {
 
         val target = sleepTargetMinutes * 60
         val nights = inputs.sleep.filter { it.calendarDate in from..to && it.sleepTimeSeconds != null }.map { it.sleepTimeSeconds!! }
+        val shortfall = nights.sumOf { maxOf(0, target - it).toLong() }
         val debt = if (nights.size >= needed) PeriodSleepDebt(
-            BaselineStatus.OK, nights.size, needed, target, nights.sumOf { maxOf(0, target - it).toLong() },
-            nights.count { it < target }, nights.sumOf { (it - target).toLong() },
+            BaselineStatus.OK, nights.size, needed, target, shortfall,
+            nights.count { it < target }, nights.sumOf { (it - target).toLong() }, SleepAnalysis.targetCheck(shortfall, nights.size, target),
         ) else PeriodSleepDebt(BaselineStatus.INSUFFICIENT, nights.size, needed, target, null, null, null)
 
         val hrvByDate = inputs.hrv.associateBy { it.calendarDate }
@@ -112,13 +115,26 @@ object PeriodAnalysis {
             )
         }.toList()
 
-        return PeriodReport(
-            RecoveryAlgorithm.VERSION, kind, from, to, fullEnd, elapsed, to.isBefore(fullEnd), prevFrom, prevTo,
+        val metrics = listOf(
+            metric(PeriodMetricKind.HRV, hrv), metric(PeriodMetricKind.RESTING_HR, rhr), metric(PeriodMetricKind.SLEEP_DURATION, sleepMin),
+            metric(PeriodMetricKind.BODY_BATTERY_WAKE, wake), metric(PeriodMetricKind.STRESS_AVG, stress),
+        )
+        // Readiness of the period: the period median against the 28 days before the period, same bands as the day view.
+        fun comp(kind: ReadinessKind, pk: PeriodMetricKind, series: Map<LocalDate, Double>): ReadinessComponent {
+            val value = metrics.first { it.kind == pk }.median
+            val b = Baseline.fromValues(Baseline.windowBefore(series, from, Baseline.PRIMARY_WINDOW), Baseline.PRIMARY_WINDOW, Baseline.minimumCount(Baseline.PRIMARY_WINDOW), value)
+            return ReadinessComponent(kind, b.status == BaselineStatus.OK && b.deviation != null, value, b.median, b.deviation, b.band, b.n)
+        }
+        val readiness = ReadinessAnalysis.fromComponents(
             listOf(
-                metric(PeriodMetricKind.HRV, hrv), metric(PeriodMetricKind.RESTING_HR, rhr), metric(PeriodMetricKind.SLEEP_DURATION, sleepMin),
-                metric(PeriodMetricKind.BODY_BATTERY_WAKE, wake), metric(PeriodMetricKind.STRESS_AVG, stress),
+                comp(ReadinessKind.HRV, PeriodMetricKind.HRV, hrv), comp(ReadinessKind.RESTING_HR, PeriodMetricKind.RESTING_HR, rhr),
+                comp(ReadinessKind.SLEEP, PeriodMetricKind.SLEEP_DURATION, sleepMin), comp(ReadinessKind.BODY_BATTERY, PeriodMetricKind.BODY_BATTERY_WAKE, wake),
             ),
-            debt, days,
+            debt.target,
+        )
+
+        return PeriodReport(
+            RecoveryAlgorithm.VERSION, kind, from, to, fullEnd, elapsed, to.isBefore(fullEnd), prevFrom, prevTo, metrics, debt, readiness, days,
         )
     }
 }

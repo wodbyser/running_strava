@@ -92,6 +92,19 @@ data class SleepQuality(
     val deepReferenceHighPercent: Int,
 )
 
+/**
+ * Average shortfall per night against the owner's target over the nights with data. Bands use the same 1 and 2 steps as the
+ * deviation bands, with one step = 20 minutes per night (PROPOSAL, UNVERIFIED). A long night never offsets a short one.
+ * `deviation` is minus (average shortfall / 20), so it sits on the same spectrum as the other components.
+ */
+data class SleepTargetCheck(
+    val nights: Int,
+    val averageShortfallMinutes: Double,
+    val deviation: Double,
+    val band: DeviationBand,
+    val targetMinutes: Int,
+)
+
 data class SleepDebt(
     val date: LocalDate,
     val status: BaselineStatus,
@@ -103,9 +116,19 @@ data class SleepDebt(
     val netBalanceSeconds: Long?,
     /** Garmin's own value, unit UNVERIFIED, shown only as a reference. */
     val garminSleepNeedBaseline: Int?,
+    val target: SleepTargetCheck? = null,
 )
 
 object SleepAnalysis {
+    const val TARGET_BAND_MINUTES = 20.0
+
+    fun targetCheck(shortfallSeconds: Long?, nights: Int, targetSeconds: Int): SleepTargetCheck? {
+        if (shortfallSeconds == null || nights <= 0) return null
+        val avg = shortfallSeconds / 60.0 / nights
+        val z = if (avg == 0.0) 0.0 else -avg / TARGET_BAND_MINUTES
+        return SleepTargetCheck(nights, avg, z, Baseline.band(z), targetSeconds / 60)
+    }
+
     const val DEEP_REFERENCE_LOW = 15
     const val DEEP_REFERENCE_HIGH = 20
     const val UNMEASURABLE_LIMIT_PERCENT = 10.0
@@ -180,9 +203,11 @@ object SleepAnalysis {
             return SleepDebt(date, BaselineStatus.INSUFFICIENT, nights.size, DEBT_MIN_NIGHTS, target, null, null, null, need)
         }
         val seconds = nights.map { it.sleepTimeSeconds!! }
+        val shortfall = seconds.sumOf { maxOf(0, target - it).toLong() }
         return SleepDebt(
             date, BaselineStatus.OK, nights.size, DEBT_MIN_NIGHTS, target,
-            seconds.sumOf { maxOf(0, target - it).toLong() }, seconds.count { it < target }, seconds.sumOf { (it - target).toLong() }, need,
+            shortfall, seconds.count { it < target }, seconds.sumOf { (it - target).toLong() }, need,
+            targetCheck(shortfall, nights.size, target),
         )
     }
 }

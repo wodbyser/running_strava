@@ -2,6 +2,42 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 
+<!--/* Recovery conclusion card (day and period view). hero = RecoveryText.Hero, legend = text. */-->
+<th:block th:fragment="recoveryHero(hero, legend)">
+    <section class="card hero" th:classappend="${hero.level.css}" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${hero.headline}">Binnen je eigen norm</h2>
+            <span class="badge badge-est" title="Conclusie van de app op basis van je eigen cijfers, geen meting en geen diagnose.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:text="${hero.sub}">-</p>
+        <div class="hero-facts">
+            <span th:each="fact : ${hero.facts}"><strong th:text="${fact.first}">-</strong>: <span th:text="${fact.second}">-</span></span>
+        </div>
+        <div class="hero-grid">
+            <div th:each="c : ${hero.components}">
+                <div class="hero-comp-head"><strong th:text="${c.label}">HRV</strong><span class="hero-comp-value" th:text="${c.value}">-</span></div>
+                <div class="spectrum" th:classappend="${c.position == null} ? 'is-empty'" role="img" th:attr="aria-label=${c.aria}">
+                    <span class="spectrum-marker" th:if="${c.position != null}" th:style="'left:' + ${#numbers.formatDecimal(c.position, 1, 'POINT', 1, 'POINT')} + '%'"></span>
+                </div>
+                <div class="spectrum-axis" aria-hidden="true"><span>lager</span><span>eigen norm</span><span>hoger</span></div>
+                <div class="hero-dev"><span th:text="${c.norm}">-</span><span th:if="${c.norm != '-'}"> &middot; </span><span th:text="${c.deviation}">-</span></div>
+            </div>
+        </div>
+        <div class="hero-conclusion">
+            <h3>Conclusie</h3>
+            <p th:each="line : ${hero.conclusion}" th:text="${line}">-</p>
+        </div>
+        <details class="explain">
+            <summary>Hoe komt deze conclusie tot stand?</summary>
+            <div>
+                <p th:each="m : ${hero.method}" th:text="${m}">-</p>
+                <p class="note-xs" th:text="${hero.footnote}">-</p>
+            </div>
+        </details>
+        <p class="legend" th:text="${legend}">-</p>
+    </section>
+</th:block>
+
 <!--/* Period select + custom date range used by Dashboard, Trainingen and Records.
        auto = submit on change (true) or wait for the form's submit button (false). */-->
 <th:block th:fragment="periodFilter(label, value, from, till, auto)">

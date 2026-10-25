@@ -69,7 +69,7 @@ class RecoveryService(
     fun periodReport(kind: PeriodKind, date: LocalDate): PeriodReport {
         val today = today()
         val (from, to) = PeriodAnalysis.bounds(kind, date)
-        val inputs = load(PeriodAnalysis.previousStart(kind, from).minusDays(1), minOf(to, today))
+        val inputs = load(minOf(PeriodAnalysis.previousStart(kind, from).minusDays(1), from.minusDays(30)), minOf(to, today))
         val report = PeriodAnalysis.analyze(inputs, kind, date, today, properties.recovery.sleepTargetMinutes)
         logCounts(report.algorithmVersion, kind.name.lowercase(), inputs)
         return report

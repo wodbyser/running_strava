@@ -60,6 +60,18 @@ class RecoveryController(
         if (kind != null) {
             val period = recoveryService.periodReport(kind, day)
             model.addAttribute("period", RecoveryText.periodPage(period, properties.recovery.sleepTargetMinutes))
+            model.addAttribute("legend", RecoveryText.ESTIMATE_LEGEND)
+            model.addAttribute("pLabels", period.days.map { it.date.toString() })
+            model.addAttribute("pHrv", period.days.map { it.hrv })
+            model.addAttribute("pRhr", period.days.map { it.restingHr })
+            model.addAttribute("pSleep", period.days.map { d -> d.sleepMinutes?.let { it / 60.0 } })
+            model.addAttribute("pWake", period.days.map { it.bodyBatteryWake })
+            fun median(kind: com.running.garmin.recovery.PeriodMetricKind) = period.metrics.first { it.kind == kind }.median
+            model.addAttribute("pHrvMedian", median(com.running.garmin.recovery.PeriodMetricKind.HRV))
+            model.addAttribute("pRhrMedian", median(com.running.garmin.recovery.PeriodMetricKind.RESTING_HR))
+            model.addAttribute("pSleepMedian", median(com.running.garmin.recovery.PeriodMetricKind.SLEEP_DURATION)?.let { it / 60.0 })
+            model.addAttribute("pWakeMedian", median(com.running.garmin.recovery.PeriodMetricKind.BODY_BATTERY_WAKE))
+            model.addAttribute("pSleepTarget", properties.recovery.sleepTargetMinutes / 60.0)
             val step = if (kind == PeriodKind.WEEK) period.from.minusWeeks(1) else period.from.minusMonths(1)
             model.addAttribute("prevDate", step.toString())
             model.addAttribute("nextDate", period.fullPeriodEnd.plusDays(1).takeIf { !it.isAfter(recoveryService.today()) }?.toString())

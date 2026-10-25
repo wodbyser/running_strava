@@ -23,7 +23,9 @@ data class ReadinessComponent(
     val n: Int,
 )
 
-data class ReadinessDeviation(val kind: ReadinessKind, val deviation: Double, val band: DeviationBand)
+enum class ReadinessBasis { OWN_NORM, SLEEP_TARGET }
+
+data class ReadinessDeviation(val kind: ReadinessKind, val deviation: Double, val band: DeviationBand, val basis: ReadinessBasis = ReadinessBasis.OWN_NORM)
 
 /** A count summary, only when at least 3 of 4 components have data. No number that combines components. */
 data class ReadinessSummary(
@@ -33,7 +35,11 @@ data class ReadinessSummary(
     val deviating: List<ReadinessDeviation>,
 )
 
-data class Readiness(val components: List<ReadinessComponent>, val summary: ReadinessSummary)
+/**
+ * Sleep counts once but is judged twice: against the own norm and against the owner's target (shortfall per night).
+ * The larger deviation decides. `sleepTarget` is kept so the page can show both.
+ */
+data class Readiness(val components: List<ReadinessComponent>, val summary: ReadinessSummary, val sleepTarget: SleepTargetCheck? = null)
 
 object ReadinessAnalysis {
     const val SUMMARY_MIN_COMPONENTS = 3
@@ -44,18 +50,27 @@ object ReadinessAnalysis {
         return ReadinessComponent(kind, has, m?.value, p?.median, p?.deviation, p?.band, p?.n ?: 0)
     }
 
-    fun evaluate(hrv: HrvResult, restingHr: RestingHrResult, sleep: SleepQuality, battery: BodyBatteryResult): Readiness {
-        val components = listOf(
-            component(ReadinessKind.HRV, hrv.metric),
-            component(ReadinessKind.RESTING_HR, restingHr.metric),
-            component(ReadinessKind.SLEEP, sleep.duration),
-            component(ReadinessKind.BODY_BATTERY, battery.wakeLevelMetric),
-        )
-        val withData = components.filter { it.hasData }
-        val available = withData.size >= SUMMARY_MIN_COMPONENTS
-        val deviating = withData.filter { it.band != DeviationBand.WITHIN }.map { ReadinessDeviation(it.kind, it.deviation!!, it.band!!) }
-        return Readiness(components, ReadinessSummary(available, withData.size, withData.size - deviating.size, if (available) deviating else emptyList()))
+    fun fromComponents(components: List<ReadinessComponent>, sleepTarget: SleepTargetCheck?): Readiness {
+        val effective = components.mapNotNull { c ->
+            val own = if (c.hasData) ReadinessDeviation(c.kind, c.deviation!!, c.band!!, ReadinessBasis.OWN_NORM) else null
+            val target = if (c.kind == ReadinessKind.SLEEP && sleepTarget != null) ReadinessDeviation(c.kind, sleepTarget.deviation, sleepTarget.band, ReadinessBasis.SLEEP_TARGET) else null
+            listOfNotNull(own, target).maxByOrNull { it.band.ordinal }
+        }
+        val available = effective.size >= SUMMARY_MIN_COMPONENTS
+        val deviating = effective.filter { it.band != DeviationBand.WITHIN }
+        return Readiness(components, ReadinessSummary(available, effective.size, effective.size - deviating.size, if (available) deviating else emptyList()), sleepTarget)
     }
+
+    fun evaluate(hrv: HrvResult, restingHr: RestingHrResult, sleep: SleepQuality, battery: BodyBatteryResult, sleepTarget: SleepTargetCheck?): Readiness =
+        fromComponents(
+            listOf(
+                component(ReadinessKind.HRV, hrv.metric),
+                component(ReadinessKind.RESTING_HR, restingHr.metric),
+                component(ReadinessKind.SLEEP, sleep.duration),
+                component(ReadinessKind.BODY_BATTERY, battery.wakeLevelMetric),
+            ),
+            sleepTarget,
+        )
 }
 
 // ------------------------------------------------------------------ Aggregate
@@ -101,15 +116,16 @@ object RecoveryAnalyzer {
         val rhr = RestingHrAnalysis.analyze(inputs.restingHr, inputs.manualRestingHr, date)
         val sleep = SleepAnalysis.quality(inputs.sleep, date, zone)
         val battery = BodyBatteryAnalysis.analyze(inputs.bodyBattery, inputs.bodyBatterySamples, inputs.sleep, date, today)
+        val debt = SleepAnalysis.debt(inputs.sleep, date, sleepTargetMinutes)
         val hrvByDate = inputs.hrv.associateBy { it.calendarDate }
         val rhrByDate = inputs.restingHr.associateBy { it.calendarDate }
         val sleepByDate = inputs.sleep.associateBy { it.calendarDate }
         fun span(n: Int) = (n - 1 downTo 0).map { date.minusDays(it.toLong()) }
         return RecoveryReport(
             RecoveryAlgorithm.VERSION, date, date == today, hrv, rhr, sleep,
-            SleepAnalysis.debt(inputs.sleep, date, sleepTargetMinutes), battery,
+            debt, battery,
             StressAnalysis.analyze(inputs.stress, date, today),
-            ReadinessAnalysis.evaluate(hrv, rhr, sleep, battery),
+            ReadinessAnalysis.evaluate(hrv, rhr, sleep, battery, debt.target),
             span(CHART_DAYS).map { DayValue(it, hrvByDate[it]?.lastNightAvg?.toDouble()) },
             span(CHART_DAYS).map { DayValue(it, rhrByDate[it]?.restingHr?.toDouble()) },
             span(RECENT_DAYS).map { RecentNight(it, hrvByDate[it]?.lastNightAvg, rhrByDate[it]?.restingHr, sleepByDate[it]?.sleepTimeSeconds?.let { s -> s / 60 }) },
