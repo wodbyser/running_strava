@@ -4,7 +4,7 @@ Status of every item in `docs/garmin-feature-backlog.md`. Update this file whene
 
 Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md`.
 
-**Last updated:** 2026-10-25 by: Gate 3 session (no item changed status)
+**Last updated:** 2026-10-25 by: seventh session (Phase 2 design: items 1 to 4, 6 to 9 IN PROGRESS, design only)
 
 Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). The Body Battery 180 s series is stored (owner decision 2026-10-25). Stress durations are already in the daily summary and are not stored twice. No analytics were built, so every item stays NOT STARTED.
 
@@ -27,15 +27,15 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 
 | # | Feature | Section | Priority | Proposed phase | Status | Blocked by / notes |
 |---|---|---|---|---|---|---|
-| 1 | Personal HRV baseline | A | Very high | Phase 2 | NOT STARTED | Gate 1: HRV nightly average, weekly average, 5-minute readings, Garmin baseline band all available since 2024-12-20. HRV measure/unit UNVERIFIED (owner decision on labelling) |
-| 2 | HRV trend analysis | A | Very high | Phase 2 | NOT STARTED | #1 |
-| 3 | Resting heart rate analysis | A | Very high | Phase 2 | NOT STARTED | Gate 1: daily `restingHeartRate` verified (dailyHeartRate, dailysummaries). Measurement method UNVERIFIED |
-| 4 | Recovery Readiness (overall score) | A | Very high | Phase 2 | NOT STARTED | #1, #3, #6, #8, components shown |
+| 1 | Personal HRV baseline | A | Very high | Phase 2 | IN PROGRESS | Gate 1: HRV nightly average, weekly average, 5-minute readings, Garmin baseline band all available since 2024-12-20. HRV measure/unit UNVERIFIED (owner decision on labelling) Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 2 | HRV trend analysis | A | Very high | Phase 2 | IN PROGRESS | #1 Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 3 | Resting heart rate analysis | A | Very high | Phase 2 | IN PROGRESS | Gate 1: daily `restingHeartRate` verified (dailyHeartRate, dailysummaries). Measurement method UNVERIFIED Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 4 | Recovery Readiness (overall score) | A | Very high | Phase 2 | IN PROGRESS | #1, #3, #6, #8, components shown Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
 | 5 | Training response analysis | A | Very high | Phase 4 | NOT STARTED | Load model (Phase 4), #1 |
-| 6 | Sleep quality analysis | A | Very high | Phase 2 | NOT STARTED | Verified sleep fields (Gate 1) |
-| 7 | Sleep debt | A | High | Phase 2 | NOT STARTED | #6. Owner input (2026-10-25): sleep need at least 7h30 and enough deep sleep. Garmin also returns its own `sleepNeed` (baseline 480, unit UNVERIFIED). Owner to confirm the exact number and the deep-sleep target |
-| 8 | Body Battery trends | A | High | Phase 2 | NOT STARTED | Verified Body Battery cadence (Gate 1) |
-| 9 | Autonomic stress analysis | A | High | Phase 2 | NOT STARTED | Verified stress fields (Gate 1) |
+| 6 | Sleep quality analysis | A | Very high | Phase 2 | IN PROGRESS | Verified sleep fields (Gate 1) Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 7 | Sleep debt | A | High | Phase 2 | IN PROGRESS | #6. Owner input (2026-10-25): sleep need at least 7h30 and enough deep sleep. Garmin also returns its own `sleepNeed` (baseline 480, unit UNVERIFIED). Owner to confirm the exact number and the deep-sleep target Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 8 | Body Battery trends | A | High | Phase 2 | IN PROGRESS | Verified Body Battery cadence (Gate 1) Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
+| 9 | Autonomic stress analysis | A | High | Phase 2 | IN PROGRESS | Verified stress fields (Gate 1) Design written 2026-10-25 (`docs/garmin-phase-2-design.md`), no code. |
 | 10 | Recovery time estimation | A | Very high | Phase 4 | NOT STARTED | Load model, #1 to #9 history |
 | 11 | Early fatigue detection | A | Very high | Phase 4 | NOT STARTED | Load model, validation, no diagnosis (section 8) |
 | 12 | Illness pattern detection | A | Medium | Later | NOT STARTED | Needs strict medical rules (section 8 rule 9) |
