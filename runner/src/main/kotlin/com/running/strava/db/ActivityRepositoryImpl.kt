@@ -34,15 +34,15 @@ class ActivityRepositoryImpl(
 ) : ActivityRepository {
 
     override fun save(activity: Activity) {
-        val existing = if (activity.bestEfforts == null) activityJpaRepository.findById(activity.id).orElse(null) else null
-        activityJpaRepository.save(toEntity(activity, existing?.bestEffortsJson))
+        val existing = activityJpaRepository.findById(activity.id).orElse(null)
+        activityJpaRepository.save(toEntity(activity, existing))
         activity.laps?.let { saveLaps(activity.id, it) }
     }
 
     override fun saveAll(activities: List<Activity>) {
         // Summary lists from Strava carry no best efforts: never overwrite ones stored from a detail fetch.
-        val existing = activityJpaRepository.findAllById(activities.filter { it.bestEfforts == null }.map { it.id })
-            .associate { it.id to it.bestEffortsJson }
+        // The same goes for device_name, which only the detail call carries.
+        val existing = activityJpaRepository.findAllById(activities.map { it.id }).associateBy { it.id }
         activityJpaRepository.saveAll(activities.map { toEntity(it, existing[it.id]) })
         activities.forEach { activity -> activity.laps?.let { saveLaps(activity.id, it) } }
     }
@@ -124,7 +124,7 @@ class ActivityRepositoryImpl(
         syncStatusJpaRepository.save(entity)
     }
 
-    private fun toEntity(activity: Activity, keepBestEffortsJson: String? = null) = ActivityEntity(
+    private fun toEntity(activity: Activity, existing: ActivityEntity? = null) = ActivityEntity(
         id = activity.id,
         name = activity.name,
         distance = activity.distance,
@@ -159,7 +159,9 @@ class ActivityRepositoryImpl(
         isManual = activity.isManual,
         isFlagged = activity.isFlagged,
         workoutType = activity.workoutType,
-        bestEffortsJson = activity.bestEfforts?.let { toJson(it) } ?: keepBestEffortsJson,
+        bestEffortsJson = activity.bestEfforts?.let { toJson(it) } ?: existing?.bestEffortsJson,
+        externalId = activity.externalId ?: existing?.externalId,
+        deviceName = activity.deviceName ?: existing?.deviceName,
     )
 
     private fun toDomain(entity: ActivityEntity) = Activity(
@@ -203,6 +205,8 @@ class ActivityRepositoryImpl(
         bestEfforts = entity.bestEffortsJson?.let { json ->
             runCatching { fromJson<BestEffort>(json) }.getOrNull()
         },
+        externalId = entity.externalId,
+        deviceName = entity.deviceName,
     )
 
     private fun toDomainStream(entity: ActivityStreamEntity) = ActivityStream(

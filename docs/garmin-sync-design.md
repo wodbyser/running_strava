@@ -1,6 +1,6 @@
 # Garmin Sync Design
 
-Status: Gate 0 only. Later sections are added in Gates 1 to 3.
+Status: Gates 0 to 2 done and approved. Gate 3 (implementation design) added below.
 
 ## Gate 0: environment check (2026-10-25)
 
@@ -60,3 +60,68 @@ Evidence and details: `garmin-capability-matrix.md`, `garmin-field-inventory.md`
 | Match review | Read-only list in Phase 1 (see `garmin-data-provenance.md`). |
 | Match thresholds | Report-only dry run first. |
 | Strava columns | `external_id` and `device_name` nullable columns allowed in Gate 3. |
+
+## Gate 3: implementation design (2026-10-25)
+
+Entry check: Approvals table shows Gates 0, 1, 2 APPROVED. (The Phase 1 gate status table in `GARMIN_PROGRESS.md` still said "AWAITING APPROVAL" for Gate 2; the Approvals table is authoritative and the status table was aligned.)
+
+### Scope decisions made by the agent (flagged for owner review, none change phase scope)
+
+| # | Decision | Reason |
+|---|---|---|
+| D1 | Rows 1 (stress daily), 2 (steps daily), 10 (Body Battery report) are **not called**. Resting HR, Body Battery summary, stress and steps come from `dailysummaries` (row 11), which carries all four per day (field inventory section 11). | One call per chunk instead of four, less load on the API. Body Battery 3-minute series and the stress class durations in seconds are not stored in Phase 1. Owner can ask to add them. |
+| D2 | `dailyHeartRate` (row 12), SpO2 (19), fitness age (18), wellness activity summaries (20), activity details (22), workouts (23), ZIP (24) are **not synced**. | Not needed for Phase 1 physiology data; row 19 and 20 never returned data. |
+| D3 | Heart rate zones (row 15) are synced once per run into `garmin_hr_zones` (reference data). | Provenance doc section 7. |
+| D4 | "3 attempts" = 3 calls in total per request. Backoff delays 1 s then 4 s between them. The third delay (16 s) is configured and used if `garmin.retry.max-attempts` is raised. | The default wording lists three delays but says 3 attempts. Owner can say "3 retries" (4 calls). |
+| D5 | Incremental end date = today (Europe/Brussels), start = last successful run date minus 3 days. Backfill default end = yesterday. | Owner: re-fetch last 3 days. Today's data is partial and fixed by the overlap. |
+| D6 | Last success only advances when a run had no failed call. | A failed chunk is then covered again by the next incremental run. |
+| D7 | Matches are **computed on demand, not stored** in Phase 1. Two read-only GET endpoints: report and review list. | Thresholds are not approved until the dry run is read (provenance section 11). Nothing to persist, nothing can be mislinked. |
+| D8 | Coordinate tie-break: both start positions known: at most 200 m keeps a pair Strong-compatible, over 2 km fails the pair, between is Weak. | Provenance only defines the two ends. |
+| D9 | Garmin type mapping used: `running` to run, `walking` to walk, `cycling` to ride, `lap_swimming` to swim. Other keys never match. | Only keys seen live; trail or treadmill keys UNVERIFIED. |
+| D10 | Extra config keys: `garmin.retry.max-attempts` (3), `garmin.retry.delays` (1s,4s,16s), `garmin.backfill.chunk-days` (7), `garmin.backfill.pause` (1s), `garmin.sync.overlap-days` (3), `garmin.activity-page-size` (100). | Defaults from the owner decisions, made configurable for tests. |
+| D11 | Sync and backfill POSTs start the run on a background thread and return 202. Busy returns 409. Flag off or no key returns 503 with the state. No HTTP call is made in those cases. | A 2-year backfill takes minutes. |
+
+### Tables (all new, `ddl-auto: update`, PostgreSQL and H2)
+
+Provenance columns on every Garmin data table: `source_endpoint`, `source_timestamp` (UTC, nullable), `synced_at` (UTC), `calendar_date`, `original_units`, `raw_payload_id` (nullable).
+
+| Table | Key | Metric columns |
+|---|---|---|
+| `garmin_daily_hrv` | calendar_date | weekly_avg, last_night_avg, last_night_5min_high, baseline_low_upper, baseline_balanced_low, baseline_balanced_upper, baseline_marker_value, status, feedback_phrase |
+| `garmin_daily_sleep` | calendar_date (wake-up date) | sleep_time_seconds, deep, light, rem, awake, unmeasurable, nap_time_seconds, sleep_start_gmt_ms, sleep_end_gmt_ms, avg_respiration, avg_sleep_stress, avg_heart_rate, overall_score, overall_qualifier, garmin_sleep_need_baseline, garmin_sleep_need_actual |
+| `garmin_daily_resting_hr` | calendar_date | resting_hr, min_hr, max_hr (from `heartRate`) |
+| `garmin_daily_body_battery` | calendar_date | min_value, max_value, charged, drained, latest_value (from `bodyBattery`) |
+| `garmin_daily_stress` | calendar_date | avg_level, max_level, rest/low/medium/high/activity/uncategorized duration in ms, total_duration_ms (from `stress`) |
+| `garmin_daily_steps` | calendar_date | steps, distance_m, step_goal (from `movement.steps`) |
+| `garmin_activity_ref` | activity_id | start_time_gmt, type_key, parent_type_id, distance_m, duration_s, elapsed_s, moving_s, avg_hr, max_hr, aerobic_te, anaerobic_te, training_load, training_effect_label, manufacturer, is_manual, start_lat, start_lon |
+| `garmin_hr_zones` | sport | training_method, resting_hr, lactate_threshold_hr, zone1..5 floor, max_hr |
+| `garmin_raw_payload` | (endpoint, record_key) | payload TEXT, synced_at. One row per day element or per activity. Profile image URLs removed. Redacted if it contains the key or a token. |
+| `garmin_sync_status` | id = 1 | last_run_kind, last_run_started_at, last_run_finished_at, last_success_at, last_success_date, last_error_category, last_error_detail, records_per_endpoint (JSON), null_fields_per_endpoint (JSON), failed_calls |
+
+`activities` gets two nullable columns: `external_id`, `device_name` (additive).
+
+Missing fields: stored as `null`. A day with all metric fields `null` (empty sleep object) is not stored. `null_fields_per_endpoint` counts null metric fields in the records written by the last run.
+
+### Classes
+
+core (`com.running.garmin`): `domain` (records, `GarminSyncStatus`, `GarminErrorCategory`, `GarminApiException`), `spi` (`GarminApiClient`, `GarminRepository`, `GarminSyncStatusRepository`), `usecase` (`BackfillGarminData`, `SyncGarminData`, shared `GarminRangeSync`, `GarminRetry`), `matching` (`GarminActivityMatcher`, `MatchReport`).
+
+runner: `GarminProperties`, `GarminTokenProvider`, `GarminApiClientImpl`, `GarminRedactor`, JPA entities and `GarminRepositoryImpl`, `GarminSyncCoordinator` (single-run lock), `GarminSyncScheduler` (only when `garmin.enabled`), `GarminSyncController`.
+
+### Auth and errors
+
+`GarminTokenProvider` exchanges the key (POST, `Authorization: ApiKey`), parses `exp` from the JWT, keeps the token in memory, refreshes when under 1 hour is left, `invalidate()` forces a new exchange. `GarminApiClientImpl` on 401: re-exchange once, repeat the call once, then throw `AUTH`. Categories: `NOT_CONFIGURED`, `AUTH`, `NETWORK`, `TIMEOUT`, `RATE_LIMIT` (429), `SERVER` (5xx), `CLIENT` (other 4xx, not retried), `PARSE`. `GarminRetry` retries NETWORK, TIMEOUT, RATE_LIMIT, SERVER only. `AUTH` and `NOT_CONFIGURED` abort the run. Other failures are recorded and the run continues with the next chunk.
+
+204, empty body, `[]`, `{"data":[]}` and `{"hrvSummaries":[]}` mean no data, not an error.
+
+### Status (`GET /garmin/status`)
+
+JSON: `state` (`DISABLED`, `NOT_CONFIGURED`, `RUNNING`, `AUTH_FAILED`, `NEVER_RUN`, `OK`, `PARTIAL_FAILURE`), `lastRunKind`, `lastRunStartedAt`, `lastRunFinishedAt`, `lastSuccessAt`, `recordsPerEndpoint`, `nullFieldsPerEndpoint`, `failedCalls`, `lastErrorCategory`, `reviewMatchCount`. Never the key, token or any health value.
+
+### Matching (read-only)
+
+`GET /garmin/matches/report`: counts per tier, distributions (min, median, p90, max) of start, distance and elapsed differences for the nearest compatible candidate, and the check "Strava `external_id` contains the Garmin activity ID". `GET /garmin/matches/review`: the REVIEW rows. No POST, no stored links (D7).
+
+### Tests (all offline)
+
+core: retry policy, range sync (chunking, idempotency, null handling, partial failure continues, AUTH aborts, overlap), matcher (provenance section 10 items 1 to 7, 10, 11). runner: token provider and client with `MockRestServiceServer` and the fixtures (401 gives exactly one re-exchange, 204, empty shapes, 429 and 5xx mapping, no secret in messages), controller and coordinator (409, flag off, no key), redactor, properties validation, JPA idempotency with H2, scheduler off.

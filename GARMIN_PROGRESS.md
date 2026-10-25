@@ -7,12 +7,12 @@ Single source of truth for where the project stands. Every agent session reads t
 - Spec: `GARMIN_API.md`, `GARMIN_API_AGENT_REFERENCE.md`
 - Backlog status (81 items): `docs/garmin-feature-backlog-progress.md`
 
-**Last updated:** 2026-10-25 by: Gate 2 session (design doc only, no application code)
+**Last updated:** 2026-10-25 by: Gate 3 session (implementation and offline tests; live manual checks still open)
 
 ## Next session starts here
 
-- **Next action:** owner reviews `docs/garmin-data-provenance.md` and sets Gate 2 to APPROVED. Then Gate 3 (implementation).
-- **Owner must do first:** review Gate 2.
+- **Next action:** owner runs the three manual checks listed in the Handoff (live token and sync, match dry run, DDL on PostgreSQL), reads the results, and sets Gate 3 to APPROVED, or reports what is wrong.
+- **Owner must do first:** the manual checks, then review Gate 3 and the design decisions D1 to D11 in `docs/garmin-sync-design.md`.
 
 ## Approvals
 
@@ -23,7 +23,7 @@ The owner changes the status column. The agent never sets APPROVED itself. The a
 | Gate 0 | APPROVED | | Report in `docs/garmin-sync-design.md` |
 | Gate 1 | APPROVED | | Report in `docs/garmin-capability-matrix.md` |
 | Gate 2 | APPROVED | | Report in `docs/garmin-data-provenance.md` |
-| Gate 3 | NOT STARTED | | |
+| Gate 3 | AWAITING APPROVAL | | Code and offline tests done. Live checks pending (see Handoff). Design in `docs/garmin-sync-design.md` (Gate 3 section) |
 | Phase A (audit remediation) | NOT STARTED | | |
 | Phase 2 (recovery) | NOT STARTED | | |
 | Phase 3 (performance) | NOT STARTED | | |
@@ -34,8 +34,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 
 ## Current state
 
-- **Current phase:** Phase 1, Gate 1 finished (APPROVED). Gate 0 APPROVED by owner.
-- **Blocked on:** owner approval of Gate 1 before Gate 2 can start.
+- **Current phase:** Phase 1, Gate 3 (implementation) finished in code, AWAITING APPROVAL. Gates 0 to 2 APPROVED.
+- **Blocked on:** owner approval of Gate 3. Phase A needs Phase 1 approved.
 
 ## Phase 1 gate status
 
@@ -43,40 +43,42 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 |---|---|---|
 | Gate 0: environment check | DONE (approved) | Build passes; key in `.env`. Result in `docs/garmin-sync-design.md` |
 | Gate 1: fixtures and capability discovery | DONE (approved) | See `docs/garmin-capability-matrix.md` |
-| Gate 2: identity matching design | AWAITING APPROVAL | `docs/garmin-data-provenance.md` written; owner answered its 3 open points |
-| Gate 3: Phase 1 implementation | NOT STARTED | Needs Gate 2 approval |
+| Gate 2: identity matching design | DONE (approved) | `docs/garmin-data-provenance.md`; owner answered its 3 open points |
+| Gate 3: Phase 1 implementation | AWAITING APPROVAL | Code and 144 offline tests pass. Live token check, match dry run and PostgreSQL start are manual and NOT done |
 
 ## Phase 1 deliverables
 
 | Item | Status | Location | Notes |
 |---|---|---|---|
-| `docs/garmin-sync-design.md` | IN PROGRESS | `docs/` | Gate 0 and Gate 1 sections done; Gate 2 and 3 follow |
+| `docs/garmin-sync-design.md` | DONE | `docs/` | Gates 0, 1, 3 sections. Gate 3 lists decisions D1 to D11 for owner review. Dry-run results and live-check results to be appended by the owner session |
 | `docs/garmin-field-inventory.md` | DONE | `docs/` | Gate 1. Units marked DOCUMENTED / OBSERVED / UNVERIFIED |
 | `docs/garmin-capability-matrix.md` | DONE | `docs/` | Gate 1 |
 | `docs/garmin-data-provenance.md` | DONE | `docs/` | Gate 2. Thresholds are proposals until the Gate 3 dry run |
 | Sanitized fixtures | DONE | `runner/src/test/resources/garmin/` | 22 files, identifiers replaced, checked against the raw responses; no key, JWT, ZIP or FIT committed |
-| SPI `GarminApiClient` | NOT STARTED | `core` | Gate 3 |
-| Domain models (HRV, sleep, resting HR, Body Battery, stress, activity reference) | NOT STARTED | `core` | Gate 3, after field inventory |
-| Use cases `BackfillGarminData`, `SyncGarminData` | NOT STARTED | `core` | Gate 3 |
-| Repository SPI for Garmin records | NOT STARTED | `core` | Gate 3 |
-| `GarminApiClientImpl` | NOT STARTED | `runner` | Gate 3 |
-| `GarminTokenProvider` | NOT STARTED | `runner` | Gate 3 |
-| JPA entities and repositories | NOT STARTED | `runner` | Gate 3 |
-| `GarminSyncScheduler` | NOT STARTED | `runner` | Gate 3 |
-| `GarminSyncController` | NOT STARTED | `runner` | Gate 3 |
-| `GarminProperties` | NOT STARTED | `runner` | Gate 3 |
+| SPI `GarminApiClient` | DONE | `core/.../garmin/spi` | Tested offline |
+| Domain models (HRV, sleep, resting HR, Body Battery, stress, activity reference) | DONE | `core/.../garmin/domain` | Tested offline. Also steps and heart rate zone records |
+| Use cases `BackfillGarminData`, `SyncGarminData` | DONE | `core/.../garmin/usecase` | Tested offline |
+| Repository SPI for Garmin records | DONE | `core/.../garmin/spi` | Tested offline |
+| `GarminApiClientImpl` | DONE | `runner/.../garmin/adapter` | Tested offline |
+| `GarminTokenProvider` | DONE | `runner/.../garmin/adapter` | Tested offline |
+| JPA entities and repositories | DONE | `runner/.../garmin/db` | Tested offline |
+| `GarminSyncScheduler` | DONE | `runner/.../garmin/scheduler` | Tested offline |
+| `GarminSyncController` | DONE | `runner/.../garmin/web` | Tested offline. Also read-only `GET /garmin/matches/review` and `/matches/report` |
+| `GarminProperties` | DONE | `runner/.../config` | Tested offline. Extra keys: see design D10 |
+| `GarminActivityMatcher` + match report (dry run) | DONE | `core/.../garmin/matching` | Pure, read-only. Dry run on real history NOT yet run |
+| Strava `external_id`, `device_name` columns | DONE | `runner/.../strava` | Nullable, additive. Filled on next Strava fetch |
 
 ## Phase 1 acceptance criteria (GARMIN_API.md section 6.3)
 
 | # | Criterion | Status |
 |---|---|---|
-| 1 | Manual run gets a token; simulated 401 triggers one re-exchange | NOT STARTED |
-| 2 | Backfill and incremental sync are idempotent | NOT STARTED |
-| 3 | Missing fields stored as `null`; status reports the count | NOT STARTED |
-| 4 | Failed day or endpoint retried with backoff; run continues | NOT STARTED |
-| 5 | Status shows last run, last success, records per endpoint, last error category | NOT STARTED |
-| 6 | Flag off: no Garmin calls. Flag on, no or invalid key: app starts, status reports state | NOT STARTED |
-| 7 | Offline tests pass; existing Strava tests pass (changes only per the audit-decision rule, old and new values listed) | NOT STARTED |
+| 1 | Manual run gets a token; simulated 401 triggers one re-exchange | IN PROGRESS: simulated 401 test DONE (`GarminApiClientImplTest`). Manual run with the real key NOT done |
+| 2 | Backfill and incremental sync are idempotent | DONE (`GarminRangeSyncTest`, `GarminRepositoryImplTest`) |
+| 3 | Missing fields stored as `null`; status reports the count | DONE (`nullFieldsPerEndpoint`) |
+| 4 | Failed day or endpoint retried with backoff; run continues | DONE (`GarminRetryTest`, `GarminRangeSyncTest`) |
+| 5 | Status shows last run, last success, records per endpoint, last error category | DONE (`GarminControllerTest`) |
+| 6 | Flag off: no Garmin calls. Flag on, no or invalid key: app starts, status reports state | DONE for flag off and no key (`GarminWiring*Test`, full Spring context). Invalid key: AUTH path tested with a mock server; real rejected key not tried |
+| 7 | Offline tests pass; existing Strava tests pass (changes only per the audit-decision rule, old and new values listed) | DONE: 144 tests, 0 failures. No existing Strava test changed |
 
 ## Other phases
 
@@ -105,16 +107,24 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 12. ANSWERED: drop only profile image URLs, keep the owner name.
 13. ANSWERED: label "HRV (Garmin, nachtgemiddelde)", no RMSSD.
 
+14. OPEN (D1): the agent did not call stress daily (row 1), steps daily (row 2) and the Body Battery report (row 10). `dailysummaries` carries the same daily values. Say if you want the Body Battery 3-minute series or stress durations in seconds stored too.
+15. OPEN (D4): "3 attempts" was read as 3 calls in total (waits 1 s, 4 s). Say if you meant 3 retries (4 calls, waits 1 s, 4 s, 16 s). One config value changes it.
+16. OPEN (D7, D8, D9): matches are computed on demand and not stored; the position tie-break between 200 m and 2 km counts as Weak; only four Garmin type keys map to Strava types. Confirm after reading the dry run.
+17. OPEN: the 403 status is treated as a normal client error (CLIENT), not AUTH, because no live 403 was ever seen (UNVERIFIED).
+
 ## Handoff for the next session
 
-- **Current:** Phase 1, Gate 2 finished, AWAITING APPROVAL. Gates 0 and 1 APPROVED.
-- **Finished:** `docs/garmin-data-provenance.md` (matching tiers MATCHED/REVIEW/UNMATCHED, thresholds as proposals, provenance columns, source precedence, tests list). Owner decisions recorded in the sync design.
-- **Blocked:** Gate 3 until the owner sets Gate 2 to APPROVED. No open question blocks it.
-- **Exact next step:** if Gate 2 is APPROVED, start Gate 3: first extend `docs/garmin-sync-design.md` with the implementation design (tables, config, classes, status endpoint, tests), then code in core and runner per `GARMIN_API.md` section 6.2. Include the report-only match dry run and the nullable Strava columns. Read-only match review list, no confirm/reject POST. Otherwise stop.
+- **Current:** Phase 1, Gate 3 finished in code and offline tests, AWAITING APPROVAL. Gates 0 to 2 APPROVED.
+- **Finished:** design (`docs/garmin-sync-design.md`, Gate 3 section), core SPI, models, retry, sync and backfill use cases, matcher and dry-run report; runner token provider, RestClient adapter, redactor, JPA tables, status table, coordinator (409), scheduler, controller, properties; nullable Strava columns. 144 offline tests, 0 failures. No existing Strava test changed.
+- **Not done (needs the owner, live):** (1) start the app with the real key (`GARMIN_PERSONAL_API_KEY` in `.env`, `./gradlew :runner:bootRun`), call `POST /garmin/backfill?from=2026-10-01&to=2026-10-24`, check `GET /garmin/status`, run it twice and check the record counts stay the same; (2) run a Strava fetch so `external_id` and `device_name` fill, then call `GET /garmin/matches/report` and `/garmin/matches/review` and read the distributions to approve or change the thresholds; (3) check the new tables are created on PostgreSQL (only H2 was exercised).
+- **Blocked:** Phase A and everything after it until the owner approves Phase 1. The agent did not run live calls: they write health data into the owner's database.
+- **Exact next step:** owner does the manual checks above and decides on questions 14 to 17, then sets Gate 3 (and so Phase 1) to APPROVED. If approved, the next session starts Phase A with `docs/garmin-audit-remediation.md`. Otherwise fix what the owner reports.
 
 ## Log
 
 Newest first. One entry per session: date, gate or phase, result, what changed, what is next.
+
+- **2026-10-25 (fourth session):** Gate 3. Result: code complete, AWAITING APPROVAL, live checks pending. Entry check: Approvals table had Gate 2 APPROVED (the gate status table was stale and is aligned). Wrote the Gate 3 design first (decisions D1 to D11). Built core (`com.running.garmin`: records, SPI, `GarminRetry`, `GarminRangeSync`, sync and backfill use cases, `GarminActivityMatcher` with report) and runner (properties, token provider, `GarminApiClientImpl`, redactor, 11 JPA tables incl. `garmin_sync_status`, coordinator with single-run lock, scheduler, controller, wiring in `AppConfig` and `GarminConfig`, `garmin:` block in `application.yml`). Strava: nullable `external_id` and `device_name` (parser, entity, repository keeps stored value when a summary has none). Tests: 144 pass, 0 fail (`:core:test :runner:test`, Java 23, offline: fakes, MockRestServiceServer, H2). No existing Strava test changed (no old or new values to list). Checked the key is in no committed or doc file (presence and length only). No live Garmin call was made; no raw response, no real identifier added. Next: owner manual checks, answers to questions 14 to 17, Gate 3 approval.
 
 - **2026-10-25 (third session):** Gate 2. Result: complete, AWAITING APPROVAL. Gate 1 was approved by owner. Wrote `docs/garmin-data-provenance.md`. Match rule: type family plus start, distance, elapsed-time tiers; no Strava ID in Garmin data, so a shared-ID step is conditional on a Strava `external_id` check (UNVERIFIED). Owner answered open questions 10 to 13, sleep targets, and the three Gate 2 points; recorded in `docs/garmin-sync-design.md`. No code, no Strava tests touched. Next: owner approves Gate 2, then Gate 3.
 

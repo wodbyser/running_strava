@@ -37,6 +37,24 @@ strava:
   sync:
     cron: 0 0 6 * * *
 
+garmin:
+  enabled: true
+  api-key: ${GARMIN_PERSONAL_API_KEY:}
+  base-url: ${GARMIN_PERSONAL_API_BASE_URL:https://personal.connectapi.garmin.com}
+  store-raw-payloads: true
+  timeout: 30s
+  activity-page-size: 100
+  sync:
+    cron: 0 30 6 * * *
+    overlap-days: 3
+  backfill:
+    default-days: 730
+    chunk-days: 7
+    pause: 1s
+  retry:
+    max-attempts: 3
+    delays: 1s,4s,16s
+
 logging:
   level:
     com.running: DEBUG

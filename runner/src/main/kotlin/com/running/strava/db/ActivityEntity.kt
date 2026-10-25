@@ -71,6 +71,11 @@ class ActivityEntity(
     /** Strava best efforts (JSON), only present for activities fetched with details after this column existed. */
     @Column(name = "best_efforts_json", columnDefinition = "TEXT")
     var bestEffortsJson: String? = null,
+    /** Strava `external_id`. Additive, nullable. Used by the Garmin match dry run. */
+    @Column(name = "external_id")
+    var externalId: String? = null,
+    @Column(name = "device_name")
+    var deviceName: String? = null,
 )
 
 @Entity

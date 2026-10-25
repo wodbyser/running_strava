@@ -206,6 +206,8 @@ class StravaApiClientImpl(
         laps = parseLaps(raw["laps"]),
         splits = parseSplits(raw["splits_metric"]),
         bestEfforts = parseBestEfforts(raw["best_efforts"]),
+        externalId = raw["external_id"] as? String,
+        deviceName = raw["device_name"] as? String,
     )
 
     @Suppress("UNCHECKED_CAST")

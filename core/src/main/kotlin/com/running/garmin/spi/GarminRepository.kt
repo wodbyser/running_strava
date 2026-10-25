@@ -1,0 +1,33 @@
+package com.running.garmin.spi
+
+import com.running.garmin.domain.GarminActivityRef
+import com.running.garmin.domain.GarminBodyBatteryDay
+import com.running.garmin.domain.GarminHeartRateZones
+import com.running.garmin.domain.GarminHrvDay
+import com.running.garmin.domain.GarminRestingHrDay
+import com.running.garmin.domain.GarminSleepDay
+import com.running.garmin.domain.GarminStepsDay
+import com.running.garmin.domain.GarminStressDay
+import com.running.garmin.domain.GarminSyncStatus
+import java.time.Instant
+import java.time.LocalDate
+
+/** Upserts are idempotent: the same calendar date or activity ID overwrites the previous row. Return the number written. */
+interface GarminRepository {
+    fun upsertHrv(records: List<GarminHrvDay>, syncedAt: Instant): Int
+    fun upsertSleep(records: List<GarminSleepDay>, syncedAt: Instant): Int
+    fun upsertRestingHr(records: List<GarminRestingHrDay>, syncedAt: Instant): Int
+    fun upsertBodyBattery(records: List<GarminBodyBatteryDay>, syncedAt: Instant): Int
+    fun upsertStress(records: List<GarminStressDay>, syncedAt: Instant): Int
+    fun upsertSteps(records: List<GarminStepsDay>, syncedAt: Instant): Int
+    fun upsertActivities(records: List<GarminActivityRef>, syncedAt: Instant): Int
+    fun upsertHeartRateZones(records: List<GarminHeartRateZones>, syncedAt: Instant): Int
+
+    fun findActivities(from: Instant, to: Instant): List<GarminActivityRef>
+    fun findAllActivities(): List<GarminActivityRef>
+}
+
+interface GarminSyncStatusRepository {
+    fun get(): GarminSyncStatus
+    fun save(status: GarminSyncStatus)
+}

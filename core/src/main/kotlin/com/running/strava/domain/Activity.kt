@@ -41,6 +41,9 @@ data class Activity(
     val laps: List<Lap>?,
     val splits: List<Split>?,
     val bestEfforts: List<BestEffort>?,
+    /** Strava `external_id` (origin file or service). Used only for the Garmin match dry run. */
+    val externalId: String? = null,
+    val deviceName: String? = null,
 )
 
 data class Lap(
