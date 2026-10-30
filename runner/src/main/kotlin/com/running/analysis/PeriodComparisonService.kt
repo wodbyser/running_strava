@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.strava.analysis.performance.TerrainClass
 import com.running.strava.analysis.ActivityTime
 import java.util.Locale
 import java.time.ZonedDateTime
@@ -149,7 +150,7 @@ class PeriodComparisonService(
         }
 
     private fun classify(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, range: DateRange, label: String, maxHr: Int?): Classified {
-        val types = runs.associateWith { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType) }
+        val types = runs.associateWith { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType, TerrainClass.elevationPerKm(it)) }
 
         val steady = runs.filter { types[it] == SessionType.STEADY }
         val roadSteady = steady.filter { it.type == "Run" && !it.isTrainer }
@@ -161,7 +162,7 @@ class PeriodComparisonService(
 
         val intervalSessions = runs.filter { types[it] == SessionType.INTERVAL }
         // Contiguous rep laps (auto-lap) count as one rep.
-        val repsPerSession = intervalSessions.associateWith { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType) }
+        val repsPerSession = intervalSessions.associateWith { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType, TerrainClass.elevationPerKm(a)) }
         val repSamplesPerSession = repsPerSession.mapValues { (_, reps) ->
             EfficiencyFactor.usable(reps.map { Sample(it.distance.toDouble(), it.movingTime.toDouble(), it.averageHeartrate?.toDouble()) })
         }.filterValues { it.isNotEmpty() }

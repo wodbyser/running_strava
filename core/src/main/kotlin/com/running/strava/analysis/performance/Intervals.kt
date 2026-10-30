@@ -122,9 +122,9 @@ object IntervalPerformance {
 
     const val MIN_REPS_FOR_STATISTICS = 3
 
-    fun analyze(laps: List<Lap>, workoutType: Int?, stream: ActivityStream?, maxHr: Int?): Session? {
-        if (SessionClassifier.classify(laps, workoutType) != SessionType.INTERVAL) return null
-        val kinds = LapClassifier.classify(laps, workoutType)
+    fun analyze(laps: List<Lap>, workoutType: Int?, stream: ActivityStream?, maxHr: Int?, elevationPerKm: Double? = null): Session? {
+        if (SessionClassifier.classify(laps, workoutType, elevationPerKm) != SessionType.INTERVAL) return null
+        val kinds = LapClassifier.classify(laps, workoutType, elevationPerKm)
         val efforts = LapClassifier.repEfforts(laps, kinds).filter { it.lap.movingTime >= LapClassifier.MIN_REP_SECONDS }
         if (efforts.isEmpty()) return null
         val time = stream?.time

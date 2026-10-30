@@ -1,5 +1,6 @@
 package com.running.frontend
 
+import com.running.strava.analysis.performance.TerrainClass
 import com.running.analysis.AiAnalysisService
 import java.util.Locale
 import com.running.analysis.BestEffortService
@@ -226,7 +227,7 @@ class FrontendController(
         val laps = activityRepository.findLaps(a.id)
         model.addAttribute("laps", buildLapRows(laps, a))
         model.addAttribute("hasLaps", laps.size > 1)
-        model.addAttribute("sessionType", if (laps.size > 1 || a.workoutType == 1) sessionLabel(SessionClassifier.classify(laps, a.workoutType)) else null)
+        model.addAttribute("sessionType", if (laps.size > 1 || a.workoutType == 1) sessionLabel(SessionClassifier.classify(laps, a.workoutType, TerrainClass.elevationPerKm(a))) else null)
 
         return "activity"
     }
@@ -293,7 +294,7 @@ class FrontendController(
     /** Automatic (heuristic) role per lap; "-" when there is only one lap. */
     private fun lapLabels(laps: List<Lap>, activity: Activity): List<String> {
         if (laps.size < 2) return laps.map { "-" }
-        val kinds = LapClassifier.classify(laps, activity.workoutType)
+        val kinds = LapClassifier.classify(laps, activity.workoutType, TerrainClass.elevationPerKm(activity))
         val race = activity.workoutType == 1
         return kinds.map { kind ->
             when {

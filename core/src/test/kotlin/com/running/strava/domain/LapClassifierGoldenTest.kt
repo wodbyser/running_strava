@@ -270,4 +270,27 @@ class LapClassifierGoldenTest {
         )
         assertEquals(listOf(EASY, EASY, EASY, EASY, TEMPO, TEMPO, TEMPO, EASY, EASY, EASY), kinds(laps))
     }
+
+    @Test
+    fun `hilly trail with auto-laps is not an interval session`() {
+        val laps = GoldenLaps.hillyTrailAutoLap
+        assertEquals(SessionType.INTERVAL, session(laps), "without elevation the lap paces look like 2 x 2 km")
+        assertTrue(LapClassifier.classify(laps, null, 32.7).all { it == EASY })
+        assertEquals(SessionType.STEADY, SessionClassifier.classify(laps, null, 32.7))
+        assertTrue(LapClassifier.realReps(laps, null, 32.7).isEmpty())
+    }
+
+    @Test
+    fun `hilly auto-lap rule needs both hills and auto-laps, and respects a Strava workout`() {
+        // Hand-lapped hill repeats on hilly terrain stay intervals.
+        assertEquals(SessionType.INTERVAL, SessionClassifier.classify(GoldenLaps.hillRepeats, null, 30.0))
+        // Auto-lapped intervals on flat terrain stay intervals.
+        assertEquals(SessionType.INTERVAL, SessionClassifier.classify(GoldenLaps.flatAutoLapIntervals, null, 2.0))
+        // Rolling, not hilly (exactly 15 m/km): the rule does not apply.
+        assertEquals(SessionType.INTERVAL, SessionClassifier.classify(GoldenLaps.hillyTrailAutoLap, null, 15.0))
+        // Marked as workout on Strava: the normal rules decide.
+        assertEquals(SessionType.INTERVAL, SessionClassifier.classify(GoldenLaps.hillyTrailAutoLap, 3, 32.7))
+        assertTrue(LapClassifier.isAutoLapped(GoldenLaps.hillyTrailAutoLap))
+        assertTrue(!LapClassifier.isAutoLapped(GoldenLaps.hillRepeats))
+    }
 }

@@ -72,6 +72,8 @@ enum class SessionType {
  * 9. HR-assisted fallback when step 3 finds nothing (not for races/long runs): speed ratio >= 1.08 is enough if
  *    the fast laps' median HR is >= 8 bpm above the other laps (hill reps with little speed contrast); without
  *    HR only when the activity is marked as workout on Strava (`workout_type` = 3).
+ * 0. Auto-lapped run on hilly terrain ([isHillyAutoLapRun]): every lap is EASY (or NOISE). The pace differences between
+ *    1 km auto-laps on a trail come from the climbs and descents, not from effort. Not applied to Strava workouts.
  * 10. Contiguous REP laps form one rep effort ([repEfforts]): auto-lapped 3x 2 km is 3 reps, not 6. A standing
  *     rest lap ([isRestBreak]: degenerate but >= [REST_BREAK_SECONDS] on the clock) separates reps, both for
  *     rep detection and for merging; a short stub lap (double-press) does not.
@@ -98,6 +100,13 @@ object LapClassifier {
     /** Minimum clock time for a degenerate lap to count as a standing rest ([isRestBreak]). */
     const val REST_BREAK_SECONDS = 15
 
+    /** Above this many metres of climbing per km (the app's "heuvelachtig") auto-lap pace says nothing about effort. */
+    const val HILLY_ELEVATION_PER_KM = 15.0
+
+    /** Watch auto-lap distances (1 km, 1 mile) and the tolerance on the lap distance. */
+    val AUTO_LAP_DISTANCES = listOf(1000.0, 1609.34)
+    const val AUTO_LAP_TOLERANCE = 0.015
+
     /** Reps shorter than this are strides, not interval reps, for session typing. */
     const val MIN_REP_SECONDS = 30
 
@@ -111,6 +120,19 @@ object LapClassifier {
      */
     fun isRestBreak(lap: Lap): Boolean = isDegenerate(lap) && lap.elapsedTime >= REST_BREAK_SECONDS
 
+    /** Every lap except the last has the same auto-lap distance (1 km or 1 mile): the runner never pressed the lap button. */
+    fun isAutoLapped(laps: List<Lap>): Boolean {
+        val body = laps.dropLast(1)
+        return body.size >= 3 && AUTO_LAP_DISTANCES.any { d -> body.all { kotlin.math.abs(it.distance - d) <= d * AUTO_LAP_TOLERANCE } }
+    }
+
+    /**
+     * Hilly (> [HILLY_ELEVATION_PER_KM] m/km) and only auto-laps: a trail or hilly run, never intervals or tempo.
+     * Hill reps are lapped by hand and stay unaffected; a run marked as workout on Strava is left to the normal rules.
+     */
+    fun isHillyAutoLapRun(laps: List<Lap>, workoutType: Int?, elevationPerKm: Double?): Boolean =
+        workoutType != WORKOUT && elevationPerKm != null && elevationPerKm > HILLY_ELEVATION_PER_KM && isAutoLapped(laps)
+
     fun isDegenerate(lap: Lap): Boolean =
         lap.averageSpeed <= 0f ||
             lap.movingTime < MIN_VALID_DURATION_SECONDS ||
@@ -118,10 +140,10 @@ object LapClassifier {
             lap.averageSpeed > MAX_PLAUSIBLE_LAP_SPEED_MS
 
     /** Classifies every lap into a [LapKind], parallel to the input list. */
-    fun classify(laps: List<Lap>, workoutType: Int? = null): List<LapKind> {
+    fun classify(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): List<LapKind> {
         val result = Array(laps.size) { i -> if (isDegenerate(laps[i])) LapKind.NOISE else LapKind.EASY }
         val valid = laps.indices.filter { result[it] != LapKind.NOISE }
-        if (valid.size < 2) return result.toList()
+        if (valid.size < 2 || isHillyAutoLapRun(laps, workoutType, elevationPerKm)) return result.toList()
         val speed = { i: Int -> laps[i].averageSpeed.toDouble() }
 
         val split = twoMeans(valid.map(speed))
@@ -207,7 +229,8 @@ object LapClassifier {
     }
 
     /** Session type from laps and Strava `workout_type`. */
-    fun sessionType(laps: List<Lap>, workoutType: Int? = null): SessionType = SessionClassifier.classify(laps, workoutType)
+    fun sessionType(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): SessionType =
+        SessionClassifier.classify(laps, workoutType, elevationPerKm)
 
     private fun nextValid(valid: List<Int>, idx: Int): Int? = valid.firstOrNull { it > idx }
 
@@ -354,11 +377,11 @@ object LapClassifier {
     }
 
     /** True where the lap is a hard interval rep. */
-    fun classifyIntervals(laps: List<Lap>, workoutType: Int? = null): List<Boolean> =
-        classify(laps, workoutType).map { it == LapKind.REP }
+    fun classifyIntervals(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): List<Boolean> =
+        classify(laps, workoutType, elevationPerKm).map { it == LapKind.REP }
 
-    fun hasIntervals(laps: List<Lap>, workoutType: Int? = null): Boolean =
-        SessionClassifier.classify(laps, workoutType) == SessionType.INTERVAL
+    fun hasIntervals(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): Boolean =
+        SessionClassifier.classify(laps, workoutType, elevationPerKm) == SessionType.INTERVAL
 
     /** One interval effort: the lap index range it spans and the (merged) lap. */
     data class RepEffort(val first: Int, val last: Int, val lap: Lap)
@@ -388,8 +411,8 @@ object LapClassifier {
     }
 
     /** Rep efforts of at least [MIN_REP_SECONDS] (strides excluded), as merged laps. */
-    fun realReps(laps: List<Lap>, workoutType: Int?): List<Lap> =
-        repEfforts(laps, classify(laps, workoutType)).map { it.lap }.filter { it.movingTime >= MIN_REP_SECONDS }
+    fun realReps(laps: List<Lap>, workoutType: Int?, elevationPerKm: Double? = null): List<Lap> =
+        repEfforts(laps, classify(laps, workoutType, elevationPerKm)).map { it.lap }.filter { it.movingTime >= MIN_REP_SECONDS }
 
     /** Merges consecutive laps into one: sums distance/time, time-weighted HR and cadence, max of maxima. */
     fun mergeLaps(ls: List<Lap>): Lap {
@@ -416,10 +439,11 @@ object LapClassifier {
 }
 
 object SessionClassifier {
-    fun classify(laps: List<Lap>, workoutType: Int?): SessionType {
+    /** [elevationPerKm]: Strava climbing per km of the activity; enables the hilly auto-lap rule of [LapClassifier]. */
+    fun classify(laps: List<Lap>, workoutType: Int?, elevationPerKm: Double? = null): SessionType {
         if (workoutType == 1) return SessionType.RACE
         if (laps.size < 2) return SessionType.STEADY
-        val kinds = LapClassifier.classify(laps, workoutType)
+        val kinds = LapClassifier.classify(laps, workoutType, elevationPerKm)
         val reps = LapClassifier.repEfforts(laps, kinds)
         val realReps = reps.count { it.lap.movingTime >= LapClassifier.MIN_REP_SECONDS }
         val hasTempo = kinds.any { it == LapKind.TEMPO }

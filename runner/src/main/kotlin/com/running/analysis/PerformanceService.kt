@@ -166,7 +166,8 @@ class PerformanceService(
     private fun compute(a: Activity, laps: List<Lap>, maxHr: Int?): RunAnalysis {
         val cfg = config
         val stream = activityRepository.findStreams(a.id)
-        val type = SessionClassifier.classify(laps, a.workoutType)
+        val elevationPerKm = TerrainClass.elevationPerKm(a)
+        val type = SessionClassifier.classify(laps, a.workoutType, elevationPerKm)
         val cleaned = stream?.let { CleanRun.clean(it, a.movingTime.toDouble()) }
         val date = ActivityTime.localDate(a)
         val steadyRes = SteadyRun.evaluate(a, type, cleaned, maxHr, cfg)
@@ -199,7 +200,7 @@ class PerformanceService(
             thirds = if (coverageOk && cleaned!!.validSeconds >= LongRun.MIN_MINUTES * 60) LongRun.thirds(cleaned.samples, cfg.warmupSeconds) else null,
             gap = if (cleaned != null && !a.isTrainer && coverageOk) GradeAdjusted.assess(cleaned.samples, cleaned.hasGrade) else null,
             efforts = efforts,
-            intervals = if (type == SessionType.INTERVAL) IntervalPerformance.analyze(laps, a.workoutType, stream, maxHr) else null,
+            intervals = if (type == SessionType.INTERVAL) IntervalPerformance.analyze(laps, a.workoutType, stream, maxHr, elevationPerKm) else null,
             tempC = temp, elevationPerKm = elev, terrain = TerrainClass.of(elev),
             watts = a.averageWatts?.toDouble(), measuredPower = PowerEfficiency.hasMeasuredPower(a),
             startLat = a.startLatlng?.getOrNull(0), startLon = a.startLatlng?.getOrNull(1),

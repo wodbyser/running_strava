@@ -67,8 +67,8 @@ object WorkoutStructure {
     }
 
     /** Returns null if the activity has neither interval reps nor a tempo block. */
-    fun analyze(laps: List<Lap>, workoutType: Int? = null): Structure? {
-        val kinds = LapClassifier.classify(laps, workoutType)
+    fun analyze(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): Structure? {
+        val kinds = LapClassifier.classify(laps, workoutType, elevationPerKm)
         // Contiguous rep laps are one rep (auto-lapped 2 km rep = 2x 1 km laps → one 2000m rep).
         val efforts = LapClassifier.repEfforts(laps, kinds)
         if (efforts.isEmpty() && kinds.none { it == LapKind.TEMPO }) return null
@@ -170,8 +170,8 @@ object WorkoutStructure {
     }
 
     /** One-line summary for AI prompts, or null if nothing beyond steady running was detected. */
-    fun describe(laps: List<Lap>, workoutType: Int? = null): String? {
-        val s = analyze(laps, workoutType) ?: return null
+    fun describe(laps: List<Lap>, workoutType: Int? = null, elevationPerKm: Double? = null): String? {
+        val s = analyze(laps, workoutType, elevationPerKm) ?: return null
         return s.segments.joinToString(" | ") { seg ->
             when (seg) {
                 is Segment.Set -> describeSet(seg.set)

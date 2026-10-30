@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.strava.analysis.performance.TerrainClass
 import com.running.strava.analysis.ActivityTime
 import java.util.Locale
 import com.running.strava.analysis.Cadence
@@ -158,7 +159,7 @@ class AiAnalysisService(
                 activity.averageWatts?.let { appendLine("   Gem. vermogen: ${"%.0f".format(Locale.ROOT, it)} W") }
                 appendLine("   Hoogtemeters: ${"%.0f".format(Locale.ROOT, activity.totalElevationGain)} m")
                 val laps = lapsByActivity[activity.id].orEmpty()
-                val structure = WorkoutStructure.describe(laps, activity.workoutType)
+                val structure = WorkoutStructure.describe(laps, activity.workoutType, TerrainClass.elevationPerKm(activity))
                 when {
                     structure != null -> appendLine("   Opbouw $TAG_ESTIMATE: $structure")
                     laps.size <= 1 -> appendLine("   Opbouw: geen laps, dus niet herkend")
@@ -318,11 +319,11 @@ class AiAnalysisService(
             activity.sufferScore?.let { appendLine("Suffer score: $it (Strava-berekening op basis van HR; geen app-waarde)") }
 
             if (laps.size > 1) {
-                formatIntervalSummary(laps, activity.workoutType)?.let {
+                formatIntervalSummary(laps, activity.workoutType, TerrainClass.elevationPerKm(activity))?.let {
                     appendLine()
                     appendLine("Opbouw training $TAG_ESTIMATE (kan fout zijn; controleer met de laps): $it")
                 }
-                val labels = lapLabels(laps, activity.workoutType)
+                val labels = lapLabels(laps, activity.workoutType, TerrainClass.elevationPerKm(activity))
                 appendLine()
                 appendLine("Rondes/laps (${laps.size}): afstand, tijd, tempo en HR zijn $TAG_MEASURED; de rol na '->' is een $TAG_ESTIMATE:")
                 laps.forEachIndexed { i, lap ->
@@ -371,12 +372,13 @@ class AiAnalysisService(
     }
 
     /** Workout structure (warm-up, sets per rep distance, recovery/floats, cool-down), or null if no intervals. */
-    private fun formatIntervalSummary(laps: List<Lap>, workoutType: Int?): String? = WorkoutStructure.describe(laps, workoutType)
+    private fun formatIntervalSummary(laps: List<Lap>, workoutType: Int?, elevationPerKm: Double?): String? =
+        WorkoutStructure.describe(laps, workoutType, elevationPerKm)
 
     /** Per-lap role label, consistent with the [WorkoutStructure] summary. */
-    private fun lapLabels(laps: List<Lap>, workoutType: Int?): List<String> {
-        val kinds = LapClassifier.classify(laps, workoutType)
-        val structure = WorkoutStructure.analyze(laps, workoutType)
+    private fun lapLabels(laps: List<Lap>, workoutType: Int?, elevationPerKm: Double?): List<String> {
+        val kinds = LapClassifier.classify(laps, workoutType, elevationPerKm)
+        val structure = WorkoutStructure.analyze(laps, workoutType, elevationPerKm)
         val roles = mutableMapOf<Lap, String>()
         structure?.let { s ->
             var setNo = 0

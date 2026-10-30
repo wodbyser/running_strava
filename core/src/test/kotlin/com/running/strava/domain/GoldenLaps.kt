@@ -115,4 +115,17 @@ object GoldenLaps {
         p(1000.0, 360, 140), p(1000.0, 358, 141), p(1000.0, 355, 142), p(1000.0, 357, 143), p(1000.0, 356, 144), p(1000.0, 355, 144),
         *(1..4).flatMap { listOf(L(100.0, 20, 160), L(100.0, 45, 150)) }.toTypedArray(),
     )
+
+    /** Real run "Kluisbos trail": 7.6 km trail, 33 m/km, auto-lap every 1 km. Pace swings with the hills, not with effort. */
+    val hillyTrailAutoLap = laps(
+        p(1000.0, 513, 138), p(1000.0, 403, 136), p(1000.0, 424, 136), p(1000.0, 495, 147),
+        p(1000.0, 405, 141), p(1000.0, 435, 144), p(1000.0, 498, 159), p(604.0, 366, 168),
+    )
+
+    /** Flat auto-lapped interval session: 2 km warm-up, 4x 1 km @ 4:25 with a 1 km jog, cool-down. */
+    val flatAutoLapIntervals = laps(
+        p(1000.0, 345, 135), p(1000.0, 340, 140),
+        *(1..4).flatMap { listOf(p(1000.0, 265, 172), p(1000.0, 400, 150)) }.toTypedArray(),
+        p(500.0, 350, 145),
+    )
 }

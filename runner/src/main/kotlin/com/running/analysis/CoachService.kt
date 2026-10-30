@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.strava.analysis.performance.TerrainClass
 import com.running.strava.analysis.ActivityTime
 import java.util.Locale
 import com.running.strava.analysis.BestEffortFinder
@@ -176,10 +177,10 @@ class CoachService(
         val avgHr = agg.avgHr
         val avgCadence = agg.avgCadenceSpm
 
-        val intervalSessions = recent.filter { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType) == SessionType.INTERVAL }
+        val intervalSessions = recent.filter { SessionClassifier.classify(lapsByActivity[it.id].orEmpty(), it.workoutType, TerrainClass.elevationPerKm(it)) == SessionType.INTERVAL }
         val intervalSessionsPerWeek = intervalSessions.size / recentWeeks.coerceAtLeast(1.0)
         // Contiguous rep laps (auto-lap) count as one rep.
-        val reps = intervalSessions.flatMap { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType) }
+        val reps = intervalSessions.flatMap { a -> LapClassifier.realReps(lapsByActivity[a.id].orEmpty(), a.workoutType, TerrainClass.elevationPerKm(a)) }
         val repTime = reps.sumOf { it.movingTime }
         val avgIntervalSpeed = if (repTime > 0) reps.sumOf { it.distance.toDouble() } / repTime else null
         val intervalPaceStr = Format.pace(avgIntervalSpeed)
@@ -266,7 +267,7 @@ class CoachService(
             runs.filter { a ->
                 a.workoutType != 1 && a.distance > 0 && a.movingTime > 0 &&
                     (a.averageHeartrate ?: 0f) >= maxHr * 0.85 &&
-                    SessionClassifier.classify(lapsByActivity[a.id].orEmpty(), a.workoutType) == SessionType.STEADY
+                    SessionClassifier.classify(lapsByActivity[a.id].orEmpty(), a.workoutType, TerrainClass.elevationPerKm(a)) == SessionType.STEADY
             }.forEach { a ->
                 result += RacePredictor.Anchor(a.distance.toDouble(), a.movingTime.toDouble(), "harde run ${formatDistance(a.distance)}, gem. HR ≥ 85% max (${date(a)})")
             }
