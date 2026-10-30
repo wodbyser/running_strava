@@ -26,12 +26,12 @@ data class HrvResult(
 )
 
 object HrvAnalysis {
-    fun analyze(days: List<GarminHrvDay>, date: LocalDate): HrvResult {
+    fun analyze(days: List<GarminHrvDay>, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): HrvResult {
         val series = days.toSeries { it.lastNightAvg }
         val day = days.firstOrNull { it.calendarDate == date }
         return HrvResult(
             date, series.containsKey(date), day?.lastNightAvg, day?.weeklyAvg, day?.baselineBalancedLow, day?.baselineBalancedUpper,
-            day?.status, MetricAnalyzer.analyze(series, date),
+            day?.status, MetricAnalyzer.analyze(series, date, w = w),
         )
     }
 }
@@ -44,10 +44,10 @@ enum class RestingHrSource { GARMIN, MANUAL, NONE }
 data class RestingHrResult(val date: LocalDate, val source: RestingHrSource, val value: Int?, val metric: MetricAnalysis?)
 
 object RestingHrAnalysis {
-    fun analyze(days: List<GarminRestingHrDay>, manualRestingHr: Int?, date: LocalDate): RestingHrResult {
+    fun analyze(days: List<GarminRestingHrDay>, manualRestingHr: Int?, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): RestingHrResult {
         val series = days.toSeries { it.restingHr }
         return when {
-            series.containsKey(date) -> RestingHrResult(date, RestingHrSource.GARMIN, series.getValue(date).toInt(), MetricAnalyzer.analyze(series, date))
+            series.containsKey(date) -> RestingHrResult(date, RestingHrSource.GARMIN, series.getValue(date).toInt(), MetricAnalyzer.analyze(series, date, w = w))
             manualRestingHr != null -> RestingHrResult(date, RestingHrSource.MANUAL, manualRestingHr, null)
             else -> RestingHrResult(date, RestingHrSource.NONE, null, null)
         }
@@ -168,20 +168,22 @@ object SleepAnalysis {
         return sqrt(values.sumOf { (it - mean) * (it - mean) } / values.size)
     }
 
-    fun quality(days: List<GarminSleepDay>, date: LocalDate, zone: ZoneId): SleepQuality {
+    fun quality(days: List<GarminSleepDay>, date: LocalDate, zone: ZoneId, w: RecoveryWindows = RecoveryWindows.DEFAULT): SleepQuality {
         val nights = days.map { night(it) }
         val byDate = nights.associateBy { it.date }
         fun series(select: (SleepNight) -> Double?) = nights.mapNotNull { n -> select(n)?.let { n.date to it } }.toMap()
-        fun metric(select: (SleepNight) -> Double?) = MetricAnalyzer.analyze(series(select), date)
+        fun metric(select: (SleepNight) -> Double?) = MetricAnalyzer.analyze(series(select), date, w = w)
 
-        val window = (0 until REGULARITY_DAYS).map { date.minusDays(it.toLong()) }
+        val window = (0 until w.regularityNights).map { date.minusDays(it.toLong()) }
+        // 7 of 14 nights for the default; half of the chosen window otherwise.
+        val regularityMin = (w.regularityNights + 1) / 2
         val timed = days.filter { it.calendarDate in window && it.sleepStartGmtMs != null && it.sleepEndGmtMs != null }
-        val regularity = if (timed.size >= REGULARITY_MIN_NIGHTS) {
+        val regularity = if (timed.size >= regularityMin) {
             SleepRegularity(
-                BaselineStatus.OK, timed.size, REGULARITY_MIN_NIGHTS,
+                BaselineStatus.OK, timed.size, regularityMin,
                 sd(timed.map { minutesAfter18(it.sleepStartGmtMs!!, zone) }), sd(timed.map { minutesAfter18(it.sleepEndGmtMs!!, zone) }),
             )
-        } else SleepRegularity(BaselineStatus.INSUFFICIENT, timed.size, REGULARITY_MIN_NIGHTS, null, null)
+        } else SleepRegularity(BaselineStatus.INSUFFICIENT, timed.size, regularityMin, null, null)
 
         return SleepQuality(
             date, byDate[date],
@@ -194,18 +196,20 @@ object SleepAnalysis {
     }
 
     /** Shortfall against the target over the last 7 nights. Longer nights do not offset shorter ones; the net balance is a second number. */
-    fun debt(days: List<GarminSleepDay>, date: LocalDate, targetMinutes: Int): SleepDebt {
+    fun debt(days: List<GarminSleepDay>, date: LocalDate, targetMinutes: Int, w: RecoveryWindows = RecoveryWindows.DEFAULT): SleepDebt {
         val target = targetMinutes * 60
-        val window = (0 until DEBT_DAYS).map { date.minusDays(it.toLong()) }.toSet()
+        val window = (0 until w.debtNights).map { date.minusDays(it.toLong()) }.toSet()
+        // 5 of 7 nights for the default; 70 % of the chosen window otherwise.
+        val minNights = Baseline.minimumCount(w.debtNights)
         val nights = days.filter { it.calendarDate in window && it.sleepTimeSeconds != null }
         val need = days.firstOrNull { it.calendarDate == date }?.garminSleepNeedBaseline
-        if (nights.size < DEBT_MIN_NIGHTS) {
-            return SleepDebt(date, BaselineStatus.INSUFFICIENT, nights.size, DEBT_MIN_NIGHTS, target, null, null, null, need)
+        if (nights.size < minNights) {
+            return SleepDebt(date, BaselineStatus.INSUFFICIENT, nights.size, minNights, target, null, null, null, need)
         }
         val seconds = nights.map { it.sleepTimeSeconds!! }
         val shortfall = seconds.sumOf { maxOf(0, target - it).toLong() }
         return SleepDebt(
-            date, BaselineStatus.OK, nights.size, DEBT_MIN_NIGHTS, target,
+            date, BaselineStatus.OK, nights.size, minNights, target,
             shortfall, seconds.count { it < target }, seconds.sumOf { (it - target).toLong() }, need,
             targetCheck(shortfall, nights.size, target),
         )
@@ -276,6 +280,7 @@ object BodyBatteryAnalysis {
         sleepDays: List<GarminSleepDay>,
         date: LocalDate,
         today: LocalDate,
+        w: RecoveryWindows = RecoveryWindows.DEFAULT,
     ): BodyBatteryResult {
         val sorted = samples.sortedBy { it.timestampGmtMs }
         val incomplete = date == today
@@ -290,10 +295,10 @@ object BodyBatteryAnalysis {
         val recharge = if (levels?.wake != null && levels.start != null) levels.wake - levels.start else null
         return BodyBatteryResult(
             date, incomplete, day?.minValue, day?.maxValue, day?.charged, day?.drained, levels?.start, levels?.wake, recharge,
-            MetricAnalyzer.analyze(wakeSeries, date),
-            MetricAnalyzer.analyze(rechargeSeries, date),
-            MetricAnalyzer.analyze(chargedSeries, date, day?.charged?.toDouble(), incomplete),
-            MetricAnalyzer.analyze(drainedSeries, date, day?.drained?.toDouble(), incomplete),
+            MetricAnalyzer.analyze(wakeSeries, date, w = w),
+            MetricAnalyzer.analyze(rechargeSeries, date, w = w),
+            MetricAnalyzer.analyze(chargedSeries, date, day?.charged?.toDouble(), incomplete, w),
+            MetricAnalyzer.analyze(drainedSeries, date, day?.drained?.toDouble(), incomplete, w),
         )
     }
 }
@@ -326,7 +331,7 @@ object StressAnalysis {
         return 100.0 * (d.mediumDurationMs!! + d.highDurationMs!!) / measured
     }
 
-    fun analyze(days: List<GarminStressDay>, date: LocalDate, today: LocalDate): StressResult {
+    fun analyze(days: List<GarminStressDay>, date: LocalDate, today: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): StressResult {
         val incomplete = date == today
         val usable = days.filter { it.calendarDate != today }
         val day = days.firstOrNull { it.calendarDate == date }
@@ -335,8 +340,8 @@ object StressAnalysis {
         val measured = day?.let { measuredMs(it) }
         return StressResult(
             date, incomplete, avg, share, measured?.let { it / 3_600_000.0 }, measured != null && measured < MIN_MEASURED_MS,
-            MetricAnalyzer.analyze(usable.toSeries { it.avgLevel }, date, avg?.toDouble(), incomplete),
-            MetricAnalyzer.analyze(usable.mapNotNull { d -> highShare(d)?.let { d.calendarDate to it } }.toMap(), date, share, incomplete),
+            MetricAnalyzer.analyze(usable.toSeries { it.avgLevel }, date, avg?.toDouble(), incomplete, w),
+            MetricAnalyzer.analyze(usable.mapNotNull { d -> highShare(d)?.let { d.calendarDate to it } }.toMap(), date, share, incomplete, w),
         )
     }
 }

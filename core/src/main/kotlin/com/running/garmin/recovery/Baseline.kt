@@ -11,6 +11,30 @@ object RecoveryAlgorithm {
 
 enum class DeviationBand { WITHIN, DEVIATING, STRONG }
 
+/**
+ * Every period the recovery analysis uses. Defaults are the documented ones; the page lets the user change them.
+ * Minimum counts scale with the window (70 % of the days, as [Baseline.minimumCount]).
+ */
+data class RecoveryWindows(
+    /** Own norm: median of the N days before the day. */
+    val normDays: Int = Baseline.PRIMARY_WINDOW,
+    /** Trend: median of the last N days ... */
+    val trendRecentDays: Int = Trend.RECENT_DAYS,
+    /** ... against the N days before those. */
+    val trendBaselineDays: Int = Trend.BASELINE_DAYS,
+    val debtNights: Int = SleepAnalysis.DEBT_DAYS,
+    val regularityNights: Int = SleepAnalysis.REGULARITY_DAYS,
+    val chartDays: Int = RecoveryAnalyzer.CHART_DAYS,
+    val tableDays: Int = RecoveryAnalyzer.RECENT_DAYS,
+) {
+    /** Days of stored rows needed before the shown day. */
+    val historyDays: Int get() = maxOf(RecoveryAnalyzer.HISTORY_DAYS, chartDays + normDays, trendRecentDays + trendBaselineDays, trendRecentDays + normDays, tableDays + normDays)
+
+    companion object {
+        val DEFAULT = RecoveryWindows()
+    }
+}
+
 enum class BaselineStatus { OK, INSUFFICIENT }
 
 /**
@@ -103,28 +127,32 @@ object Trend {
     const val BASELINE_DAYS = 60
     const val SUSTAINED_MIN = 5
 
-    fun evaluate(series: Map<LocalDate, Double>, date: LocalDate): TrendResult {
-        val recent = (0 until RECENT_DAYS).mapNotNull { series[date.minusDays(it.toLong())] }
-        val baselineEnd = date.minusDays(RECENT_DAYS.toLong())
-        val baseline = (0 until BASELINE_DAYS).mapNotNull { series[baselineEnd.minusDays(it.toLong())] }
-        val baselineNeeded = Baseline.minimumCount(BASELINE_DAYS)
-        val ok = recent.size >= RECENT_MIN && baseline.size >= baselineNeeded
-        val recentMedian = if (recent.size >= RECENT_MIN) Baseline.median(recent) else null
+    fun evaluate(series: Map<LocalDate, Double>, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): TrendResult {
+        val recentDays = w.trendRecentDays
+        // 5 of 7 for the defaults; scales with the chosen window.
+        val recentMin = Baseline.minimumCount(recentDays)
+        val recent = (0 until recentDays).mapNotNull { series[date.minusDays(it.toLong())] }
+        val baselineEnd = date.minusDays(recentDays.toLong())
+        val baseline = (0 until w.trendBaselineDays).mapNotNull { series[baselineEnd.minusDays(it.toLong())] }
+        val baselineNeeded = Baseline.minimumCount(w.trendBaselineDays)
+        val ok = recent.size >= recentMin && baseline.size >= baselineNeeded
+        val recentMedian = if (recent.size >= recentMin) Baseline.median(recent) else null
         val baselineMedian = if (baseline.size >= baselineNeeded) Baseline.median(baseline) else null
         val baselineSd = baselineMedian?.let { Baseline.robustSd(baseline, it) }
         val deviation = if (ok) (recentMedian!! - baselineMedian!!) / baselineSd!! else null
 
-        val dailyDeviations = (0 until RECENT_DAYS).mapNotNull { i ->
+        val dailyDeviations = (0 until recentDays).mapNotNull { i ->
             val d = date.minusDays(i.toLong())
             val value = series[d] ?: return@mapNotNull null
-            Baseline.compute(series, d, Baseline.PRIMARY_WINDOW, value).deviation
+            Baseline.compute(series, d, w.normDays, value).deviation
         }
         val higher = dailyDeviations.count { it >= 1.0 }
         val lower = dailyDeviations.count { it <= -1.0 }
+        val sustainedMin = Baseline.minimumCount(recentDays)
         val sustained = when {
-            dailyDeviations.size < Trend.SUSTAINED_MIN -> SustainedDirection.INSUFFICIENT
-            higher >= SUSTAINED_MIN -> SustainedDirection.HIGHER
-            lower >= SUSTAINED_MIN -> SustainedDirection.LOWER
+            dailyDeviations.size < sustainedMin -> SustainedDirection.INSUFFICIENT
+            higher >= sustainedMin -> SustainedDirection.HIGHER
+            lower >= sustainedMin -> SustainedDirection.LOWER
             else -> SustainedDirection.NONE
         }
         return TrendResult(
@@ -145,9 +173,15 @@ data class MetricAnalysis(
 )
 
 object MetricAnalyzer {
-    fun analyze(series: Map<LocalDate, Double>, date: LocalDate, value: Double? = series[date], incomplete: Boolean = false): MetricAnalysis {
-        val windows = Baseline.WINDOWS.map { Baseline.compute(series, date, it, value) }
-        return MetricAnalysis(value, incomplete, windows, windows.first { it.windowDays == Baseline.PRIMARY_WINDOW }, Trend.evaluate(series, date))
+    fun analyze(
+        series: Map<LocalDate, Double>,
+        date: LocalDate,
+        value: Double? = series[date],
+        incomplete: Boolean = false,
+        w: RecoveryWindows = RecoveryWindows.DEFAULT,
+    ): MetricAnalysis {
+        val windows = (Baseline.WINDOWS + w.normDays).distinct().sorted().map { Baseline.compute(series, date, it, value) }
+        return MetricAnalysis(value, incomplete, windows, windows.first { it.windowDays == w.normDays }, Trend.evaluate(series, date, w))
     }
 }
 

@@ -1,7 +1,12 @@
 package com.running.frontend
 
+import com.running.analysis.PerfDates
+import com.running.analysis.RecoveryGlossary
 import com.running.analysis.RecoveryService
 import com.running.analysis.RecoveryText
+import com.running.analysis.RecoveryViewBuilder
+import com.running.analysis.RecoveryWindowSettings
+import org.springframework.web.util.UriComponentsBuilder
 import com.running.config.GarminProperties
 import com.running.garmin.adapter.GarminStartOutcome
 import com.running.garmin.adapter.GarminSyncCoordinator
@@ -43,48 +48,56 @@ class RecoveryController(
         model: Model,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate?,
         @RequestParam(required = false, defaultValue = "day") view: String,
+        @RequestParam params: Map<String, String>,
     ): String {
+        val w = RecoveryWindowSettings.from(params)
+        val changed = RecoveryWindowSettings.changed(w).mapValues { it.value.toString() }
         val (defaultDay, fellBack) = recoveryService.defaultDate()
         val day = date ?: defaultDay
         val kind = when (view) { "week" -> PeriodKind.WEEK; "month" -> PeriodKind.MONTH; else -> null }
         model.addAttribute("title", "Herstel")
-        model.addAttribute("viewMode", view.takeIf { it == "week" || it == "month" } ?: "day")
+        val viewMode = view.takeIf { it == "week" || it == "month" } ?: "day"
+        model.addAttribute("viewMode", viewMode)
         model.addAttribute("dateValue", day.toString())
+        fun url(v: String, d: String?, windows: Map<String, String> = changed): String {
+            val b = UriComponentsBuilder.fromPath("/recovery").queryParam("view", v)
+            d?.let { b.queryParam("date", it) }
+            windows.forEach { (k, x) -> b.queryParam(k, x) }
+            return b.encode().build().toUriString()
+        }
+        model.addAttribute("viewUrls", listOf("day" to "Dag", "week" to "Week", "month" to "Maand").map { (k, l) -> Triple(k, l, url(k, day.toString())) })
+        model.addAttribute("formAction", "/recovery")
+        model.addAttribute("wv", RecoveryWindowSettings.values(w))
+        model.addAttribute("spec", RecoveryWindowSettings.SPEC_BY_KEY)
+        model.addAttribute("keep", changed + mapOf("view" to viewMode, "date" to day.toString()))
+        model.addAttribute("windowKeep", changed)
+        model.addAttribute("windowsChanged", changed.isNotEmpty())
+        model.addAttribute("resetUrl", url(viewMode, day.toString(), emptyMap()))
+        model.addAttribute("rw", w)
         model.addAttribute("syncLine", syncLine())
         model.addAttribute("syncRunning", coordinator.isRunning)
         model.addAttribute("syncPossible", properties.enabled && properties.configured && !coordinator.isRunning)
-        model.addAttribute("fellBackNote", if (date == null && fellBack) "Voor vandaag zijn er nog geen Garmin-gegevens (de synchronisatie liep nog niet). Toont de laatste dag met data: $day." else null)
+        model.addAttribute("fellBackNote", if (date == null && fellBack) "Voor vandaag zijn er nog geen Garmin-gegevens (de synchronisatie liep nog niet). Je ziet de laatste dag met data: ${PerfDates.dayLong(day)}." else null)
         model.addAttribute("legend", RecoveryText.ESTIMATE_LEGEND)
         model.addAttribute("safety", RecoveryText.SAFETY)
+        model.addAttribute("g", RecoveryGlossary.terms)
+        model.addAttribute("glossary", RecoveryGlossary.all)
 
         if (kind != null) {
-            val period = recoveryService.periodReport(kind, day)
+            val period = recoveryService.periodReport(kind, day, w)
             model.addAttribute("period", RecoveryText.periodPage(period, properties.recovery.sleepTargetMinutes))
-            model.addAttribute("legend", RecoveryText.ESTIMATE_LEGEND)
-            model.addAttribute("pLabels", period.days.map { it.date.toString() })
-            model.addAttribute("pHrv", period.days.map { it.hrv })
-            model.addAttribute("pRhr", period.days.map { it.restingHr })
-            model.addAttribute("pSleep", period.days.map { d -> d.sleepMinutes?.let { it / 60.0 } })
-            model.addAttribute("pWake", period.days.map { it.bodyBatteryWake })
-            fun median(kind: com.running.garmin.recovery.PeriodMetricKind) = period.metrics.first { it.kind == kind }.median
-            model.addAttribute("pHrvMedian", median(com.running.garmin.recovery.PeriodMetricKind.HRV))
-            model.addAttribute("pRhrMedian", median(com.running.garmin.recovery.PeriodMetricKind.RESTING_HR))
-            model.addAttribute("pSleepMedian", median(com.running.garmin.recovery.PeriodMetricKind.SLEEP_DURATION)?.let { it / 60.0 })
-            model.addAttribute("pWakeMedian", median(com.running.garmin.recovery.PeriodMetricKind.BODY_BATTERY_WAKE))
-            model.addAttribute("pSleepTarget", properties.recovery.sleepTargetMinutes / 60.0)
+            model.addAttribute("v", RecoveryViewBuilder.period(period, properties.recovery.sleepTargetMinutes))
             val step = if (kind == PeriodKind.WEEK) period.from.minusWeeks(1) else period.from.minusMonths(1)
-            model.addAttribute("prevDate", step.toString())
-            model.addAttribute("nextDate", period.fullPeriodEnd.plusDays(1).takeIf { !it.isAfter(recoveryService.today()) }?.toString())
+            model.addAttribute("prevUrl", url(viewMode, step.toString()))
+            model.addAttribute("nextUrl", period.fullPeriodEnd.plusDays(1).takeIf { !it.isAfter(recoveryService.today()) }?.let { url(viewMode, it.toString()) })
             return "recovery"
         }
 
-        val report = recoveryService.report(day)
+        val report = recoveryService.report(day, w)
         model.addAttribute("page", RecoveryText.page(report, properties.recovery.sleepTargetMinutes))
-        model.addAttribute("hrvChart", report.hrvSeries.map { it.value })
-        model.addAttribute("hrvChartLabels", report.hrvSeries.map { it.date.toString() })
-        model.addAttribute("hrvMedian", report.hrv.metric.primary.median)
-        model.addAttribute("rhrChart", report.restingHrSeries.map { it.value })
-        model.addAttribute("rhrMedian", report.restingHr.metric?.primary?.median)
+        model.addAttribute("v", RecoveryViewBuilder.day(report, properties.recovery.sleepTargetMinutes))
+        model.addAttribute("prevUrl", url(viewMode, day.minusDays(1).toString()))
+        model.addAttribute("nextUrl", day.plusDays(1).takeIf { !it.isAfter(recoveryService.today()) }?.let { url(viewMode, it.toString()) })
         return "recovery"
     }
 

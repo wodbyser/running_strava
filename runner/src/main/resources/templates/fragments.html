@@ -4,7 +4,7 @@
 
 <!--/* Period inputs for one section of the performance page. keys = list of PerformanceWindows keys, anchor = section id.
        Uses the model attributes spec, wv and keep (the user's other choices, sent along as hidden fields). */-->
-<form th:fragment="windowForm(keys, anchor)" method="get" th:action="'/performance#' + ${anchor}" class="window-form" aria-label="Periode kiezen">
+<form th:fragment="windowForm(keys, anchor)" method="get" th:action="${formAction ?: '/performance'} + '#' + ${anchor}" class="window-form" aria-label="Periode kiezen">
     <th:block th:each="e : ${keep}"><input type="hidden" th:unless="${keys.contains(e.key)}" th:name="${e.key}" th:value="${e.value}"></th:block>
     <span class="filter-group" th:each="k : ${keys}">
         <label th:for="'w-' + ${k}" th:text="${spec.get(k).label}">Periode</label>
@@ -23,7 +23,7 @@
     <div class="help-panel" role="note">
         <strong th:text="${term.title}">Begrip</strong>
         <span th:text="${term.text}">Uitleg</span>
-        <a th:href="'/performance#term-' + ${term.key}">Alle begrippen</a>
+        <a th:href="${term.page} + '#term-' + ${term.key}">Alle begrippen</a>
     </div>
 </details>
 

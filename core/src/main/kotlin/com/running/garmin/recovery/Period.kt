@@ -50,6 +50,9 @@ data class PeriodReport(
     val sleepDebt: PeriodSleepDebt,
     val readiness: Readiness,
     val days: List<PeriodDay>,
+    /** The days of the period with their rolling own norm, for charts. */
+    val daily: DailySeries = DailySeries.EMPTY,
+    val windows: RecoveryWindows = RecoveryWindows.DEFAULT,
 )
 
 /** Week view (Monday to Sunday) and month view (calendar month) over the stored rows. Computed on demand. */
@@ -66,7 +69,14 @@ object PeriodAnalysis {
         PeriodKind.MONTH -> from.minusMonths(1)
     }
 
-    fun analyze(inputs: RecoveryInputs, kind: PeriodKind, date: LocalDate, today: LocalDate, sleepTargetMinutes: Int): PeriodReport {
+    fun analyze(
+        inputs: RecoveryInputs,
+        kind: PeriodKind,
+        date: LocalDate,
+        today: LocalDate,
+        sleepTargetMinutes: Int,
+        w: RecoveryWindows = RecoveryWindows.DEFAULT,
+    ): PeriodReport {
         val (from, fullEnd) = bounds(kind, date)
         val to = minOf(fullEnd, today)
         val elapsed = (ChronoUnit.DAYS.between(from, to) + 1).toInt().coerceAtLeast(1)
@@ -122,7 +132,7 @@ object PeriodAnalysis {
         // Readiness of the period: the period median against the 28 days before the period, same bands as the day view.
         fun comp(kind: ReadinessKind, pk: PeriodMetricKind, series: Map<LocalDate, Double>): ReadinessComponent {
             val value = metrics.first { it.kind == pk }.median
-            val b = Baseline.fromValues(Baseline.windowBefore(series, from, Baseline.PRIMARY_WINDOW), Baseline.PRIMARY_WINDOW, Baseline.minimumCount(Baseline.PRIMARY_WINDOW), value)
+            val b = Baseline.fromValues(Baseline.windowBefore(series, from, w.normDays), w.normDays, Baseline.minimumCount(w.normDays), value)
             return ReadinessComponent(kind, b.status == BaselineStatus.OK && b.deviation != null, value, b.median, b.deviation, b.band, b.n)
         }
         val readiness = ReadinessAnalysis.fromComponents(
@@ -135,6 +145,8 @@ object PeriodAnalysis {
 
         return PeriodReport(
             RecoveryAlgorithm.VERSION, kind, from, to, fullEnd, elapsed, to.isBefore(fullEnd), prevFrom, prevTo, metrics, debt, readiness, days,
+            DailyNorms.series(inputs, from, to, today, w.normDays),
+            w,
         )
     }
 }

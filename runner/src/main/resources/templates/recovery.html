@@ -4,7 +4,7 @@
     <div class="page-head">
         <div>
             <h1>Herstel</h1>
-            <p>Je eigen normen voor HRV, rusthartslag, slaap, Body Battery en stress, uit je Garmin-data. Afwijkingen worden in beide richtingen gemeld, zonder oordeel.</p>
+            <p>Hoe staat je lichaam er vandaag voor, vergeleken met wat normaal is voor jou? HRV, rusthartslag, slaap, Body Battery en stress uit je Garmin-data, zonder oordeel.</p>
         </div>
         <div class="sync-bar">
             <form method="post" action="/recovery/garmin-update">
@@ -19,149 +19,209 @@
     <div class="filter-bar">
         <div class="filter-row">
             <nav class="actions" aria-label="Weergave">
-                <a class="btn btn-sm" th:classappend="${viewMode == 'day'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='day',date=${dateValue})}">Dag</a>
-                <a class="btn btn-sm" th:classappend="${viewMode == 'week'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='week',date=${dateValue})}">Week</a>
-                <a class="btn btn-sm" th:classappend="${viewMode == 'month'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/recovery(view='month',date=${dateValue})}">Maand</a>
+                <a class="btn btn-sm" th:each="vu : ${viewUrls}" th:classappend="${viewMode == vu.first} ? 'btn-primary' : 'btn-secondary'" th:href="${vu.third}" th:text="${vu.second}">Dag</a>
             </nav>
             <form method="get" class="inline-form" aria-label="Dag kiezen">
                 <input type="hidden" name="view" th:value="${viewMode}">
+                <input type="hidden" th:each="e : ${windowKeep}" th:name="${e.key}" th:value="${e.value}">
                 <span class="filter-group">
                     <label for="date">Dag</label>
                     <input type="date" id="date" name="date" th:value="${dateValue}">
                 </span>
                 <button type="submit" class="btn btn-secondary btn-sm">Toon</button>
             </form>
-            <span class="actions" th:if="${period != null}">
-                <a class="btn btn-ghost btn-sm" th:href="@{/recovery(view=${viewMode},date=${prevDate})}">&larr; Vorige</a>
-                <a class="btn btn-ghost btn-sm" th:if="${nextDate != null}" th:href="@{/recovery(view=${viewMode},date=${nextDate})}">Volgende &rarr;</a>
+            <span class="actions">
+                <a class="btn btn-ghost btn-sm" th:href="${prevUrl}" th:text="${viewMode == 'day'} ? '← Vorige dag' : (${viewMode == 'week'} ? '← Vorige week' : '← Vorige maand')">&larr; Vorige</a>
+                <a class="btn btn-ghost btn-sm" th:if="${nextUrl != null}" th:href="${nextUrl}" th:text="${viewMode == 'day'} ? 'Volgende dag →' : (${viewMode == 'week'} ? 'Volgende week →' : 'Volgende maand →')">Volgende &rarr;</a>
             </span>
+        </div>
+        <div class="filter-row filter-row--norm">
+            <th:block th:replace="~{fragments :: windowForm(${ {'norm'} }, 'main')}"/>
+            <span class="field-hint">Bepaalt wat "normaal voor jou" is: in de conclusie, de kaarten, de groene band in de grafieken en de kleuren in de tabel.</span>
         </div>
     </div>
 
     <p class="callout mb-2" th:if="${fellBackNote != null}" th:text="${fellBackNote}">-</p>
     <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
+    <!--/* ============================== week and month ============================== */-->
     <th:block th:if="${period != null}">
         <th:block th:replace="~{fragments :: recoveryHero(${period.hero}, ${legend})}"/>
-        <h2 class="mb-2">Details</h2>
+
         <section class="card" aria-labelledby="h-period">
-            <h2 id="h-period" th:text="${period.title}">Week</h2>
-            <p class="note" th:text="${period.subtitle}">-</p>
-            <p class="note" th:each="n : ${period.notes}" th:text="${n}">-</p>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr><th>Meting</th><th>Periode</th><th>Bereik en aantal</th><th>Tegenover vorige periode</th><th>Soort</th></tr></thead>
-                    <tbody>
-                    <tr th:each="row : ${period.rows}">
-                        <th scope="row" th:text="${row.label}">-</th>
-                        <td class="nowrap" th:text="${row.value}">-</td>
-                        <td th:text="${row.reference}">-</td>
-                        <td th:text="${row.deviation}">-</td>
-                        <td><span class="badge" th:classappend="${row.tag.css}" th:text="${row.tag.text}">-</span></td>
-                    </tr>
-                    </tbody>
-                </table>
+            <h2 id="h-period" th:text="${v.periodTitle}">Week</h2>
+            <p class="lead" th:text="${v.periodSub}">-</p>
+            <div class="stat-grid">
+                <div class="stat" th:each="t : ${v.tiles}" th:classappend="${!t.available} ? 'stat-empty'">
+                    <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
+                    <span class="value" th:text="${t.value}">-</span>
+                    <span class="stat-sub" th:text="${t.range}">-</span>
+                    <span class="stat-sub stat-change" th:if="${t.change != ''}"><strong th:text="${t.arrow}" th:if="${t.arrow != ''}">→</strong> <span th:text="${t.change}">-</span></span>
+                </div>
             </div>
+            <p class="note-xs mt-2">Een verschil met de vorige periode is geen oordeel: hoger of lager zegt op zich niets over je herstel.</p>
         </section>
+
         <section class="card" aria-labelledby="h-pcharts">
-            <h2 id="h-pcharts">Verloop</h2>
-            <div class="chart-box"><canvas id="pHrvChart" role="img" aria-label="HRV nachtgemiddelde per dag"></canvas></div>
-            <div class="chart-box mt-2"><canvas id="pRhrChart" role="img" aria-label="Rusthartslag per dag"></canvas></div>
-            <div class="chart-box mt-2"><canvas id="pSleepChart" role="img" aria-label="Slaapduur per dag, met je doel"></canvas></div>
-            <div class="chart-box mt-2"><canvas id="pWakeChart" role="img" aria-label="Body Battery bij ontwaken per dag"></canvas></div>
-            <p class="note-xs mt-2">Doorlopende lijn = gemeten waarde, gestreepte lijn = mediaan van de periode (berekend), stippellijn bij slaap = je doel.</p>
+            <h2 id="h-pcharts">Verloop per dag</h2>
+            <th:block th:replace="~{recovery :: chartGrid}"/>
         </section>
+
         <section class="card" aria-labelledby="h-days">
             <h2 id="h-days">Per dag</h2>
-            <div class="table-wrap">
-                <table>
-                    <thead><tr><th th:each="h : ${period.dayHeaders}" th:text="${h}">-</th></tr></thead>
-                    <tbody>
-                    <tr th:each="r : ${period.dayRows}"><td th:each="c : ${r}" th:text="${c}">-</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <th:block th:replace="~{recovery :: dayTable}"/>
         </section>
     </th:block>
 
+    <!--/* ============================== day ============================== */-->
     <th:block th:if="${period == null}">
-    <th:block th:replace="~{fragments :: recoveryHero(${page.hero}, ${legend})}"/>
+        <th:block th:replace="~{fragments :: recoveryHero(${page.hero}, ${legend})}"/>
 
-    <h2 class="mb-2">Details</h2>
+        <section class="card" aria-labelledby="h-chart">
+            <h2 id="h-chart" th:text="'Verloop van de laatste ' + ${rw.chartDays} + ' dagen'">Verloop van de laatste 60 dagen</h2>
+            <th:block th:replace="~{fragments :: windowForm(${ {'chart'} }, 'h-chart')}"/>
+            <th:block th:fragment="chartGrid">
+                <div class="chart-grid">
+                    <figure class="mini-chart"><figcaption>HRV <span class="unit">ms</span> <th:block th:replace="~{fragments :: help(${g['hrv']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cHrv" role="img" aria-label="HRV per nacht met je eigen norm als band"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>Rusthartslag <span class="unit">bpm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRhr" role="img" aria-label="Rusthartslag per dag met je eigen norm als band"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>Slaap <span class="unit">uren per nacht</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cSleep" role="img" aria-label="Slaapduur per nacht met je eigen norm en je doel"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>Body Battery bij ontwaken <th:block th:replace="~{fragments :: help(${g['body-battery']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cBb" role="img" aria-label="Body Battery bij ontwaken per dag met je eigen norm als band"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>Stress <span class="unit">daggemiddelde</span> <th:block th:replace="~{fragments :: help(${g['stress']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cStress" role="img" aria-label="Gemiddeld stressniveau per dag met je eigen norm als band"></canvas></div></figure>
+                </div>
+                <div class="legend">
+                    <span><span class="legend-band"></span>Eigen norm op die dag <th:block th:replace="~{fragments :: help(${g['eigen-norm']})}"/></span>
+                    <span><span class="legend-dot dot-ok"></span>binnen je norm</span>
+                    <span><span class="legend-dot dot-warn"></span>afwijkend</span>
+                    <span><span class="legend-dot dot-alert"></span>sterk afwijkend</span>
+                    <span><span class="legend-line"></span>slaapdoel</span>
+                </div>
+            </th:block>
+        </section>
 
-    <section class="card" th:each="sec : ${page.sections}" th:unless="${sec.id == 'readiness'}" th:attr="aria-labelledby='h-' + ${sec.id}">
-        <h2 th:id="'h-' + ${sec.id}" th:text="${sec.title}">Titel</h2>
-        <p class="note" th:each="n : ${sec.notes}" th:text="${n}">-</p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr><th>Meting</th><th>Waarde</th><th>Eigen norm</th><th>Afwijking</th><th>Soort</th></tr>
-                </thead>
-                <tbody>
-                <tr th:each="row : ${sec.rows}">
-                    <th scope="row" th:text="${row.label}">-</th>
-                    <td class="nowrap" th:text="${row.value}">-</td>
-                    <td th:text="${row.reference}">-</td>
-                    <td th:text="${row.deviation}">-</td>
-                    <td><span class="badge" th:classappend="${row.tag.css}" th:text="${row.tag.text}">-</span></td>
-                </tr>
-                </tbody>
-            </table>
+        <h2 class="mb-2 sub-head" id="per-meting">Per meting</h2>
+        <th:block th:replace="~{fragments :: windowForm(${ {'trend', 'trendBase', 'debt', 'reg'} }, 'per-meting')}"/>
+        <div class="metric-cards">
+            <article class="rcard" th:each="c : ${v.cards}" th:id="'m-' + ${c.id}" th:classappend="${c.pill != null} ? ${c.pill.tone.css} : 'tone-none'">
+                <header class="rcard-head">
+                    <h3><span th:text="${c.title}">HRV</span><th:block th:replace="~{fragments :: help(${c.tip == null ? null : g[c.tip]})}"/></h3>
+                    <span class="badge" th:classappend="${c.kind.css}" th:title="${c.kind.help}" th:text="${c.kind.text}">gemeten</span>
+                </header>
+                <div class="rcard-main">
+                    <span class="rcard-value" th:text="${c.value}">69 ms</span>
+                    <span class="pill" th:if="${c.pill != null}" th:classappend="${c.pill.tone.css}" th:text="${c.pill.text}">binnen je eigen norm</span>
+                </div>
+                <div class="rcard-norm" th:if="${c.norm != null}"><span th:text="${c.norm}">-</span><th:block th:if="${#strings.contains(c.norm, 'SD')}"><th:block th:replace="~{fragments :: help(${g['sd']})}"/></th:block></div>
+
+                <div class="stage-wrap" th:if="${!c.stages.isEmpty()}">
+                    <div class="stage-bar" role="img" aria-label="Verdeling van de nacht over de slaapfasen; zie de legende">
+                        <span th:each="st : ${c.stages}" th:class="${st.css}" th:style="'flex:' + ${#numbers.formatDecimal(st.pct, 1, 'POINT', 2, 'POINT')}" th:title="${st.label} + ' ' + ${#numbers.formatDecimal(st.pct, 1, 0)} + ' %'"></span>
+                    </div>
+                    <div class="stage-legend"><span th:each="st : ${c.stages}"><span class="legend-dot" th:classappend="${st.css}"></span><span th:text="${st.label} + ' ' + ${#numbers.formatDecimal(st.pct, 1, 0)} + ' %'">Diep</span></span></div>
+                </div>
+
+                <div class="night-bars" th:if="${!c.nights.isEmpty()}" role="img" aria-label="Slaap van de laatste 7 nachten tegenover je doel; oranje = korter dan je doel">
+                    <div class="night-plot">
+                        <span class="night-target" th:style="'bottom:' + ${c.nightsTarget} + '%'" title="je slaapdoel"></span>
+                        <span class="night-bar" th:each="nb : ${c.nights}" th:classappend="${nb.below} ? 'is-below'" th:style="'height:' + ${nb.heightPct} + '%'" th:title="${nb.label} + ': ' + ${nb.text}"></span>
+                    </div>
+                    <div class="night-labels"><span th:each="nb : ${c.nights}" th:text="${nb.label.substring(0, 2)}">ma</span></div>
+                </div>
+
+                <div class="battery" th:if="${c.battery != null}">
+                    <div class="battery-track" role="img" th:attr="aria-label='Body Battery vandaag van ' + ${c.battery.min} + ' tot ' + ${c.battery.max}">
+                        <span class="battery-fill" th:style="'left:' + ${c.battery.min} + '%;width:' + ${c.battery.max - c.battery.min} + '%'"></span>
+                    </div>
+                    <div class="battery-axis"><span>0</span><span th:text="'die dag van ' + ${c.battery.min} + ' tot ' + ${c.battery.max}">-</span><span>100</span></div>
+                </div>
+
+                <p class="rcard-trend" th:if="${c.trend != null}" th:text="${c.trend}">-</p>
+                <dl class="facts facts-sm" th:if="${!c.facts.isEmpty()}">
+                    <div th:each="f : ${c.facts}"><dt th:text="${f.first}">-</dt><dd th:text="${f.second}">-</dd></div>
+                </dl>
+                <details class="more" th:if="${!c.norms.isEmpty()}">
+                    <summary>Eigen norm over andere periodes</summary>
+                    <p class="chips"><span class="chip" th:each="nm : ${c.norms}" th:text="${nm}">7 dagen</span></p>
+                </details>
+                <p class="note-xs" th:if="${c.note != null}" th:text="${c.note}">-</p>
+            </article>
         </div>
-    </section>
 
-    <section class="card" aria-labelledby="h-chart">
-        <h2 id="h-chart">Laatste 60 dagen</h2>
-        <div class="chart-box"><canvas id="hrvChart" role="img" aria-label="HRV nachtgemiddelde, laatste 60 dagen"></canvas></div>
-        <div class="chart-box mt-2"><canvas id="rhrChart" role="img" aria-label="Rusthartslag, laatste 60 dagen"></canvas></div>
-        <p class="note-xs mt-2">Doorlopende lijn = gemeten waarde, gestreepte lijn = 28-daagse mediaan (berekend).</p>
-    </section>
-
-    <section class="card" aria-labelledby="h-recent">
-        <h2 id="h-recent">Laatste 7 dagen</h2>
-        <ul>
-            <li th:each="line : ${page.recentNights}" th:text="${line}">-</li>
-        </ul>
-    </section>
-
+        <section class="card mt-2" aria-labelledby="h-recent">
+            <h2 id="h-recent" th:text="'Laatste ' + ${rw.tableDays} + ' dagen'">Laatste 7 dagen</h2>
+            <th:block th:replace="~{fragments :: windowForm(${ {'table'} }, 'h-recent')}"/>
+            <th:block th:fragment="dayTable">
+                <div class="table-wrap"><table class="day-table">
+                    <thead><tr><th th:each="h, hs : ${v.dayHeaders}" th:classappend="${hs.index > 0} ? 'num'" th:text="${h}">-</th></tr></thead>
+                    <tbody>
+                    <tr th:each="row : ${v.dayRows}">
+                        <th scope="row" class="nowrap" th:text="${row.date}">-</th>
+                        <td class="num" th:each="cl : ${row.cells}" th:classappend="${cl.css}" th:text="${cl.text}">-</td>
+                    </tr>
+                    </tbody>
+                </table></div>
+                <p class="note-xs mt-2">Gekleurd vak = anders dan je eigen norm van die dag: oranje afwijkend, rood sterk afwijkend. Hoger of lager is op zich geen goed of slecht teken.</p>
+            </th:block>
+        </section>
     </th:block>
 
-    <script th:inline="javascript" th:if="${period != null}">
-        (function () {
-            if (!window.Chart) return;
-            var labels = /*[[${pLabels}]]*/ [];
-            function draw(id, data, median, label, unit, target) {
-                var el = document.getElementById(id);
-                if (!el) return;
-                var ds = [{ label: label, data: data, borderColor: RC.s1, backgroundColor: RC.s1, spanGaps: false, pointRadius: 3, borderWidth: 2, tension: 0 }];
-                if (median !== null) ds.push({ label: 'Mediaan periode', data: labels.map(function () { return median; }), borderColor: RC.s2, borderDash: [6, 4], pointRadius: 0, borderWidth: 2 });
-                if (target !== null && target !== undefined) ds.push({ label: 'Doel', data: labels.map(function () { return target; }), borderColor: RC.accent, borderDash: [2, 3], pointRadius: 0, borderWidth: 2 });
-                new Chart(el, { type: 'line', data: { labels: labels, datasets: ds },
-                    options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 10, callback: function (v) { var l = this.getLabelForValue(v); return l.slice(8) + '/' + l.slice(5, 7); } } }, y: { title: RC.axisTitle(unit) } } } });
-            }
-            draw('pHrvChart', /*[[${pHrv}]]*/ [], /*[[${pHrvMedian}]]*/ null, 'HRV nachtgemiddelde', 'HRV (ms)', null);
-            draw('pRhrChart', /*[[${pRhr}]]*/ [], /*[[${pRhrMedian}]]*/ null, 'Rusthartslag', 'Rusthartslag (bpm)', null);
-            draw('pSleepChart', /*[[${pSleep}]]*/ [], /*[[${pSleepMedian}]]*/ null, 'Slaapduur', 'Slaap (uur)', /*[[${pSleepTarget}]]*/ null);
-            draw('pWakeChart', /*[[${pWake}]]*/ [], /*[[${pWakeMedian}]]*/ null, 'Body Battery bij ontwaken', 'Body Battery', null);
-        })();
-    </script>
+    <details class="explain card" id="begrippen">
+        <summary>Begrippen op deze pagina</summary>
+        <div>
+            <dl class="glossary">
+                <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+            </dl>
+        </div>
+    </details>
 
-    <script th:inline="javascript" th:if="${period == null}">
+    <script th:inline="javascript">
         (function () {
             if (!window.Chart) return;
-            var labels = /*[[${hrvChartLabels}]]*/ [];
-            function draw(id, data, median, label, unit) {
-                var el = document.getElementById(id);
-                if (!el) return;
-                var datasets = [{ label: label, data: data, borderColor: RC.s1, backgroundColor: RC.s1, spanGaps: false, pointRadius: 2, borderWidth: 2, tension: 0 }];
-                if (median !== null) {
-                    datasets.push({ label: '28-daagse mediaan', data: labels.map(function () { return median; }), borderColor: RC.s2, borderDash: [6, 4], pointRadius: 0, borderWidth: 2 });
-                }
-                new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets },
-                    options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 8, callback: function (v) { return RC.monthYear(this.getLabelForValue(v)); } } }, y: { title: RC.axisTitle(unit) } } } });
+            var C = /*[[${v.charts}]]*/ {};
+            if (!C || !C.labels) return;
+            var OK = '#2f8f5b', WARN = '#d99a1c', ALERT = '#c2410c', NONE = '#5b6875';
+            function hm(h) { var m = Math.round(h * 60); return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+            function color(s, i) {
+                var v = s.values[i], lo = s.low[i], hi = s.high[i];
+                if (v === null || lo === null || hi === null) return NONE;
+                var sd = (hi - lo) / 2, d = Math.abs(v - (hi + lo) / 2) / (sd || 1);
+                return d < 1 ? OK : d < 2 ? WARN : ALERT;
             }
-            draw('hrvChart', /*[[${hrvChart}]]*/ [], /*[[${hrvMedian}]]*/ null, 'HRV nachtgemiddelde', 'HRV (ms)');
-            draw('rhrChart', /*[[${rhrChart}]]*/ [], /*[[${rhrMedian}]]*/ null, 'Rusthartslag', 'Rusthartslag (bpm)');
+            function draw(id, s, opts) {
+                var el = document.getElementById(id);
+                if (!el || !s) return;
+                opts = opts || {};
+                var n = s.values.length, last = n - 1;
+                var fmt = opts.fmt || function (v) { return Math.round(v * 10) / 10; };
+                var cols = s.values.map(function (_, i) { return color(s, i); });
+                var radius = s.values.map(function (v, i) { return v === null ? 0 : (C.highlight && i === last ? 6 : (n > 40 ? 2.5 : 4)); });
+                var ds = [
+                    { label: 'low', data: s.low, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: false, spanGaps: true },
+                    { label: 'Eigen norm', data: s.high, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: '-1', backgroundColor: 'rgba(47,143,91,0.14)', spanGaps: true },
+                ];
+                if (opts.bars) {
+                    ds.push({ type: 'bar', label: opts.label, data: s.values, backgroundColor: cols.map(function (c) { return c + 'cc'; }), borderRadius: 2, order: 1 });
+                } else {
+                    ds.push({ label: opts.label, data: s.values, borderColor: '#33414e', borderWidth: 1.5, pointBackgroundColor: cols, pointBorderColor: cols, pointRadius: radius, tension: 0, spanGaps: false });
+                }
+                if (opts.target != null) ds.push({ label: 'Slaapdoel', data: s.values.map(function () { return opts.target; }), borderColor: '#0e6655', borderDash: [2, 3], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 });
+                new Chart(el, { type: 'line', data: { labels: C.labels, datasets: ds },
+                    options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                        plugins: { legend: { display: false }, tooltip: {
+                            filter: function (c) { return c.dataset.label !== 'low' && c.raw !== null; },
+                            callbacks: {
+                                title: function (items) { return items.length ? C.titles[items[0].dataIndex] : ''; },
+                                label: function (c) {
+                                    if (c.dataset.label === 'Eigen norm') { var lo = s.low[c.dataIndex]; return 'Eigen norm: ' + fmt(lo) + ' tot ' + fmt(c.raw); }
+                                    return c.dataset.label + ': ' + fmt(c.raw);
+                                } } } },
+                        scales: { x: { offset: !!opts.bars, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { ticks: { callback: function (v) { return opts.tick ? opts.tick(v) : v; } } } } } });
+            }
+            draw('cHrv', C.hrv, { label: 'HRV', fmt: function (v) { return Math.round(v) + ' ms'; } });
+            draw('cRhr', C.rhr, { label: 'Rusthartslag', fmt: function (v) { return Math.round(v) + ' bpm'; } });
+            draw('cSleep', C.sleep, { label: 'Slaap', bars: true, target: C.sleepTarget, fmt: function (v) { return hm(v) + ' u'; }, tick: function (v) { return hm(v); } });
+            draw('cBb', C.bb, { label: 'Body Battery', fmt: function (v) { return Math.round(v); } });
+            draw('cStress', C.stress, { label: 'Stress', fmt: function (v) { return Math.round(v); } });
         })();
     </script>
 </th:block>

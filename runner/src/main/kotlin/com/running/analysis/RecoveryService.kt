@@ -7,6 +7,7 @@ import com.running.garmin.recovery.PeriodReport
 import com.running.garmin.recovery.RecoveryAnalyzer
 import com.running.garmin.recovery.RecoveryInputs
 import com.running.garmin.recovery.RecoveryReport
+import com.running.garmin.recovery.RecoveryWindows
 import com.running.garmin.spi.GarminRepository
 import com.running.strava.db.StravaTokenRepositoryImpl
 import org.slf4j.LoggerFactory
@@ -57,20 +58,20 @@ class RecoveryService(
         version, view, i.hrv.size, i.sleep.size, i.restingHr.size, i.bodyBattery.size, i.bodyBatterySamples.size, i.stress.size,
     )
 
-    fun report(date: LocalDate? = null): RecoveryReport {
+    fun report(date: LocalDate? = null, w: RecoveryWindows = RecoveryWindows.DEFAULT): RecoveryReport {
         val today = today()
         val day = date ?: today
-        val inputs = load(day.minusDays(RecoveryAnalyzer.HISTORY_DAYS.toLong() + 1), day)
-        val report = RecoveryAnalyzer.analyze(inputs, day, today, properties.recovery.sleepTargetMinutes, ZONE)
+        val inputs = load(day.minusDays(w.historyDays.toLong() + 1), day)
+        val report = RecoveryAnalyzer.analyze(inputs, day, today, properties.recovery.sleepTargetMinutes, ZONE, w)
         logCounts(report.algorithmVersion, "day", inputs)
         return report
     }
 
-    fun periodReport(kind: PeriodKind, date: LocalDate): PeriodReport {
+    fun periodReport(kind: PeriodKind, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): PeriodReport {
         val today = today()
         val (from, to) = PeriodAnalysis.bounds(kind, date)
-        val inputs = load(minOf(PeriodAnalysis.previousStart(kind, from).minusDays(1), from.minusDays(30)), minOf(to, today))
-        val report = PeriodAnalysis.analyze(inputs, kind, date, today, properties.recovery.sleepTargetMinutes)
+        val inputs = load(minOf(PeriodAnalysis.previousStart(kind, from).minusDays(1), from.minusDays(w.normDays + 2L)), minOf(to, today))
+        val report = PeriodAnalysis.analyze(inputs, kind, date, today, properties.recovery.sleepTargetMinutes, w)
         logCounts(report.algorithmVersion, kind.name.lowercase(), inputs)
         return report
     }

@@ -1,7 +1,7 @@
 package com.running.analysis
 
 /** One explained term. Shown behind a "?" next to the term and in the full list at the bottom of the page. */
-data class Term(val key: String, val title: String, val text: String)
+data class Term(val key: String, val title: String, val text: String, val page: String = "/performance")
 
 /** Plain-language explanations for every term on the performance pages. */
 object PerformanceGlossary {
@@ -158,4 +158,45 @@ object PerformanceGlossary {
 
     val terms: Map<String, Term> = list.associateBy { it.key }
     val all: List<Term> = list.sortedBy { it.title.lowercase() }
+}
+
+/** The few terms on the Herstel page that really need an explanation. */
+object RecoveryGlossary {
+    private const val PAGE = "/recovery"
+    private val list = listOf(
+        Term(
+            "hrv", "HRV (hartslagvariabiliteit)",
+            "Hoeveel de tijd tussen twee hartslagen varieert, gemeten tijdens je slaap. Het is een heel persoonlijke waarde: vergelijk ze alleen met " +
+                "je eigen cijfers, niet met die van anderen. Een waarde die dagenlang onder je norm ligt, kan samengaan met vermoeidheid, ziekte, " +
+                "stress of alcohol, maar is op zich geen goed of slecht teken.", PAGE,
+        ),
+        Term(
+            "body-battery", "Body Battery",
+            "Een getal van 0 tot 100 waarmee Garmin je energievoorraad schat, uit je hartslag, HRV, stress en slaap. 's Nachts laadt het op, " +
+                "overdag loopt het leeg. Een schatting van Garmin, geen meting.", PAGE,
+        ),
+        Term(
+            "stress", "Stress (Garmin)",
+            "Garmin schat je stressniveau (0 tot 100) uit je hartslag en HRV op momenten dat je stilzit. Ook koffie, een training of ziek zijn " +
+                "verhogen het; het meet dus niet alleen mentale stress.", PAGE,
+        ),
+        Term(
+            "eigen-norm", "Eigen norm",
+            "Wat normaal is voor jou: de mediaan van je eigen waarden over de dagen vóór de getoonde dag (standaard 28, aan te passen bovenaan de pagina). De groene band in de grafieken toont " +
+                "dat normale bereik. Zo word je met jezelf vergeleken, niet met een tabel.", PAGE,
+        ),
+        Term(
+            "sd", "SD (afwijking)",
+            "Hoe ver een waarde van je eigen norm ligt, gemeten in je gewone schommeling van dag tot dag. 0 = precies je norm, onder 1 = binnen je " +
+                "norm, 1 tot 2 = afwijkend, vanaf 2 = sterk afwijkend. Eén uitschieter in je geschiedenis verandert deze maat nauwelijks.", PAGE,
+        ),
+        Term(
+            "slaaptekort", "Slaaptekort",
+            "Hoeveel je de laatste 7 nachten samen korter sliep dan je doel. Een lange nacht maakt een korte nacht niet goed; die som staat apart als " +
+                "netto saldo (alle nachten samen tegenover je doel).", PAGE,
+        ),
+    )
+
+    val terms: Map<String, Term> = list.associateBy { it.key }
+    val all: List<Term> = list
 }

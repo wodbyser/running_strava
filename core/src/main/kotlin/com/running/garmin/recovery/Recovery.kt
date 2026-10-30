@@ -101,6 +101,9 @@ data class RecoveryReport(
     val hrvSeries: List<DayValue>,
     val restingHrSeries: List<DayValue>,
     val recentNights: List<RecentNight>,
+    /** The last [RecoveryAnalyzer.CHART_DAYS] days of every metric with its rolling own norm, for charts. */
+    val daily: DailySeries = DailySeries.EMPTY,
+    val windows: RecoveryWindows = RecoveryWindows.DEFAULT,
 )
 
 data class RecentNight(val date: LocalDate, val hrv: Int?, val restingHr: Int?, val sleepMinutes: Int?)
@@ -111,12 +114,19 @@ object RecoveryAnalyzer {
     /** Rows needed before D: the longest window. */
     const val HISTORY_DAYS = 90
 
-    fun analyze(inputs: RecoveryInputs, date: LocalDate, today: LocalDate, sleepTargetMinutes: Int, zone: ZoneId): RecoveryReport {
-        val hrv = HrvAnalysis.analyze(inputs.hrv, date)
-        val rhr = RestingHrAnalysis.analyze(inputs.restingHr, inputs.manualRestingHr, date)
-        val sleep = SleepAnalysis.quality(inputs.sleep, date, zone)
-        val battery = BodyBatteryAnalysis.analyze(inputs.bodyBattery, inputs.bodyBatterySamples, inputs.sleep, date, today)
-        val debt = SleepAnalysis.debt(inputs.sleep, date, sleepTargetMinutes)
+    fun analyze(
+        inputs: RecoveryInputs,
+        date: LocalDate,
+        today: LocalDate,
+        sleepTargetMinutes: Int,
+        zone: ZoneId,
+        w: RecoveryWindows = RecoveryWindows.DEFAULT,
+    ): RecoveryReport {
+        val hrv = HrvAnalysis.analyze(inputs.hrv, date, w)
+        val rhr = RestingHrAnalysis.analyze(inputs.restingHr, inputs.manualRestingHr, date, w)
+        val sleep = SleepAnalysis.quality(inputs.sleep, date, zone, w)
+        val battery = BodyBatteryAnalysis.analyze(inputs.bodyBattery, inputs.bodyBatterySamples, inputs.sleep, date, today, w)
+        val debt = SleepAnalysis.debt(inputs.sleep, date, sleepTargetMinutes, w)
         val hrvByDate = inputs.hrv.associateBy { it.calendarDate }
         val rhrByDate = inputs.restingHr.associateBy { it.calendarDate }
         val sleepByDate = inputs.sleep.associateBy { it.calendarDate }
@@ -124,11 +134,13 @@ object RecoveryAnalyzer {
         return RecoveryReport(
             RecoveryAlgorithm.VERSION, date, date == today, hrv, rhr, sleep,
             debt, battery,
-            StressAnalysis.analyze(inputs.stress, date, today),
+            StressAnalysis.analyze(inputs.stress, date, today, w),
             ReadinessAnalysis.evaluate(hrv, rhr, sleep, battery, debt.target),
             span(CHART_DAYS).map { DayValue(it, hrvByDate[it]?.lastNightAvg?.toDouble()) },
             span(CHART_DAYS).map { DayValue(it, rhrByDate[it]?.restingHr?.toDouble()) },
             span(RECENT_DAYS).map { RecentNight(it, hrvByDate[it]?.lastNightAvg, rhrByDate[it]?.restingHr, sleepByDate[it]?.sleepTimeSeconds?.let { s -> s / 60 }) },
+            DailyNorms.series(inputs, date.minusDays(maxOf(w.chartDays, w.tableDays) - 1L), date, today, w.normDays),
+            w,
         )
     }
 }
