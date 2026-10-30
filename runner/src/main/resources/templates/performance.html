@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Prestaties</h1>
+            <p th:text="${intro}">-</p>
+        </div>
+    </div>
+
+    <div class="filter-bar">
+        <div class="filter-row">
+            <nav class="actions" aria-label="Zones">
+                <a class="btn btn-sm" th:classappend="${zonesParam == ''} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance}">Standaard zones</a>
+                <a class="btn btn-sm" th:classappend="${zonesParam == 'garmin'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='garmin')}">Garmin-zones</a>
+                <a class="btn btn-sm" th:classappend="${zonesParam == 'app'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='app')}">App-zones</a>
+            </nav>
+            <span class="note" th:text="'Algoritme ' + ${version}">-</span>
+        </div>
+    </div>
+
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+
+    <section class="card" th:each="sec : ${sections}" th:attr="aria-labelledby='h-' + ${sec.id}">
+        <h2 th:id="'h-' + ${sec.id}"><span th:text="${sec.title}">Titel</span> <span class="badge badge-calc" th:text="${sec.tag}">-</span></h2>
+        <p class="note" th:each="n : ${sec.notes}" th:text="${n}">-</p>
+        <div class="table-wrap" th:if="${!sec.rows.isEmpty()}">
+            <table>
+                <thead><tr><th th:each="h : ${sec.headers}" th:text="${h}">-</th></tr></thead>
+                <tbody>
+                <tr th:each="row, st : ${sec.rows}">
+                    <td th:each="c, cs : ${row}">
+                        <a th:if="${cs.index == 0 && sec.links.containsKey(st.index)}" th:href="@{/performance/run/{id}(id=${sec.links.get(st.index)})}" th:text="${c}">-</a>
+                        <span th:unless="${cs.index == 0 && sec.links.containsKey(st.index)}" th:text="${c}">-</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="chart-box mt-2" th:if="${sec.id == 'ef' && !efLabels.isEmpty()}"><canvas id="efChart" role="img" aria-label="Mediaan EF per maand per zonegroep"></canvas></div>
+        <div class="chart-box mt-2" th:if="${sec.id == 'zones' && !zoneLabels.isEmpty()}"><canvas id="zoneChart" role="img" aria-label="Minuten per hartslagzone per week"></canvas></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-recent">
+        <h2 id="h-recent">Recente runs</h2>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Datum</th><th>Naam</th><th>Type</th><th>Stabiel?</th><th>HR-dekking</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${recent}">
+                    <td><a th:href="@{/performance/run/{id}(id=${r.id})}" th:text="${r.date}">-</a></td>
+                    <td th:text="${r.name}">-</td>
+                    <td th:text="${r.sessionType}">-</td>
+                    <td th:text="${r.steadyFailure == null} ? 'ja' : ${r.steadyFailure.text}">-</td>
+                    <td th:text="${r.hasStream} ? ${#numbers.formatDecimal(r.coverage * 100, 1, 0)} + ' %' : '-'">-</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var ef = document.getElementById('efChart');
+            if (ef) {
+                var series = /*[[${efSeries}]]*/ [];
+                var colors = [RC.s1, RC.s2, RC.accent];
+                new Chart(ef, { type: 'line', data: { labels: /*[[${efLabels}]]*/ [], datasets: series.map(function (s, i) {
+                    return { label: s.label, data: s.data, borderColor: colors[i], backgroundColor: colors[i], spanGaps: false, pointRadius: 3, borderWidth: 2, tension: 0, borderDash: i === 1 ? [6, 4] : i === 2 ? [2, 3] : [] };
+                }) }, options: { maintainAspectRatio: false, scales: { y: { title: RC.axisTitle('EF (m per hartslag)') } },
+                    plugins: { tooltip: { callbacks: { afterLabel: function (c) { return 'runs: ' + series[c.datasetIndex].counts[c.dataIndex]; } } } } } });
+            }
+            var z = document.getElementById('zoneChart');
+            if (z) {
+                var d = /*[[${zoneSeries}]]*/ [];
+                var cols = ['#2f6db0', '#26764a', '#8a6500', '#c2410c', '#a8261b'];
+                new Chart(z, { type: 'bar', data: { labels: /*[[${zoneLabels}]]*/ [], datasets: d.map(function (v, i) { return { label: 'Zone ' + (i + 1), data: v, backgroundColor: cols[i] }; }) },
+                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Minuten') } } } });
+            }
+        })();
+    </script>
+</th:block>
+</html>

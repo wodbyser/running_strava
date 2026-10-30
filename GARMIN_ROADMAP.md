@@ -86,6 +86,8 @@ Backlog items: #16 to #19, #22, #24 to #30, #32, #46, and #40 (intensity distrib
 
 Needs Phase A approved. Every metric uses the corrected calculations.
 
+Note (2026-10-30): the owner added #21 (fitness trend model) to this phase in session; scope list above is unchanged by the agent. #20 stays out. See `docs/garmin-phase-3-design.md`.
+
 Work:
 1. Design doc `docs/garmin-phase-3-design.md`. Define "steady run", session types, and the minimum sample size per metric.
 2. Metrics with a formula, a sample-size rule, and a validation set. Show trends, not single-run verdicts, unless the sample is large enough.

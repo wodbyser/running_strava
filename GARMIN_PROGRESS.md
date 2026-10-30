@@ -7,11 +7,11 @@ Single source of truth for where the project stands. Every agent session reads t
 - Spec: `GARMIN_API.md`, `GARMIN_API_AGENT_REFERENCE.md`
 - Backlog status (81 items): `docs/garmin-feature-backlog-progress.md`
 
-**Last updated:** 2026-10-25 by: eighth session (Phase 2 built, AWAITING APPROVAL)
+**Last updated:** 2026-10-30 by: tenth session (Phase 3 built, AWAITING APPROVAL)
 
 ## Next session starts here
 
-- **Next action:** owner reviews Phase 2 (`/recovery`, `docs/garmin-phase-2-design.md` sections 7 and 10) and sets the Phase 2 row to APPROVED or REJECTED. The agent may not set APPROVED. Phase 3 does not start before that.
+- **Next action:** owner review of Phase 3 (`/performance`, `/performance/run/{id}`, `docs/garmin-phase-3-design.md` sections 8, 11, 12). Do not start Phase 4 until the owner sets Phase 3 to APPROVED and confirms Phase 4 scope.
 
 ## Approvals
 
@@ -24,8 +24,8 @@ The owner changes the status column. The agent never sets APPROVED itself. The a
 | Gate 2 | APPROVED | | Report in `docs/garmin-data-provenance.md` |
 | Gate 3 | APPROVED | | Code, offline tests and the live PostgreSQL verification on a test copy are done. Open items: questions 18 to 20, production not yet touched by Garmin. Design and results in `docs/garmin-sync-design.md` |
 | Phase A (audit remediation) | APPROVED | | Report in `docs/garmin-audit-remediation.md`. Owner confirmed in session on 2026-10-25 that Phase 1 is approved and Phase A may start |
-| Phase 2 (recovery) | AWAITING APPROVAL | | Design was APPROVED (owner set the cell, confirmed in session 2026-10-25 that it also covers building the code). Code and offline tests done (229 pass; owner asked for sync button and week/month view in session, see log). Agent reset the cell to AWAITING for the phase-end approval. Report: `docs/garmin-phase-2-design.md` sections 7 and 10 |
-| Phase 3 (performance) | NOT STARTED | | |
+| Phase 2 (recovery) | APPROVED | | Design was APPROVED (owner set the cell, confirmed in session 2026-10-25 that it also covers building the code). Code and offline tests done (229 pass; owner asked for sync button and week/month view in session, see log). Report: `docs/garmin-phase-2-design.md` sections 7 and 10 |
+| Phase 3 (performance) | AWAITING APPROVAL | 2026-10-30 (design and build approval) | Design and build were approved on the owner's written instruction in session 2026-10-30 (the agent edited the cell at his request). Build finished 2026-10-30; the phase result awaits the owner. Scope: roadmap list plus #21 (owner addition). Answers P3-1 to P3-11 recorded below. Design: `docs/garmin-phase-3-design.md` |
 | Phase 4 (load) | NOT STARTED | | |
 | Phase 5 (race) | NOT STARTED | | |
 
@@ -33,8 +33,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 
 ## Current state
 
-- **Current phase:** Phase 2 (recovery), built, AWAITING APPROVAL. Phase 1 and Phase A APPROVED.
-- **Blocked on:** owner approval of Phase 2. Phase 3 needs Phase 2 approved and the owner's confirmation of the Phase 3 mapping.
+- **Current phase:** Phase 3 (performance), built, AWAITING APPROVAL. Phase 1, Phase A and Phase 2 APPROVED.
+- **Blocked on:** nothing.
 
 ## Phase 1 gate status
 
@@ -85,8 +85,8 @@ Status values: NOT STARTED, IN PROGRESS, AWAITING APPROVAL, APPROVED, REJECTED (
 | Phase | Status | Design doc | Notes |
 |---|---|---|---|
 | Phase A: audit remediation | DONE (approved, see Approvals table) | `docs/garmin-audit-remediation.md` | All items VERIFIED or FIXED except 4 owner points. One fix: removed `GET /coach/sync`; new test |
-| Phase 2: recovery | DONE, AWAITING APPROVAL | `docs/garmin-phase-2-design.md` | Backlog #1 to #4, #6 to #9 built (`recovery-v1`): `core/.../garmin/recovery`, `RecoveryService`, `RecoveryText`, `RecoveryController` (`/recovery`, `/recovery/data`), `recovery.html`, conditional AI guardrail (`/ai?herstel=true`). 68 new offline tests, plus sync button and week/month view requested by the owner in session. Owner opened the page on real data: first view showed an empty today (sync not run yet) |
-| Phase 3: performance | NOT STARTED | `docs/garmin-phase-3-design.md` | Needs Phase A and Phase 2 approved |
+| Phase 2: recovery | DONE, APPROVED | `docs/garmin-phase-2-design.md` | Backlog #1 to #4, #6 to #9 built (`recovery-v1`): `core/.../garmin/recovery`, `RecoveryService`, `RecoveryText`, `RecoveryController` (`/recovery`, `/recovery/data`), `recovery.html`, conditional AI guardrail (`/ai?herstel=true`). 68 new offline tests, plus sync button and week/month view requested by the owner in session. Owner opened the page on real data: first view showed an empty today (sync not run yet) |
+| Phase 3: performance | DONE, AWAITING APPROVAL | `docs/garmin-phase-3-design.md` | Built: #16 to #19, #21, #22, #24 to #30, #32, #40, #46 (#21 added by the owner 2026-10-30; #20 out). `performance-v1`, on demand with an in-memory cache, no schema change. 86 new offline tests, 315 in total. Census and build decisions in design sections 11 and 12. #29 activity level only (no power stream) |
 | Phase 4: load | NOT STARTED | `docs/garmin-phase-4-design.md` | Needs Phases 2 and 3 approved |
 | Phase 5: race | NOT STARTED | `docs/garmin-phase-5-design.md` | Needs Phases 3 and 4 approved, Phase A complete |
 | Later items | NOT STARTED | per item | Owner decision |
@@ -118,18 +118,36 @@ Phase 2 design questions P2-1 to P2-8 (details in `docs/garmin-phase-2-design.md
 - P2-7: Europe/Brussels for sleep clock times, no schema change.
 - P2-8: page `/recovery`, nav entry "Herstel".
 
+Phase 3 design questions P3-1 to P3-11 (details in `docs/garmin-phase-3-design.md` section 9). ALL ANSWERED 2026-10-30 in session:
+
+- P3-1: Garmin `RUNNING` zones, fallback app zones, `?zones=` switch.
+- P3-2, P3-3: steady-run definition, minimum counts and trend rule kept (config values).
+- P3-4: threshold shown as "kritische snelheid", Garmin lactate threshold HR beside it.
+- P3-5: power at activity level only; FIT storage stays Later.
+- P3-6: Minetti grade-adjusted pace, app estimate.
+- P3-7: on-demand computation, in-memory cache, no new table (stop and ask if the overview exceeds 5 s).
+- P3-8: pages `/performance`, `/performance/run/{id}`, `/performance/data`, nav "Prestaties", plus a link from `/activity/{id}`.
+- P3-9: #21 IN Phase 3 (owner request); #20 stays out. The training load model is Phase 4 (confirmed to the owner).
+- P3-10: no prompt change.
+- P3-11: three-class intensity grouping as an app grouping.
+
 ## Handoff for the next session
 
-- **Current:** Phase 2 (recovery), built and tested offline, AWAITING APPROVAL. Phases 3 to 5 not started.
-- **Finished:** SPI read methods and JPA implementation; `core/.../garmin/recovery` (baseline machinery, HRV, resting HR, sleep quality and debt, Body Battery, stress, readiness components without score); `RecoveryService`, `RecoveryText` (Dutch), `RecoveryController`, `recovery.html`, nav entry "Herstel"; `garmin.recovery.sleep-target-minutes` (450); conditional AI guardrail and `<herstel>` block only on request. `:core:test :runner:test` on Java 23: 229 pass, 0 fail (152 before, 77 new). No Strava test changed. No key or token handled, no network call.
-- **Not done / UNVERIFIED:** the page was not opened in a browser on real data (only rendered in a Spring test context); HRV unit and measure, resting HR method, 10 % unmeasurable and 8 h stress thresholds, deviation bands stay UNVERIFIED app estimates. Live rejected-key check, Strava `external_id` check, 429 limit (unchanged).
-- **Blocked:** the owner setting the Phase 2 Approvals cell to APPROVED.
-- **Left behind:** `/tmp/opencode/prod-before-garmin.sql` (contains the Strava token: delete when no longer needed); stopped containers `running-db`, `running-test-db`.
-- **Exact next step:** owner starts the app, opens `/recovery` and `/ai?herstel=true`, checks the numbers against the Garmin app, then sets the Phase 2 cell to APPROVED (or REJECTED with a reason). Only after that: ask the owner to confirm the Phase 3 scope, then write `docs/garmin-phase-3-design.md` (design before code).
+- **Current:** Phase 3 built and AWAITING APPROVAL. Phases 4 and 5 not started.
+- **Finished:** all 16 backlog items of Phase 3 (see the phase table). Pages `/performance`, `/performance/run/{id}`, JSON `/performance/data`, nav entry "Prestaties", link "Prestatie-analyse" on `/activity/{id}`, config `garmin.performance.*`. Tests: `:core:test :runner:test` on Java 23, 315 pass, 0 fail, no existing Strava test changed. Census (design section 11) and a timing check on a production copy: first load 3.7 s, cached 0.3 s (limit 5 s).
+- **UNVERIFIED / for the owner:** all thresholds are PROPOSALS (config values). The data has no temperature stream (temperature checks inactive) and 227 of 530 runs have no stored stream. Durability (#25) abstained at build time (4 qualifying runs, minimum 5). The critical speed estimate, HR recovery and fitness view were only checked for plausibility on real data, not validated. Pages were not seen in a browser by the agent (charts and layout unchecked). Phase 2 items from before are unchanged.
+- **Owner decisions needed:** (1) approve or reject Phase 3 in the Approvals table; (2) look at the pages and say whether any threshold or wording must change (design section 12 lists the build decisions the design left open); (3) confirm Phase 4 scope before it starts.
+- **Blocked:** nothing.
+- **Left behind:** `/tmp/opencode/prod-before-garmin.sql` (contains the Strava token: delete when no longer needed). Container `running-db` stopped again; the temporary database copy used for timing was dropped.
+- **Exact next step:** wait for the owner's decision. If approved: design doc `docs/garmin-phase-4-design.md` (needs Phases 2 and 3 approved and the owner's confirmation of the Phase 4 scope).
 
 ## Log
 
 Newest first. One entry per session: date, gate or phase, result, what changed, what is next.
+
+- **2026-10-30 (tenth session):** Phase 3 build. Result: built, AWAITING APPROVAL. Entry check: Approvals table had Phase 3 APPROVED (design and build) and the handoff agreed. Done in order: data census (counts only, production copy), core code and offline tests, `GarminRepository.findHeartRateZones` (additive), `PerformanceService`, `PerformanceController`, templates, nav entry, link on the activity page, `garmin.performance.*` config. Tests: 315 pass, 0 fail (86 new). No existing Strava test changed; `NoStateChangingGetTest` now also covers `PerformanceController`. Timing on a production copy: 3.7 s first load, 0.3 s cached, so no persisted table. No schema change, no new Garmin call, no key or token handled, no prompt change, no raw data committed (synthetic streams only). Real data check showed 119 steady runs of 530 and that temperature is absent everywhere. Not seen in a browser. Backlog items #16 to #19, #21, #22, #24 to #30, #32, #40, #46 DONE. Next: owner review.
+- **2026-10-30 (ninth session, follow-up):** at the owner's request: #21 (fitness trend model) added to Phase 3 as design section 3.4a (four indicators #17, #18, #22, #25 side by side, no score, no weights); questions P3-1 to P3-11 asked in session and answered (all defaults, #20 out, link from the activity page); Phase 3 set to APPROVED on the owner's written instruction (design and build). Confirmed to the owner that the training load model is Phase 4. Roadmap scope list unchanged; #21 recorded here as the owner's addition. Next: build.
+- **2026-10-30 (ninth session):** Phase 3 design. Result: design doc written, no code. Entry check: Approvals table had Phase 2 APPROVED and Phase 3 NOT STARTED; the handoff said the owner's scope confirmation was needed, so I asked and the owner confirmed the roadmap scope (#16 to #19, #22, #24 to #30, #32, #40, #46). Note: the prompt file named in the request (`_Agent_prompt.md`) does not exist; I used `GARMIN_AGENT_PROMPT.md`. Changed: created `docs/garmin-phase-3-design.md` (algorithm version `performance-v1`); updated this file; backlog items in scope marked IN PROGRESS (design only). Design facts worth the owner's attention: no power stream exists (Strava streams have no watts, FIT files are not stored), so #29 is activity level only; #22 is a critical speed estimate, not a lactate threshold; #20 and #21 are in the backlog's Phase 3 mapping but not in the roadmap list, so they are left out (P3-9). No code, no tests run (build not re-run), no Strava test touched, no network call, no key or token handled. Next: owner review and approval of the design.
 
 - **2026-10-25 (eighth session, review fixes):** after the agent's own review the owner asked to fix two points. (1) Sleep judged against the owner's target too: `SleepTargetCheck` = average shortfall per night over the nights with data, one band step = 20 minutes per night (PROPOSAL, UNVERIFIED; `SleepAnalysis.TARGET_BAND_MINUTES`), long nights do not offset. Sleep stays one of the four components but the larger of its own-norm deviation and its target deviation decides; the hero shows both bars and the conclusion names the cause ("slaap onder je doel van 7:30 ..."). Sleep also counts when its own norm has too little history but the target check exists. (2) Week and month view got the same conclusion card (period median against the 28 days before the period, same bands and level rules, target check on the period shortfall) and charts per metric (HRV, resting HR, sleep with the target line, Body Battery wake level) with the period median. Shared Thymeleaf fragment `recoveryHero` in `fragments.html`. Tests: 229 pass, 0 fail (5 new). Not seen in a browser by the agent. Still open from the review: day-view thresholds may flag too often (1 SD), red colour for strong deviation, mobile/contrast check. Next: owner review.
 

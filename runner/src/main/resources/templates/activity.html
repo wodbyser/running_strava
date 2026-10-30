@@ -12,6 +12,7 @@
             </p>
         </div>
         <div class="actions">
+            <a th:if="${a.isRun}" th:href="@{/performance/run/{id}(id=${a.id})}" class="btn btn-secondary btn-sm">Prestatie-analyse</a>
             <a th:href="${a.stravaUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Bekijk op Strava &rarr;<span class="sr-only"> (opent in nieuw tabblad)</span></a>
         </div>
     </div>

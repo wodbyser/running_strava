@@ -90,3 +90,23 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
         mvc.perform(get("/recovery/garmin-update")).andExpect(status().isMethodNotAllowed)
     }
 }
+
+/** The HRV bar uses Garmin's own balanced range as the green zone. */
+@SpringBootTest(properties = [
+    "spring.datasource.url=jdbc:h2:mem:recoveryhrvbar;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+    "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa", "spring.datasource.password=",
+    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect", "garmin.api-key=",
+])
+@AutoConfigureMockMvc
+class RecoveryHrvBarTest @Autowired constructor(private val mvc: MockMvc, private val repo: GarminRepository) {
+    @Test
+    fun `hrv bar shows Garmin's range and keeps the own norm in the text`() {
+        val day = LocalDate.of(2026, 3, 10)
+        val src = GarminSource("test", null, "test")
+        repo.upsertHrv((0..28).map { GarminHrvDay(day.minusDays(it.toLong()), 68, if (it == 0) 69 else 72 + it % 3, null, 70, 71, 80, null, "LOW", null, src) }, Instant.EPOCH)
+        val html = mvc.perform(get("/recovery?date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("Garmin-bereik 71 tot 80 ms (Garmin past dit zelf aan)"))
+        assertTrue(html.contains("69 ms ligt onder Garmins bereik"))
+        assertTrue(html.contains("eigen norm"))
+    }
+}

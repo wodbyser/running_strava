@@ -15,6 +15,7 @@ data class GarminProperties(
     val backfill: Backfill = Backfill(),
     val retry: Retry = Retry(),
     val recovery: Recovery = Recovery(),
+    val performance: Performance = Performance(),
 ) {
     init {
         require(!timeout.isZero && !timeout.isNegative) { "garmin.timeout must be greater than 0" }
@@ -30,6 +31,32 @@ data class GarminProperties(
         val chunkDays: Int = 7,
         val pause: Duration = Duration.ofSeconds(2),
     )
+
+    /** Phase 3 thresholds: PROPOSAL values from the design, UNVERIFIED. Defaults live in [PerformanceConfig]. */
+    data class Performance(
+        val zoneSet: String = "garmin",
+        val warmupMinutes: Int = 10,
+        val minSteadyWindowMinutes: Int = 30,
+        val speedCvLimit: Double = 0.10,
+        val elevationLimitMPerKm: Double = 15.0,
+        val minRunsTrend: Int = 5,
+        val minRunsDrift: Int = 5,
+        val minRunsDurability: Int = 5,
+        val minLongRunsList: Int = 3,
+        val minLongRunsTrend: Int = 5,
+        val minIntervalSessions: Int = 3,
+        val minHrrMeasurements: Int = 10,
+        val minPowerRuns: Int = 5,
+        val minConsistencyWeeks: Int = 8,
+    ) {
+        fun toConfig() = com.running.strava.analysis.performance.PerformanceConfig(
+            warmupMinutes = warmupMinutes, minSteadyWindowMinutes = minSteadyWindowMinutes, speedCvLimit = speedCvLimit,
+            elevationLimitMPerKm = elevationLimitMPerKm, minRunsTrend = minRunsTrend, minRunsDrift = minRunsDrift,
+            minRunsDurability = minRunsDurability, minLongRunsList = minLongRunsList, minLongRunsTrend = minLongRunsTrend,
+            minIntervalSessions = minIntervalSessions, minHrrMeasurements = minHrrMeasurements, minPowerRuns = minPowerRuns,
+            minConsistencyWeeks = minConsistencyWeeks,
+        )
+    }
 
     /** Owner decision 2026-10-25: target 7 h 30 total sleep per night. */
     data class Recovery(val sleepTargetMinutes: Int = 450)

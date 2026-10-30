@@ -155,6 +155,12 @@ class GarminRepositoryImpl(
     }
 
     @Transactional(readOnly = true)
+    override fun findHeartRateZones(): List<GarminHeartRateZones> = zonesRepo.findAll().map {
+        GarminHeartRateZones(it.sport, it.trainingMethod, it.restingHr, it.lactateThresholdHr, it.zone1Floor, it.zone2Floor, it.zone3Floor,
+            it.zone4Floor, it.zone5Floor, it.maxHr, src(it.provenance))
+    }
+
+    @Transactional(readOnly = true)
     override fun findActivities(from: Instant, to: Instant): List<GarminActivityRef> =
         activityRepo.findByStartTimeGmtBetween(from, to).map { toDomain(it) }
 

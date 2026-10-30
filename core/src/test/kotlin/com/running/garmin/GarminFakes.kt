@@ -65,7 +65,9 @@ class FakeGarminRepository : GarminRepository {
     override fun upsertStress(records: List<GarminStressDay>, syncedAt: Instant) = records.onEach { stress[it.calendarDate] = it }.size
     override fun upsertSteps(records: List<GarminStepsDay>, syncedAt: Instant) = records.onEach { steps[it.calendarDate] = it }.size
     override fun upsertActivities(records: List<GarminActivityRef>, syncedAt: Instant) = records.onEach { activities[it.activityId] = it }.size
+    val zones = mutableListOf<GarminHeartRateZones>()
     override fun upsertHeartRateZones(records: List<GarminHeartRateZones>, syncedAt: Instant) = records.size
+    override fun findHeartRateZones() = zones.toList()
     override fun findActivities(from: Instant, to: Instant) = activities.values.filter { it.startTimeGmt in from..to }
     override fun findAllActivities() = activities.values.toList()
     val samples = mutableListOf<GarminBodyBatterySample>()

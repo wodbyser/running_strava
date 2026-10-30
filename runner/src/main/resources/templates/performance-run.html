@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <a class="back-link" th:href="@{/performance}">&larr; Prestaties</a>
+    <div class="page-head">
+        <div>
+            <h1 th:text="${a.name}">-</h1>
+            <p class="page-meta"><span th:text="${a.date}">-</span> <a th:href="@{/activity/{id}(id=${a.id})}">Naar de training</a></p>
+        </div>
+    </div>
+    <p class="callout mb-2" th:text="${safety}">-</p>
+
+    <section class="card" aria-labelledby="h-basis">
+        <h2 id="h-basis">Overzicht <span class="badge badge-calc">[berekend]</span></h2>
+        <dl class="facts">
+            <div><dt>Afstand</dt><dd th:text="${#numbers.formatDecimal(a.distanceMeters / 1000, 1, 2, 'POINT')} + ' km'">-</dd></div>
+            <div><dt>Tempo</dt><dd th:text="${pace}">-</dd></div>
+            <div><dt>Sessietype (automatisch herkend)</dt><dd th:text="${typeText}">-</dd></div>
+            <div><dt>Stabiel?</dt><dd th:text="${steadyText}">-</dd></div>
+            <div><dt>HR-dekking</dt><dd th:text="${a.hasStream} ? ${coveragePct} + ' %' : '[onbeschikbaar] geen stream'">-</dd></div>
+            <div><dt>Terrein (Strava-hoogtemeters)</dt><dd th:text="${a.terrain.text} + ' (' + ${#numbers.formatDecimal(a.elevationPerKm, 1, 1, 'POINT')} + ' m/km)'">-</dd></div>
+        </dl>
+    </section>
+
+    <section class="card" aria-labelledby="h-metrics">
+        <h2 id="h-metrics">Metingen van de run</h2>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Maat</th><th>Waarde</th></tr></thead>
+            <tbody>
+            <tr><th scope="row">EF van het stabiele deel</th><td th:text="${efText} ?: '[onbeschikbaar] geen stabiele run'">-</td></tr>
+            <tr><th scope="row">EF op hellingsgecorrigeerd tempo</th><td th:text="${efGapText} ?: '[onbeschikbaar]'">-</td></tr>
+            <tr><th scope="row">Hellingsgecorrigeerd tempo (GAP)</th><td th:text="${gapPace} ?: ('[onbeschikbaar] ' + (${a.gap != null} ? ${a.gap.reason} : 'geen stream'))">-</td></tr>
+            <tr><th scope="row">HR-drift</th><td th:if="${a.drift != null}" th:text="${#numbers.formatDecimal(a.drift.driftBpm, 1, 1, 'POINT')} + ' bpm (' + ${#numbers.formatDecimal(a.drift.driftPct, 1, 1, 'POINT')} + ' %)' + (${a.drift.driftAvailable} ? '' : ' [onbeschikbaar] tempo veranderde te veel')">-</td><td th:unless="${a.drift != null}">[onbeschikbaar] geen stabiele run</td></tr>
+            <tr><th scope="row">Ontkoppeling</th><td th:if="${a.drift != null}" th:text="${#numbers.formatDecimal(a.drift.decouplingPct, 1, 1, 'POINT')} + ' %'">-</td><td th:unless="${a.drift != null}">[onbeschikbaar] geen stabiele run</td></tr>
+            <tr><th scope="row">EF-verandering op minuut 60</th><td th:if="${a.durability != null && a.durability.efChangeAt60Pct != null}" th:text="${#numbers.formatDecimal(a.durability.efChangeAt60Pct, 1, 1, 'POINT')} + ' %'">-</td><td th:unless="${a.durability != null && a.durability.efChangeAt60Pct != null}">[onbeschikbaar] geen stabiele run van minstens 75 minuten</td></tr>
+            </tbody>
+        </table></div>
+        <p class="note" th:text="${association}">-</p>
+    </section>
+
+    <section class="card" aria-labelledby="h-zones">
+        <h2 id="h-zones">Tijd in zones (minuten)</h2>
+        <p class="note" th:text="${zoneNote}">-</p>
+        <p th:if="${zoneSeconds == null}">[onbeschikbaar] geen zones of onvoldoende hartslagdekking.</p>
+        <p th:if="${zoneSeconds != null}" th:text="'Z1 ' + ${zoneSeconds[0]} + ' | Z2 ' + ${zoneSeconds[1]} + ' | Z3 ' + ${zoneSeconds[2]} + ' | Z4 ' + ${zoneSeconds[3]} + ' | Z5 ' + ${zoneSeconds[4]}">-</p>
+    </section>
+
+    <section class="card" th:if="${a.intervals != null}" aria-labelledby="h-int">
+        <h2 id="h-int">Intervallen (automatisch herkend)</h2>
+        <p class="note" th:text="${a.intervals.signature} ?: 'Gemengde repopbouw: niet vergeleken met andere sessies.'">-</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Rep</th><th>Afstand</th><th>Tijd</th><th>Gem. HR</th><th>Rust (s)</th><th>HR-herstel 60 s</th></tr></thead>
+            <tbody>
+            <tr th:each="rep : ${a.intervals.reps}">
+                <td th:text="${rep.number}">-</td>
+                <td th:text="${#numbers.formatDecimal(rep.distanceMeters, 1, 0)} + ' m'">-</td>
+                <td th:text="${rep.seconds} + ' s'">-</td>
+                <td th:text="${rep.avgHr != null} ? ${#numbers.formatDecimal(rep.avgHr, 1, 0)} : '-'">-</td>
+                <td th:text="${rep.recoverySeconds} ?: '-'">-</td>
+                <td th:text="${rep.hrr != null} ? (${#numbers.formatDecimal(rep.hrr.hrr60, 1, 0)} + ' bpm (' + ${rep.hrr.protocol.text} + ')') : ('[onbeschikbaar] ' + ${rep.hrrNote})">-</td>
+            </tr>
+            </tbody>
+        </table></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-cmp">
+        <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est">[app-schatting]</span></h2>
+        <p class="note">Harde criteria: zelfde sessietype, buiten of trainer, afstand tussen 0,8 en 1,25 keer, zelfde terreinklasse, hartslag aanwezig of niet. Geen gelijkenisscore: volgorde naar aantal zachte criteria die kloppen, daarna dichtstbijzijnde datum. Verband, geen oorzaak.</p>
+        <p class="callout" th:if="${cmp.message != null}" th:text="${cmp.message}">-</p>
+        <div class="table-wrap" th:if="${!cmp.matches.isEmpty()}"><table>
+            <thead><tr><th>Datum</th><th>Afstand</th><th>Tempo</th><th>GAP</th><th>HR</th><th>EF</th><th>Drift</th><th>Zachte criteria</th></tr></thead>
+            <tbody>
+            <tr th:each="m : ${cmpRows}">
+                <td><a th:href="@{/performance/run/{id}(id=${m.id})}" th:text="${m.date}">-</a></td>
+                <td th:text="${m.km}">-</td><td th:text="${m.pace}">-</td><td th:text="${m.gap}">-</td>
+                <td th:text="${m.hr}">-</td><td th:text="${m.ef}">-</td><td th:text="${m.drift}">-</td><td th:text="${m.criteria}">-</td>
+            </tr>
+            </tbody>
+        </table></div>
+    </section>
+</th:block>
+</html>

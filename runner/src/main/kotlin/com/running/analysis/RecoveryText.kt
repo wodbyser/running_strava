@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.garmin.recovery.HrvResult
 import com.running.garmin.recovery.BaselineResult
 import com.running.garmin.recovery.BaselineStatus
 import com.running.garmin.recovery.BodyBatteryResult
@@ -42,7 +43,7 @@ enum class HeroLevel(val label: String, val css: String) {
 }
 
 /** One spectrum bar. `position` is 0 to 100 on a scale of -3 to +3 robust SD, null without data. */
-data class HeroComponent(val label: String, val value: String, val norm: String, val deviation: String, val css: String, val position: Double?, val aria: String)
+data class HeroComponent(val label: String, val value: String, val norm: String, val deviation: String, val css: String, val position: Double?, val aria: String, val axisMiddle: String = "eigen norm")
 
 data class Hero(
     val level: HeroLevel,
@@ -289,6 +290,35 @@ object RecoveryText {
         ReadinessKind.BODY_BATTERY -> f(median, 0)
     }
 
+    /**
+     * HRV bar of the day view: the green zone is Garmin's own balanced range of that day (Garmin may change it; it is
+     * read from the stored row of the day, not fixed). The scale is the range with one range width on each side. The
+     * conclusion level still uses the app's own norm, which is stated on the card; the two are never merged.
+     */
+    private fun garminHrvComponent(h: HrvResult?, own: HeroComponent?): HeroComponent? {
+        if (h == null || own == null) return null
+        val low = h.garminBalancedLow ?: return null
+        val up = h.garminBalancedUpper ?: return null
+        val v = h.lastNightAvg ?: return null
+        if (up <= low) return null
+        val width = (up - low).toDouble()
+        val min = low - width
+        val pos = ((v - min) / (3 * width) * 100).coerceIn(0.0, 100.0)
+        val words = when {
+            v < low -> "$v ms ligt onder Garmins bereik"
+            v > up -> "$v ms ligt boven Garmins bereik"
+            else -> "$v ms ligt binnen Garmins bereik"
+        }
+        val ownText = if (own.position != null) "eigen norm ${own.norm.removePrefix("norm ")}: ${own.deviation}" else "eigen norm: ${own.deviation}"
+        return own.copy(
+            norm = "Garmin-bereik $low tot $up ms (Garmin past dit zelf aan)",
+            deviation = "$words · $ownText",
+            position = pos,
+            aria = "${own.label}: $v ms, $words, groene zone is Garmins bereik $low tot $up ms, $ownText",
+            axisMiddle = "Garmin-bereik",
+        )
+    }
+
     /** Shared by the day and the period view. */
     private fun buildHero(
         rd: Readiness,
@@ -299,6 +329,7 @@ object RecoveryText {
         scopeText: String,
         footnote: String,
         noValueWords: String,
+        garminHrv: HrvResult? = null,
     ): Hero {
         val s = rd.summary
         val level = heroLevel(s)
@@ -314,6 +345,10 @@ object RecoveryText {
                 HeroComponent(label, value(c.kind), norm, "$words (${signed(dev)} SD)", bandCss(c.band), (dev.coerceIn(-3.0, 3.0) + 3.0) / 6.0 * 100.0, "$label: ${value(c.kind)}, eigen $norm, $words")
             }
         }.toMutableList()
+        garminHrvComponent(garminHrv, comps.firstOrNull { it.label == component(ReadinessKind.HRV).replaceFirstChar { c -> c.uppercase() } })?.let { g ->
+            val i = comps.indexOfFirst { it.label == g.label }
+            comps[i] = g
+        }
         rd.sleepTarget?.let { t ->
             val words = if (t.band == DeviationBand.WITHIN) "binnen je doel" else "${bandText(t.band)}: onder je doel"
             val avg = "${f(t.averageShortfallMinutes, 0)} min tekort per nacht"
@@ -365,6 +400,7 @@ object RecoveryText {
             "Elke component vergelijkt de waarde van deze dag met de mediaan van je 28 vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
             "Algoritme ${r.algorithmVersion}." + if (r.isToday) " Vandaag: stress en Body Battery van vandaag zijn onvolledig en tellen niet mee in normen." else "",
             "geen waarde voor deze dag",
+            r.hrv,
         )
     }
 

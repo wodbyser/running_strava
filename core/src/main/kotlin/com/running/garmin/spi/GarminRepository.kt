@@ -37,6 +37,9 @@ interface GarminRepository {
     fun findBodyBattery(from: LocalDate, to: LocalDate): List<GarminBodyBatteryDay>
     fun findBodyBatterySamples(fromMs: Long, toMs: Long): List<GarminBodyBatterySample>
     fun findStress(from: LocalDate, to: LocalDate): List<GarminStressDay>
+
+    /** Latest stored snapshot of Garmin's heart rate zones, one row per sport (`DEFAULT`, `RUNNING`). */
+    fun findHeartRateZones(): List<GarminHeartRateZones>
 }
 
 interface GarminSyncStatusRepository {

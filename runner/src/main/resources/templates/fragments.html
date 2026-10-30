@@ -19,7 +19,7 @@
                 <div class="spectrum" th:classappend="${c.position == null} ? 'is-empty'" role="img" th:attr="aria-label=${c.aria}">
                     <span class="spectrum-marker" th:if="${c.position != null}" th:style="'left:' + ${#numbers.formatDecimal(c.position, 1, 'POINT', 1, 'POINT')} + '%'"></span>
                 </div>
-                <div class="spectrum-axis" aria-hidden="true"><span>lager</span><span>eigen norm</span><span>hoger</span></div>
+                <div class="spectrum-axis" aria-hidden="true"><span>lager</span><span th:text="${c.axisMiddle}">eigen norm</span><span>hoger</span></div>
                 <div class="hero-dev"><span th:text="${c.norm}">-</span><span th:if="${c.norm != '-'}"> &middot; </span><span th:text="${c.deviation}">-</span></div>
             </div>
         </div>

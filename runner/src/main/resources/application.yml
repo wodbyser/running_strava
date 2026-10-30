@@ -56,6 +56,8 @@ garmin:
     delays: 1s,4s
   recovery:
     sleep-target-minutes: 450
+  performance:
+    zone-set: garmin
 
 logging:
   level:
