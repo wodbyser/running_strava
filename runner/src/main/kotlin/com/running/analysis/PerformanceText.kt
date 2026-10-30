@@ -165,9 +165,9 @@ data class ZoneSection(
 
 data class CsSection(val available: Boolean, val reason: String?, val tiles: List<Tile>, val anchors: List<List<String>>, val validation: String)
 
-data class ConsistencyRow(val label: String, val tip: String?, val last12: String, val last52: String)
+data class ConsistencyRow(val label: String, val tip: String?, val shortWindow: String, val longWindow: String)
 
-data class ConsistencySection(val available: Boolean, val message: String?, val rows: List<ConsistencyRow>, val gaps: List<String>, val weeks52: Int)
+data class ConsistencySection(val available: Boolean, val message: String?, val rows: List<ConsistencyRow>, val gaps: List<String>, val shortWeeks: Int, val longWeeks: Int)
 
 data class DurabilityTableRow(val id: Long, val date: String, val name: String, val minutes: String, val at60: String, val tone: Tone, val end: String)
 
@@ -290,7 +290,8 @@ object PerformancePageBuilder {
             s.unfavourable > 0 && s.favourable == 0 -> Tone.BAD
             else -> Tone.NEUTRAL
         }
-        val sub = "Laatste 90 dagen tegenover de 90 dagen daarvoor. " +
+        val d = r.windows.trendDays
+        val sub = "Laatste $d dagen tegenover de $d dagen daarvoor. " +
             "${s.stable} stabiel, ${s.uncertain} onzeker, ${s.insufficient} met te weinig data." +
             if (s.hasSummary) "" else " ${s.text}"
         return FitnessHero(headline, sub, tone, cards)
@@ -396,7 +397,7 @@ object PerformancePageBuilder {
         charts["driftTitles"] = chrono.map { PerfDates.day(it.date) + " · " + it.name }
         charts["driftValues"] = chrono.map { if (it.drift.driftAvailable) round1(it.drift.driftPct) else null }
         charts["decouplingValues"] = chrono.map { round1(it.drift.decouplingPct) }
-        val summary = if (r.driftRows.isEmpty()) "$NO_DATA: nog geen stabiele runs in de laatste 90 dagen." else r.driftSummary
+        val summary = if (r.driftRows.isEmpty()) "$NO_DATA: nog geen stabiele runs in de laatste ${r.windows.driftDays} dagen." else r.driftSummary
         return DriftSection(
             tiles, summary,
             r.driftRows.map { d ->
@@ -439,14 +440,14 @@ object PerformancePageBuilder {
                     anchors, validation,
                 )
             }
-            is CriticalSpeed.Outcome.Abstain -> CsSection(false, "Geen schatting mogelijk: ${o.reason}. Er zijn minstens 3 snelste stukken (bv. 1, 3 en 5 km) uit de laatste 90 dagen nodig, waarvan het langste minstens twee keer zo lang duurt als het kortste.", listOf(garmin), anchors, validation)
+            is CriticalSpeed.Outcome.Abstain -> CsSection(false, "Geen schatting mogelijk: ${o.reason}. Er zijn minstens 3 snelste stukken (bv. 1, 3 en 5 km) uit de laatste ${r.windows.csDays} dagen nodig, waarvan het langste minstens twee keer zo lang duurt als het kortste.", listOf(garmin), anchors, validation)
         }
     }
 
     // ------------------------------------------------------------ 6. intensity (charts only)
 
     private fun intensity(r: PerformanceReport, charts: MutableMap<String, Any?>) {
-        val months = r.months.takeLast(18)
+        val months = r.months
         charts["intLabels"] = months.map { PerfDates.month(it.label) }
         charts["intRuns"] = months.map { it.runs }
         charts["intEasy"] = months.map { round1(it.easyPct) }
@@ -461,9 +462,9 @@ object PerformancePageBuilder {
 
     private fun consistency(r: PerformanceReport, charts: MutableMap<String, Any?>): ConsistencySection {
         val c = r.consistency
-        if (!c.enough) return ConsistencySection(false, "Nog te weinig geschiedenis: ${c.message}.", emptyList(), emptyList(), 0)
-        val a = c.last12!!
-        val b = c.last52!!
+        if (!c.enough) return ConsistencySection(false, "Nog te weinig geschiedenis: ${c.message}.", emptyList(), emptyList(), 0, 0)
+        val a = c.shortWindow!!
+        val b = c.longWindow!!
         fun pctOf(v: Double) = "%.0f %%".format(ROOT, v * 100)
         fun weeksWithRun(w: Consistency.Window) = "${Math.round(w.shareWeeksWithRun * w.weeks)} van ${w.weeks} (${pctOf(w.shareWeeksWithRun)})"
         val rows = listOf(
@@ -483,18 +484,19 @@ object PerformancePageBuilder {
         return ConsistencySection(
             true, null, rows,
             b.gaps7Plus.map { "${PerfDates.day(it.from)} tot ${PerfDates.day(it.to)}: ${it.days} dagen zonder run" },
-            b.weeks,
+            a.weeks, b.weeks,
         )
     }
 
     // ------------------------------------------------------------ 8. durability
 
     private fun durability(r: PerformanceReport, charts: MutableMap<String, Any?>): DurabilitySection {
-        val recent = r.durabilityRows.filter { it.date.isAfter(r.today.minusDays(90)) }
+        val days = r.windows.durabilityDays
+        val recent = r.durabilityRows.filter { it.date.isAfter(r.today.minusDays(days.toLong())) }
         val at60 = recent.mapNotNull { it.run.efChangeAt60Pct }
         val allAt60 = r.durabilityRows.mapNotNull { it.run.efChangeAt60Pct }
         val tiles = listOf(
-            Tile("EF na een uur (mediaan, 90 dagen)", Stats.median(at60)?.let { "%.0f %%".format(ROOT, 100 + it) } ?: "-",
+            Tile("EF na een uur (mediaan, $days dagen)", Stats.median(at60)?.let { "%.0f %%".format(ROOT, 100 + it) } ?: "-",
                 if (at60.isEmpty()) "geen lange stabiele runs" else "${at60.size} runs; 100 % = even efficiënt als in het begin", "duurzaamheid",
                 if (at60.size < MIN_DURABILITY_RUNS) Tone.NONE else lossTone(Stats.median(at60))),
             Tile("EF na een uur (mediaan, alle runs)", Stats.median(allAt60)?.let { "%.0f %%".format(ROOT, 100 + it) } ?: "-", "${allAt60.size} runs", "duurzaamheid"),
@@ -506,7 +508,7 @@ object PerformancePageBuilder {
         }
         return DurabilitySection(
             tiles,
-            if (at60.size >= 1) r.durabilitySummary else "$NO_DATA: geen stabiele runs van minstens 75 minuten in de laatste 90 dagen.",
+            if (at60.size >= 1) r.durabilitySummary else "$NO_DATA: geen stabiele runs van minstens 75 minuten in de laatste $days dagen.",
             r.durabilityRows.take(20).map { d ->
                 val last = d.run.efRelativePct.lastOrNull()
                 DurabilityTableRow(
@@ -522,10 +524,11 @@ object PerformancePageBuilder {
     // ------------------------------------------------------------ 9. long runs
 
     private fun longRuns(r: PerformanceReport, charts: MutableMap<String, Any?>): LongRunSection {
-        val recent = r.longRuns.filter { it.date.isAfter(r.today.minusDays(90)) }
+        val days = r.windows.longRunDays
+        val recent = r.longRuns.filter { it.date.isAfter(r.today.minusDays(days.toLong())) }
         fun med(f: (LongRun.Thirds) -> Double) = Stats.median(recent.map { f(it.thirds) })
         val tiles = listOf(
-            Tile("Tempo laatste derde", med { it.speedChangePct }?.let { speedText(it) } ?: "-", "mediaan over ${recent.size} lange runs (90 dagen)", "lange-run"),
+            Tile("Tempo laatste derde", med { it.speedChangePct }?.let { speedText(it) } ?: "-", "mediaan over ${recent.size} lange runs ($days dagen)", "lange-run"),
             Tile("Hartslag laatste derde", med { it.hrChangeBpm }?.let { "%+.0f bpm".format(ROOT, it) } ?: "-", "tegenover het eerste derde", null),
             Tile("Efficiëntie laatste derde", med { it.efChangePct }?.let { PerformanceText.pct(it) } ?: "-", "EF tegenover het eerste derde; dichter bij 0 = beter", "ef",
                 if (recent.isEmpty()) Tone.NONE else lossTone(med { it.efChangePct }, 5.0)),
@@ -537,7 +540,7 @@ object PerformancePageBuilder {
         charts["lrHr"] = chrono.map { round1(it.thirds.hrChangeBpm) }
         return LongRunSection(
             tiles,
-            if (recent.isEmpty()) "$NO_DATA: geen lange runs in de laatste 90 dagen." else r.longRunSummary,
+            if (recent.isEmpty()) "$NO_DATA: geen lange runs in de laatste $days dagen." else r.longRunSummary,
             r.longRuns.take(20).map { l ->
                 val t = l.thirds
                 LongRunTableRow(
@@ -609,19 +612,19 @@ object PerformancePageBuilder {
                 if (it.enough) "mediane daling na 60 s, ${it.n} metingen" else "${it.n} metingen, minimum 10", "hrr",
                 if (it.enough) Tone.NEUTRAL else Tone.NONE)
         }
-        return tiles to "Laatste 90 dagen, ${r.hrrN} bruikbare metingen na een rep."
+        return tiles to "Laatste ${r.windows.hrrDays} dagen, ${r.hrrN} bruikbare metingen na een rep."
     }
 
     private fun power(r: PerformanceReport): Pair<List<Tile>, String> {
         val p = r.power
-        val note = "${p.withPower} van ${p.eligible} stabiele runs (laatste 180 dagen) hebben vermogen gemeten door je apparaat."
+        val note = "${p.withPower} van ${p.eligible} stabiele runs (laatste ${2 * r.windows.powerDays} dagen) hebben vermogen gemeten door je apparaat."
         if (!p.available) return emptyList<Tile>() to "Niet beschikbaar: $note Er zijn minstens 70 % runs met gemeten vermogen nodig."
         return listOf(
             Tile("Watt per hartslag", "${PerformanceText.f(p.windowA.medianWattsPerBpm, 2)} → ${PerformanceText.f(p.windowB.medianWattsPerBpm, 2)}",
                 "${PerformanceText.statusText(p.wattsPerBpmStatus)} (${PerformanceText.pct(p.wattsPerBpmChangePct)}); ${p.windowB.n} runs recent, ${p.windowA.n} ervoor", "vermogen", PerformanceText.statusTone(p.wattsPerBpmStatus)),
             Tile("Snelheid per watt", "${PerformanceText.f(p.windowA.medianSpeedPerWatt?.times(1000), 2)} → ${PerformanceText.f(p.windowB.medianSpeedPerWatt?.times(1000), 2)}",
                 "mm/s per watt; ${PerformanceText.statusText(p.speedPerWattStatus)} (${PerformanceText.pct(p.speedPerWattChangePct)})", "vermogen", PerformanceText.statusTone(p.speedPerWattStatus)),
-        ) to "$note Laatste 90 dagen tegenover de 90 dagen daarvoor."
+        ) to "$note Laatste ${r.windows.powerDays} dagen tegenover de ${r.windows.powerDays} dagen daarvoor."
     }
 
     // ------------------------------------------------------------ 13. coverage

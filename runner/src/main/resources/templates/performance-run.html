@@ -23,7 +23,16 @@
 
     <section class="card" aria-labelledby="h-metrics">
         <h2 id="h-metrics">Metingen van de run <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span></h2>
-        <div class="lead">Wat elke waarde betekent, en hoe ze zich verhoudt tot je eigen stabiele runs van de laatste 90 dagen. De meeste waarden bestaan alleen voor <strong>stabiele runs</strong> <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></div>
+        <div class="lead">Wat elke waarde betekent, en hoe ze zich verhoudt tot je eigen stabiele runs van de laatste <span th:text="${days}">90</span> dagen. De meeste waarden bestaan alleen voor <strong>stabiele runs</strong> <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></div>
+        <form method="get" th:action="@{/performance/run/{id}(id=${a.id})} + '#h-metrics'" class="window-form" aria-label="Periode voor je eigen mediaan">
+            <input type="hidden" name="zones" th:if="${zonesParam != ''}" th:value="${zonesParam}">
+            <span class="filter-group">
+                <label for="w-days">Vergelijk met je runs van de laatste</label>
+                <span class="inline"><input type="number" id="w-days" name="days" th:value="${days}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
+            </span>
+            <button type="submit" class="btn btn-secondary btn-sm">Toepassen</button>
+            <span class="field-hint" th:text="'standaard: ' + ${defaultDays} + ' dagen'">standaard</span>
+        </form>
         <div class="metric-list">
             <div class="metric" th:each="m : ${v.metrics}">
                 <div class="metric-name"><span th:text="${m.label}">-</span><th:block th:replace="~{fragments :: help(${m.tip == null ? null : g[m.tip]})}"/></div>

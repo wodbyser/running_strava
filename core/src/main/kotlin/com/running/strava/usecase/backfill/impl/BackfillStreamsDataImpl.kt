@@ -30,7 +30,16 @@ class BackfillStreamsDataImpl(
         val candidates = activityRepository.findAll()
             .filter { it.type in runTypes && !it.isManual && it.id !in withStreams }
             .sortedByDescending { it.startDate }
-        if (candidates.isEmpty()) return BackfillStreamsData.BackfillResult(0, 0, 0, false, emptyList())
+        if (candidates.isEmpty()) {
+            log.info("Stream backfill: every run already has streams, nothing to do")
+            return BackfillStreamsData.BackfillResult(0, 0, 0, false, emptyList())
+        }
+        val total = candidates.size
+        log.info(
+            "Stream backfill started: {} runs without streams ({} to {}), newest first",
+            total, candidates.last().startDate.toLocalDate(), candidates.first().startDate.toLocalDate(),
+        )
+        val started = System.nanoTime()
 
         val refreshedToken = ensureValidToken(token)
         val errors = mutableListOf<String>()
@@ -38,24 +47,38 @@ class BackfillStreamsDataImpl(
         var failed = 0
         var rateLimited = false
 
-        for (activity in candidates) {
+        for ((i, activity) in candidates.withIndex()) {
+            val n = i + 1
             try {
                 val streams = stravaApiClient.getActivityStreams(refreshedToken, activity.id)
                 activityRepository.saveStreams(activity.id, streams)
                 fetched++
+                log.info("Stream backfill [{}/{}] {}%: activity {} ({}) saved{}", n, total, n * 100 / total,
+                    activity.id, activity.startDate.toLocalDate(), progress(started, n, total))
             } catch (e: RateLimitExceededException) {
-                log.warn("Rate limit exceeded during stream backfill after {} of {} runs", fetched, candidates.size)
+                log.warn("Stream backfill [{}/{}]: Strava rate limit reached after {} fetched, {} still missing. Run it again in about 15 minutes to continue.",
+                    n, total, fetched, total - fetched)
                 rateLimited = true
                 break
             } catch (e: Exception) {
                 failed++
-                log.warn("Failed to backfill streams for activity {}: {}", activity.id, e.message)
+                log.warn("Stream backfill [{}/{}]: activity {} ({}) failed: {}", n, total, activity.id, activity.startDate.toLocalDate(), e.message)
                 errors.add("Activiteit ${activity.id}: ${e.message}")
             }
         }
-        log.info("Stream backfill: {} missing, {} fetched, {} failed, rate limited: {}", candidates.size, fetched, failed, rateLimited)
+        log.info("Stream backfill finished in {}: {} missing, {} fetched, {} failed, {} still missing, rate limited: {}",
+            duration((System.nanoTime() - started) / 1_000_000_000), total, fetched, failed, total - fetched, rateLimited)
         return BackfillStreamsData.BackfillResult(candidates.size, fetched, candidates.size - fetched, rateLimited, errors)
     }
+
+    /** ", elapsed 1m 05s, about 3m 10s left" (estimate from the average time per run so far). */
+    private fun progress(startedNanos: Long, done: Int, total: Int): String {
+        val elapsed = (System.nanoTime() - startedNanos) / 1_000_000_000
+        val left = if (done > 0) elapsed * (total - done) / done else 0
+        return ", elapsed ${duration(elapsed)}" + if (done < total) ", about ${duration(left)} left" else ""
+    }
+
+    private fun duration(seconds: Long) = if (seconds >= 60) "${seconds / 60}m ${(seconds % 60).toString().padStart(2, '0')}s" else "${seconds}s"
 
     private fun ensureValidToken(token: StravaToken): StravaToken {
         val now = System.currentTimeMillis() / 1000

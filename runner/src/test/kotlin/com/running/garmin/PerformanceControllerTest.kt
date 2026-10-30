@@ -40,6 +40,11 @@ class PerformanceControllerTest @Autowired constructor(private val mvc: MockMvc)
         val html = mvc.perform(get("/performance").param("short", "14").param("long", "60")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(html.contains("value=\"14\""))
         assertTrue(html.contains("value=\"60\""))
+        val other = mvc.perform(get("/performance").param("drift", "30").param("short", "14")).andExpect(status().isOk).andReturn().response.contentAsString
+        // The drift form keeps the chosen EF period as a hidden field, and the other way around.
+        assertTrue(other.contains("type=\"hidden\" name=\"short\" value=\"14\""))
+        assertTrue(other.contains("type=\"hidden\" name=\"drift\" value=\"30\""))
+        assertTrue(other.contains("Alle periodes terug naar standaard"))
         mvc.perform(get("/performance/data").param("short", "1").param("long", "9999"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.efWindows[0]").value(7))

@@ -86,7 +86,7 @@ object RunPageBuilder {
                 "Efficiëntie (EF) van het stabiele deel", "ef",
                 ef?.let { PerformanceText.efMetres(it.ef) + " per hartslag" } ?: "-", ef != null,
                 "Hoeveel meter je per hartslag aflegde, gemeten na de eerste 10 minuten (${ef?.let { "%.0f minuten".format(ROOT, it.windowMinutes) } ?: "het stabiele deel"}). Hoger = efficiënter.",
-                if (ef == null) notSteady else t?.efSameStratum?.let { "Jouw mediaan bij vergelijkbare hartslag (laatste 90 dagen): ${PerformanceText.efMetres(it)} over ${t.nEf} runs." },
+                if (ef == null) notSteady else t?.efSameStratum?.let { "Jouw mediaan bij vergelijkbare hartslag (laatste ${t.days} dagen): ${PerformanceText.efMetres(it)} over ${t.nEf} runs." },
             ))
             add(Metric(
                 "Efficiëntie op hellingsgecorrigeerd tempo", "gap",
@@ -108,7 +108,7 @@ object RunPageBuilder {
                 when {
                     d == null -> notSteady
                     !d.driftAvailable -> "Niet berekend: je tempo verschilde ${"%.1f".format(ROOT, abs1(d.speedRatio))} % tussen beide helften (maximum 5 %). Kijk naar de ontkoppeling."
-                    else -> t?.driftPct?.let { "Jouw mediaan (stabiele runs, laatste 90 dagen): ${"%.1f".format(ROOT, it)} %." }
+                    else -> t?.driftPct?.let { "Jouw mediaan (stabiele runs, laatste ${t.days} dagen): ${"%.1f".format(ROOT, it)} %." }
                 },
             ))
             add(Metric(

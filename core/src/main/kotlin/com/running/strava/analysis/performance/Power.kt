@@ -140,9 +140,9 @@ object CriticalSpeed {
         return Effort(activityId, date, distance, e.seconds, isRace, avgHr)
     }
 
-    /** Fastest effort per distance among [efforts] dated in (today - 90, today]. */
-    fun anchors(efforts: List<Effort>, today: LocalDate): List<Effort> =
-        efforts.filter { it.date.isAfter(today.minusDays(WINDOW_DAYS)) && !it.date.isAfter(today) }
+    /** Fastest effort per distance among [efforts] dated in (today - [windowDays], today]. */
+    fun anchors(efforts: List<Effort>, today: LocalDate, windowDays: Long = WINDOW_DAYS): List<Effort> =
+        efforts.filter { it.date.isAfter(today.minusDays(windowDays)) && !it.date.isAfter(today) }
             .groupBy { it.distanceMeters }.values.map { g -> g.minBy { it.seconds } }
             .sortedBy { it.seconds }
 
@@ -188,14 +188,14 @@ object CriticalSpeed {
      * Walk-forward check (spec rule 10): every effort that is the fastest of its distance in the 90 days up to its
      * own date is predicted from a fit on efforts of earlier dates only. Error = (predicted - actual time) / actual.
      */
-    fun walkForward(all: List<Effort>): Validation {
+    fun walkForward(all: List<Effort>, windowDays: Long = WINDOW_DAYS): Validation {
         val errors = ArrayList<Double>()
         for (e in all) {
             val windowBest = all.filter {
-                it.distanceMeters == e.distanceMeters && !it.date.isAfter(e.date) && it.date.isAfter(e.date.minusDays(WINDOW_DAYS))
+                it.distanceMeters == e.distanceMeters && !it.date.isAfter(e.date) && it.date.isAfter(e.date.minusDays(windowDays))
             }.minOf { it.seconds }
             if (e.seconds > windowBest) continue
-            val prior = anchors(all.filter { it.date.isBefore(e.date) }, e.date.minusDays(1))
+            val prior = anchors(all.filter { it.date.isBefore(e.date) }, e.date.minusDays(1), windowDays)
             val fit = (fit(prior) as? Outcome.Ok)?.fit ?: continue
             val predicted = (e.distanceMeters - fit.dPrimeMeters) / fit.csMs
             errors += abs(predicted - e.seconds) / e.seconds * 100

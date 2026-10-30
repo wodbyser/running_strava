@@ -152,16 +152,19 @@ object Consistency {
     data class Result(
         val completeWeeksOfHistory: Int,
         val enough: Boolean,
-        val last12: Window?,
-        val last52: Window?,
+        val shortWindow: Window?,
+        val longWindow: Window?,
         val currentWeekStart: LocalDate,
         val message: String?,
         /** Every complete week of the last 52 (or fewer when the history is shorter), oldest first, empty weeks included. */
         val weeks: List<Week> = emptyList(),
     )
 
-    /** [runs]: (local date, distance in metres). Only complete weeks (Monday to Sunday before [today]'s week) count. */
-    fun analyze(runs: List<Pair<LocalDate, Double>>, today: LocalDate, minWeeks: Int = 8): Result {
+    /**
+     * [runs]: (local date, distance in metres). Only complete weeks (Monday to Sunday before [today]'s week) count.
+     * Two windows of [shortWeeks] and [longWeeks]; the weekly list covers the long window.
+     */
+    fun analyze(runs: List<Pair<LocalDate, Double>>, today: LocalDate, minWeeks: Int = 8, shortWeeks: Int = 12, longWeeks: Int = 52): Result {
         val currentWeek = WeeklyVolume.weekStart(today)
         val done = runs.filter { it.first.isBefore(currentWeek) }
         if (done.isEmpty()) return Result(0, false, null, null, currentWeek, "onvoldoende data (0 weken)")
@@ -197,12 +200,12 @@ object Consistency {
                 medianRunsPerWeek = Stats.median(counts.map { it.toDouble() }),
             )
         }
-        val shown = minOf(52, history)
+        val shown = minOf(longWeeks, history)
         val weeks = (shown downTo 1).map { back ->
             val ws = currentWeek.minusWeeks(back.toLong())
             val inWeek = done.filter { WeeklyVolume.weekStart(it.first) == ws }
             Week(ws, inWeek.size, inWeek.sumOf { it.second } / 1000)
         }
-        return Result(history, true, window(12), window(52), currentWeek, null, weeks)
+        return Result(history, true, window(shortWeeks), window(longWeeks), currentWeek, null, weeks)
     }
 }

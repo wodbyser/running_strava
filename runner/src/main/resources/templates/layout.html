@@ -541,8 +541,15 @@
         .cmp-arrow { font: 600 var(--fs-lg) var(--font-display); color: var(--tone); text-align: center; }
         .cmp-arrow small { display: block; font-size: var(--fs-xs); }
         .cmp-card p { font-size: var(--fs-sm); color: var(--ink-2); margin-top: var(--sp-3); }
-        .period-inputs { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-end; margin-bottom: var(--sp-4); }
-        .period-inputs .filter-group input[type="number"] { width: 6.5rem; }
+        /* Period form per section: quiet inset row, so it reads as a setting and not as content. */
+        .window-form {
+            display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: flex-end; margin-bottom: var(--sp-4);
+            background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3);
+        }
+        .window-form .filter-group input[type="number"] { width: 5.5rem; min-height: 36px; }
+        .window-form .field-hint { align-self: center; }
+        .trend-hero .window-form { margin: var(--sp-3) 0 0; display: inline-flex; }
+        .sub-head { scroll-margin-top: 76px; }
 
         /* Horizontal bars (data funnel, reasons). */
         .hbar-list { display: flex; flex-direction: column; gap: var(--sp-3); }

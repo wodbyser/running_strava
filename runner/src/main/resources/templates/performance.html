@@ -8,9 +8,7 @@
         </div>
         <nav class="actions" aria-label="Hartslagzones kiezen">
             <span class="note">Zones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></span>
-            <a class="btn btn-sm" th:classappend="${zonesParam == ''} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance}">Standaard</a>
-            <a class="btn btn-sm" th:classappend="${zonesParam == 'garmin'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='garmin')}">Garmin</a>
-            <a class="btn btn-sm" th:classappend="${zonesParam == 'app'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='app')}">App-schatting</a>
+            <a class="btn btn-sm" th:each="z : ${zoneUrls}" th:classappend="${zonesParam == z.first} ? 'btn-primary' : 'btn-secondary'" th:href="${z.third}" th:text="${z.second}">Standaard</a>
         </nav>
     </div>
 
@@ -30,6 +28,7 @@
     </nav>
 
     <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
     <!--/* 1. Conditietrend */-->
     <section class="card perf-section trend-hero" id="fitness" th:classappend="${p.fitness.tone.css}" aria-labelledby="h-fitness">
@@ -41,6 +40,7 @@
         </div>
         <p class="trend-headline" th:text="${p.fitness.headline}">-</p>
         <p class="note" th:text="${p.fitness.sub}">-</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'trend'} }, 'fitness')}"/>
         <div class="trend-grid">
             <div class="trend-card" th:each="c : ${p.fitness.cards}" th:classappend="${c.tone.css}">
                 <span class="trend-arrow" aria-hidden="true" th:text="${c.arrow}">↑</span>
@@ -59,7 +59,7 @@
         <details class="explain">
             <summary>Hoe moet ik dit lezen?</summary>
             <div>
-                <p>Elke indicator vergelijkt de laatste 90 dagen met de 90 dagen daarvoor. De pijl toont de richting (hoger, lager, stabiel); de kleur toont of die richting gunstig is: groen = gunstig, rood = ongunstig, grijs = geen duidelijk verschil, oranje gestreept = onzeker.</p>
+                <p>Elke indicator vergelijkt de laatste <span th:text="${w.trendDays}">90</span> dagen met de <span th:text="${w.trendDays}">90</span> dagen daarvoor (aan te passen hierboven). De pijl toont de richting (hoger, lager, stabiel); de kleur toont of die richting gunstig is: groen = gunstig, rood = ongunstig, grijs = geen duidelijk verschil, oranje gestreept = onzeker.</p>
                 <p>De 4 indicatoren worden niet opgeteld tot één score. Snelle factoren (slaap, herstel, vermoeidheid van gisteren) horen er bewust niet bij: die vind je op de pagina Herstel. Een gunstige trend zegt iets over je basisconditie, niet over je wedstrijdvorm op één dag.</p>
                 <p th:text="${association}">-</p>
             </div>
@@ -73,23 +73,8 @@
         </div>
         <p class="lead">Hoeveel <strong>meter je per hartslag</strong> aflegt tijdens rustige, stabiele runs. Stijgt dit over weken, dan loop je even snel met minder hartslag: je aerobe basis wordt sterker.</p>
 
-        <form method="get" action="/performance#ef" class="period-inputs" aria-label="Periodes kiezen">
-            <input type="hidden" name="zones" th:value="${zonesParam}" th:if="${zonesParam != ''}">
-            <span class="filter-group">
-                <label for="short">Korte periode</label>
-                <span class="inline"><input type="number" id="short" name="short" th:value="${shortDays}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
-            </span>
-            <span class="filter-group">
-                <label for="long">Lange periode</label>
-                <span class="inline"><input type="number" id="long" name="long" th:value="${longDays}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
-            </span>
-            <button type="submit" class="btn btn-secondary btn-sm">Vergelijk</button>
-            <th:block th:if="${shortDays != 28 || longDays != 90}">
-                <a class="btn btn-ghost btn-sm" th:if="${zonesParam == ''}" href="/performance#ef">Standaard (28 en 90)</a>
-                <a class="btn btn-ghost btn-sm" th:if="${zonesParam != ''}" th:href="@{/performance(zones=${zonesParam})} + '#ef'">Standaard (28 en 90)</a>
-            </th:block>
-            <span class="field-hint">Elke periode wordt vergeleken met even veel dagen daarvoor (tussen <span th:text="${minDays}">7</span> en <span th:text="${maxDays}">365</span> dagen).</span>
-        </form>
+        <th:block th:replace="~{fragments :: windowForm(${ {'short', 'long'} }, 'ef')}"/>
+        <p class="note-xs mb-2">Elke periode wordt vergeleken met even veel dagen daarvoor.</p>
 
         <p class="callout" th:if="${p.ef.noZones}">Geen hartslagzones beschikbaar: de efficiëntie kan niet per zonegroep vergeleken worden.</p>
         <div class="cmp-grid" th:if="${!p.ef.compares.isEmpty()}">
@@ -145,7 +130,8 @@
             <p class="callout" th:text="${p.zones.note}">-</p>
         </th:block>
         <th:block th:if="${p.zones.available}">
-            <p class="lead">Hoeveel minuten je per week in elke hartslagzone liep, over de laatste 26 weken. Hoe hoger de zone, hoe zwaarder.</p>
+            <p class="lead">Hoeveel minuten je per week in elke hartslagzone liep, over de laatste <span th:text="${w.zoneWeeks}">26</span> weken. Hoe hoger de zone, hoe zwaarder.</p>
+            <th:block th:replace="~{fragments :: windowForm(${ {'zoneWeeks'} }, 'zones')}"/>
             <th:block th:if="${p.zones.recentLabel != ''}">
                 <p class="note mb-2" th:text="${p.zones.recentLabel}">-</p>
                 <div class="zone-bar" role="img" aria-label="Verdeling van je looptijd over de zones in de laatste 4 weken; zie de legende hieronder">
@@ -178,7 +164,8 @@
         <div class="card-head">
             <h2 id="h-drift">Hartslagdrift en ontkoppeling <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span></h2>
         </div>
-        <p class="lead">Blijft je hartslag rustig tot het einde van een stabiele run, of loopt hij op? Hoe kleiner deze waarden, hoe beter je lichaam het tempo volhoudt. Stabiele runs van de laatste 90 dagen.</p>
+        <p class="lead">Blijft je hartslag rustig tot het einde van een stabiele run, of loopt hij op? Hoe kleiner deze waarden, hoe beter je lichaam het tempo volhoudt. Stabiele runs van de laatste <span th:text="${w.driftDays}">90</span> dagen.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'drift'} }, 'drift')}"/>
         <div class="stat-grid">
             <div class="stat" th:each="t : ${p.drift.tiles}" th:classappend="${t.tone.css}">
                 <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
@@ -222,7 +209,8 @@
         <div class="card-head">
             <h2 id="h-cs">Kritische snelheid <span class="badge badge-est" title="Een model van de app, met onzekerheid.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['cs']})}"/></h2>
         </div>
-        <p class="lead">Een schatting van het snelste tempo dat je lang kunt volhouden (ongeveer je tempo voor 30 tot 60 minuten voluit), berekend uit je snelste 1, 3, 5 en 10 km van de laatste 90 dagen.</p>
+        <p class="lead">Een schatting van het snelste tempo dat je lang kunt volhouden (ongeveer je tempo voor 30 tot 60 minuten voluit), berekend uit je snelste 1, 3, 5 en 10 km van de laatste <span th:text="${w.csDays}">90</span> dagen.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'cs'} }, 'cs')}"/>
         <p class="callout mb-2" th:if="${!p.cs.available}" th:text="${p.cs.reason}">-</p>
         <div class="stat-grid">
             <div class="stat" th:each="t : ${p.cs.tiles}" th:classappend="${t.estimate} ? 'is-est'">
@@ -257,6 +245,7 @@
             <h2 id="h-intensity">Intensiteit en soort trainingen <span class="badge badge-est" title="Een groepering van de app.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['intensiteit']})}"/></h2>
         </div>
         <p class="lead">Welk deel van je looptijd was makkelijk, matig of zwaar, per maand? En welke soort trainingen deed je, per blok van 4 weken?</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'months', 'mixWeeks'} }, 'intensity')}"/>
         <div class="chart-box" th:if="${!p.charts['intLabels'].isEmpty()}"><canvas id="intensityChart" role="img" aria-label="Aandeel makkelijk, matig en zwaar per maand"></canvas></div>
         <h3 class="sub-head" th:if="${!p.charts['mixLabels'].isEmpty()}">Soort trainingen per 4 weken <th:block th:replace="~{fragments :: help(${g['sessietype']})}"/></h3>
         <div class="chart-box" th:if="${!p.charts['mixLabels'].isEmpty()}"><canvas id="mixChart" role="img" aria-label="Aantal trainingen per soort per 4 weken"></canvas></div>
@@ -275,17 +264,18 @@
             <h2 id="h-consistency">Regelmaat <span class="badge badge-calc" title="Geteld uit je runs.">berekend</span></h2>
         </div>
         <p class="lead">Hoe constant train je? Alleen volledige weken (maandag tot zondag) tellen; de lopende week niet.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'consShort', 'consLong'} }, 'consistency')}"/>
         <p class="callout" th:if="${!p.consistency.available}" th:text="${p.consistency.message}">-</p>
         <th:block th:if="${p.consistency.available}">
-            <div class="chart-box"><canvas id="weekChart" role="img" aria-label="Kilometer en aantal runs per week, laatste 52 weken"></canvas></div>
+            <div class="chart-box"><canvas id="weekChart" role="img" th:aria-label="'Kilometer en aantal runs per week, laatste ' + ${p.consistency.longWeeks} + ' weken'"></canvas></div>
             <p class="note-xs mt-2">Balkjes = kilometer per week, lijn = aantal runs. Een week zonder balkje is een week zonder run.</p>
             <div class="table-wrap mt-2"><table class="compare-table">
-                <thead><tr><th></th><th class="num">Laatste 12 weken</th><th class="num" th:text="'Laatste ' + ${p.consistency.weeks52} + ' weken'">Laatste 52 weken</th></tr></thead>
+                <thead><tr><th></th><th class="num" th:text="'Laatste ' + ${p.consistency.shortWeeks} + ' weken'">Laatste 12 weken</th><th class="num" th:text="'Laatste ' + ${p.consistency.longWeeks} + ' weken'">Laatste 52 weken</th></tr></thead>
                 <tbody>
                 <tr th:each="row : ${p.consistency.rows}">
                     <th scope="row"><span th:text="${row.label}">-</span> <th:block th:replace="~{fragments :: help(${row.tip == null ? null : g[row.tip]})}"/></th>
-                    <td class="num" th:text="${row.last12}">-</td>
-                    <td class="num" th:text="${row.last52}">-</td>
+                    <td class="num" th:text="${row.shortWindow}">-</td>
+                    <td class="num" th:text="${row.longWindow}">-</td>
                 </tr>
                 </tbody>
             </table></div>
@@ -309,6 +299,7 @@
             <h2 id="h-durability">Duurzaamheid op lange stabiele runs <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span><th:block th:replace="~{fragments :: help(${g['duurzaamheid']})}"/></h2>
         </div>
         <p class="lead">Blijf je even efficiënt naarmate een lange run vordert? Per blok van 10 minuten: je efficiëntie als percentage van het eerste blok. <strong>Hoe dichter bij 100 %, hoe beter</strong> je het volhoudt. Alleen stabiele runs van minstens 75 minuten.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'dur'} }, 'durability')}"/>
         <div class="stat-grid">
             <div class="stat" th:each="t : ${p.durability.tiles}" th:classappend="${t.tone.css}">
                 <span class="label"><span th:text="${t.label}">-</span></span>
@@ -341,6 +332,7 @@
             <h2 id="h-longruns">Lange runs: einde tegenover begin <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span><th:block th:replace="~{fragments :: help(${g['lange-run']})}"/></h2>
         </div>
         <p class="lead">Hoe verschilt het laatste derde van je lange runs van het eerste derde? Een lagere efficiëntie of een veel hogere hartslag op het einde wijst op vermoeidheid. Ook niet-stabiele lange runs tellen mee.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'lr'} }, 'longruns')}"/>
         <div class="stat-grid">
             <div class="stat" th:each="t : ${p.longRuns.tiles}" th:classappend="${t.tone.css}">
                 <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
@@ -413,7 +405,8 @@
             </table></div>
             <p class="note-xs mt-2">Groen = laatste rep minstens 2 % sneller dan de eerste, rood = minstens 2 % trager. Statistieken pas vanaf 3 reps.</p>
         </th:block>
-        <h3 class="sub-head">Hartslagherstel na een rep <th:block th:replace="~{fragments :: help(${g['hrr']})}"/></h3>
+        <h3 class="sub-head" id="hrr">Hartslagherstel na een rep <th:block th:replace="~{fragments :: help(${g['hrr']})}"/></h3>
+        <th:block th:replace="~{fragments :: windowForm(${ {'hrr'} }, 'hrr')}"/>
         <p class="note" th:text="${p.hrrNote}">-</p>
         <div class="stat-grid mt-2" th:if="${!p.hrr.isEmpty()}">
             <div class="stat" th:each="t : ${p.hrr}" th:classappend="${t.tone.css}">
@@ -437,6 +430,7 @@
         <div class="card-head">
             <h2 id="h-power">Loopvermogen <span class="badge badge-calc" title="Gemeten door je horloge of voetsensor.">gemeten door je apparaat</span><th:block th:replace="~{fragments :: help(${g['vermogen']})}"/></h2>
         </div>
+        <th:block th:replace="~{fragments :: windowForm(${ {'power'} }, 'power')}"/>
         <p class="note" th:text="${p.powerNote}">-</p>
         <div class="stat-grid mt-2" th:if="${!p.power.isEmpty()}">
             <div class="stat" th:each="t : ${p.power}" th:classappend="${t.tone.css}">

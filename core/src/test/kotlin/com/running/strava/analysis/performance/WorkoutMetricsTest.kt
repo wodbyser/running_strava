@@ -319,7 +319,7 @@ class ComparableAndConsistencyTest {
         val runs = weekly(10).filterNot { LocalDate.of(2026, 10, 26).minusWeeks(3) <= it.first && it.first < LocalDate.of(2026, 10, 26).minusWeeks(2) } +
             listOf(LocalDate.of(2026, 10, 27) to 10000.0)
         val r = Consistency.analyze(runs, today)
-        val w = r.last12!!
+        val w = r.shortWindow!!
         assertEquals(12.coerceAtMost(r.completeWeeksOfHistory), w.weeks)
         assertEquals(9 * 3, w.runs)
         assertEquals(1, w.runsPerWeekDistribution["0"])
@@ -333,9 +333,9 @@ class ComparableAndConsistencyTest {
     fun `gaps of 6 days are not listed and gaps of 7 days are`() {
         val base = weekly(8).toMutableList()
         val gap6 = Consistency.analyze(listOf(LocalDate.of(2026, 9, 7) to 5000.0, LocalDate.of(2026, 9, 13) to 5000.0) + base.filter { it.first.isBefore(LocalDate.of(2026, 9, 1)) || it.first.isAfter(LocalDate.of(2026, 9, 14)) }, today)
-        assertTrue(gap6.last12!!.gaps7Plus.none { it.from == LocalDate.of(2026, 9, 7) })
+        assertTrue(gap6.shortWindow!!.gaps7Plus.none { it.from == LocalDate.of(2026, 9, 7) })
         val gap7 = Consistency.analyze(listOf(LocalDate.of(2026, 9, 7) to 5000.0, LocalDate.of(2026, 9, 14) to 5000.0) + base.filter { it.first.isBefore(LocalDate.of(2026, 9, 1)) || it.first.isAfter(LocalDate.of(2026, 9, 15)) }, today)
-        assertTrue(gap7.last12!!.gaps7Plus.any { it.from == LocalDate.of(2026, 9, 7) && it.days == 7L })
+        assertTrue(gap7.shortWindow!!.gaps7Plus.any { it.from == LocalDate.of(2026, 9, 7) && it.days == 7L })
     }
 
     // ---- fitness view ----

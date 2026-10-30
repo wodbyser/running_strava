@@ -108,12 +108,38 @@ class PerformanceServiceTest {
     @Test
     fun `overview page uses dutch dates and the chosen comparison windows`() {
         val (s, _) = service()
-        val r = s.report(shortDays = 14, longDays = 60)
+        val r = s.report(w = PerformanceWindows(efShortDays = 14, efLongDays = 60))
         assertEquals(listOf(14, 60), r.efWindows)
         val page = PerformancePageBuilder.build(r)
         assertTrue(page.ef.compares.all { it.windowDays in setOf(14, 60) })
         assertEquals("30 okt 2026", PerfDates.day(java.time.LocalDate.of(2026, 10, 30)))
         assertTrue(page.recent.none { it.date.contains("-") })
+    }
+
+    @Test
+    fun `every period is adjustable and changes what is counted`() {
+        val (s, _) = service()
+        val def = s.report()
+        assertEquals(12, def.driftRows.size) // all steady runs are within 90 days
+        val short = s.report(w = PerformanceWindows(driftDays = 20, trendDays = 30))
+        assertEquals(6, short.driftRows.size) // runs 2..17 days ago
+        assertEquals(30, short.windows.trendDays)
+        val page = PerformancePageBuilder.build(short)
+        assertTrue(page.fitness.sub.startsWith("Laatste 30 dagen tegenover de 30 dagen daarvoor"))
+        assertEquals(40, s.runReport(1, typicalDays = 40)!!.typical!!.days)
+    }
+
+    @Test
+    fun `windows are read from parameters, clamped, ordered and fall back to the defaults`() {
+        val w = PerformanceWindows.from(mapOf("short" to "120", "long" to "30", "drift" to "5", "cs" to "abc", "zoneWeeks" to "999"))
+        assertEquals(30, w.efShortDays)
+        assertEquals(120, w.efLongDays)
+        assertEquals(14, w.driftDays)
+        assertEquals(90, w.csDays)
+        assertEquals(156, w.zoneWeeks)
+        assertEquals(PerformanceWindows.DEFAULT, PerformanceWindows.from(emptyMap()))
+        assertTrue(PerformanceWindows.DEFAULT.changed.isEmpty())
+        assertEquals(mapOf("drift" to 14), PerformanceWindows(driftDays = 14).changed)
     }
 
     @Test

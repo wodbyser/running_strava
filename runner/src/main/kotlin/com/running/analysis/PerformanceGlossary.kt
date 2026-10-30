@@ -27,7 +27,7 @@ object PerformanceGlossary {
             "periodes", "Periode tegenover periode",
             "De app vergelijkt de laatste X dagen (recent) met de X dagen daarvoor (ervoor). " +
                 "'9 ervoor, 4 recent' betekent: 9 stabiele runs in de vorige periode en 4 in de recente periode. " +
-                "Pas vanaf 5 runs in elke periode geeft de app een oordeel.",
+                "Pas vanaf 5 runs in elke periode geeft de app een oordeel. Je kunt de lengte van de periodes per onderdeel aanpassen.",
         ),
         Term(
             "oordeel", "Gunstig, stabiel, onzeker",
@@ -83,7 +83,7 @@ object PerformanceGlossary {
         Term(
             "cs", "Kritische snelheid",
             "Een schatting van het hoogste tempo dat je lang kunt volhouden, ongeveer het tempo van een wedstrijd van 30 tot 60 minuten. " +
-                "Berekend uit je snelste 1, 3, 5 en 10 km van de laatste 90 dagen (stukken van 3 tot 30 minuten). Het is geen lactaatdrempel. " +
+                "Berekend uit je snelste 1, 3, 5 en 10 km van de gekozen periode, standaard de laatste 90 dagen (stukken van 3 tot 30 minuten). Het is geen lactaatdrempel. " +
                 "Liep je die stukken niet voluit, dan ligt je echte kritische snelheid hoger.",
         ),
         Term(
@@ -93,7 +93,7 @@ object PerformanceGlossary {
         ),
         Term(
             "anker", "Anker",
-            "Een snelste stuk over een vaste afstand (1, 3, 5 of 10 km) uit de laatste 90 dagen. De app trekt een rechte lijn door deze punten " +
+            "Een snelste stuk over een vaste afstand (1, 3, 5 of 10 km) uit de gekozen periode (standaard 90 dagen). De app trekt een rechte lijn door deze punten " +
                 "(afstand tegenover tijd); de helling van die lijn is je kritische snelheid. Hoe beter de lijn past (R² dicht bij 1), hoe betrouwbaarder.",
         ),
         Term(

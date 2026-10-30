@@ -2,6 +2,21 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 
+<!--/* Period inputs for one section of the performance page. keys = list of PerformanceWindows keys, anchor = section id.
+       Uses the model attributes spec, wv and keep (the user's other choices, sent along as hidden fields). */-->
+<form th:fragment="windowForm(keys, anchor)" method="get" th:action="'/performance#' + ${anchor}" class="window-form" aria-label="Periode kiezen">
+    <th:block th:each="e : ${keep}"><input type="hidden" th:unless="${keys.contains(e.key)}" th:name="${e.key}" th:value="${e.value}"></th:block>
+    <span class="filter-group" th:each="k : ${keys}">
+        <label th:for="'w-' + ${k}" th:text="${spec.get(k).label}">Periode</label>
+        <span class="inline">
+            <input type="number" th:id="'w-' + ${k}" th:name="${k}" th:value="${wv.get(k)}" th:min="${spec.get(k).min}" th:max="${spec.get(k).max}" required>
+            <span class="unit" th:text="${spec.get(k).unit}">dagen</span>
+            <span class="field-hint" th:text="${wv.get(k) == spec.get(k).default} ? '(standaard)' : '(standaard ' + ${spec.get(k).default} + ')'">(standaard)</span>
+        </span>
+    </span>
+    <button type="submit" class="btn btn-secondary btn-sm">Toepassen</button>
+</form>
+
 <!--/* "?" button with a plain-language explanation. term = PerformanceGlossary Term (null renders nothing). */-->
 <details class="help" th:fragment="help(term)" th:if="${term != null}">
     <summary th:attr="aria-label='Uitleg: ' + ${term.title}" th:title="'Uitleg: ' + ${term.title}">?</summary>

@@ -6,6 +6,7 @@ import com.running.strava.analysis.EfVerdict
 import com.running.strava.analysis.HrZones
 import com.running.strava.analysis.isRun
 import com.running.strava.analysis.ActivityTime
+import com.running.strava.analysis.WeeklyVolume
 import com.running.strava.analysis.performance.*
 import com.running.strava.domain.Activity
 import com.running.strava.domain.Lap
@@ -88,6 +89,8 @@ data class PerformanceReport(
     val efTrends: List<EfTrend>,
     /** The two comparison windows (days) used for [efTrends], shortest first. */
     val efWindows: List<Int>,
+    /** Every period used on the overview, as chosen by the user (defaults otherwise). */
+    val windows: PerformanceWindows,
     val efMonthly: List<EfMonth>,
     val efPoints: List<EfPoint>,
     /** Steady runs (all time) per HR stratum: explains why some strata never have a trend. */
@@ -112,8 +115,9 @@ data class PerformanceReport(
     val recent: List<RecentRun>,
 )
 
-/** Your own medians over steady runs of the last 90 days, as context for one run (no norm, no verdict). */
+/** Your own medians over steady runs of the last [days] days, as context for one run (no norm, no verdict). */
 data class TypicalValues(
+    val days: Int,
     val n: Int,
     val efSameStratum: Double?,
     val nEf: Int,
@@ -215,7 +219,7 @@ class PerformanceService(
         }
     }
 
-    fun report(zonePref: String? = null, shortDays: Int = DEFAULT_SHORT_DAYS, longDays: Int = DEFAULT_LONG_DAYS): PerformanceReport {
+    fun report(zonePref: String? = null, w: PerformanceWindows = PerformanceWindows.DEFAULT): PerformanceReport {
         val started = System.nanoTime()
         val cfg = config
         val today = today()
@@ -232,65 +236,68 @@ class PerformanceService(
         val steadyRuns = all.filter { it.steady && it.ef != null }
 
         val efStrata = if (set != null) steadyRuns.map { it.ef!! to Stratum.of(it.ef.avgHr, set) } else emptyList()
-        val windows = listOf(shortDays, longDays).map { it.coerceIn(MIN_WINDOW_DAYS, MAX_WINDOW_DAYS) }.distinct().sorted()
+        val windows = listOf(w.efShortDays, w.efLongDays).distinct().sorted()
         val efTrends = if (set == null) emptyList() else Stratum.entries.flatMap { s -> windows.map { EfIndex.trend(efStrata, s, today, it, cfg) } }
-        // The fitness view always compares 90 against 90 days, whatever windows the user picked for the EF section.
-        val efTrends90 = if (set == null) emptyList() else Stratum.entries.map { EfIndex.trend(efStrata, it, today, 90, cfg) }
+        // The fitness view has its own window, independent of the EF section.
+        val efTrendsFitness = if (set == null) emptyList() else Stratum.entries.map { EfIndex.trend(efStrata, it, today, w.trendDays, cfg) }
         val efMonthly = EfIndex.monthly(efStrata)
         val efPoints = efStrata.map { (r, s) -> EfPoint(r.activityId, r.date, r.ef, s) }
         val steadyPerStratum = Stratum.entries.associateWith { s -> efStrata.count { it.second == s } }
 
         val driftAll = steadyRuns.filter { it.drift != null }
-        val driftRows = driftAll.filter { inLast(it.date, 90) }
+        val driftRows = driftAll.filter { inLast(it.date, w.driftDays.toLong()) }
             .map { DriftRow(it.id, it.date, it.ef!!.windowMinutes, it.drift!!, it.tempC, it.name) }.sortedByDescending { it.date }
         val driftOk = driftRows.filter { it.drift.driftAvailable }
         val driftSummary = if (driftOk.size >= cfg.minRunsDrift) {
-            "Mediaan over ${driftOk.size} stabiele runs (90 dagen): drift ${"%.1f".format(java.util.Locale.ROOT, Stats.median(driftOk.map { it.drift.driftPct })!!)} %, " +
+            "Mediaan over ${driftOk.size} stabiele runs (${w.driftDays} dagen): drift ${"%.1f".format(java.util.Locale.ROOT, Stats.median(driftOk.map { it.drift.driftPct })!!)} %, " +
                 "ontkoppeling ${"%.1f".format(java.util.Locale.ROOT, Stats.median(driftRows.map { it.drift.decouplingPct })!!)} %."
         } else "Onvoldoende data voor een samenvatting (n = ${driftOk.size} runs met bruikbare drift, minimum ${cfg.minRunsDrift})."
 
         // critical speed
         val efforts = all.flatMap { it.efforts }
-        val anchors = CriticalSpeed.anchors(efforts, today)
+        val csDays = w.csDays.toLong()
+        val anchors = CriticalSpeed.anchors(efforts, today, csDays)
         val outcome = CriticalSpeed.fit(anchors)
-        val prevOutcome = CriticalSpeed.fit(CriticalSpeed.anchors(efforts, today.minusDays(CriticalSpeed.WINDOW_DAYS)))
+        val prevOutcome = CriticalSpeed.fit(CriticalSpeed.anchors(efforts, today.minusDays(w.trendDays.toLong()), csDays))
         val (hrCs, hrN) = (outcome as? CriticalSpeed.Outcome.Ok)?.let { CriticalSpeed.hrAtCs(it.fit) } ?: (null to 0)
         val garminRow = garminRepository.findHeartRateZones().firstOrNull { it.sport.equals("RUNNING", true) && it.lactateThresholdHr != null }
-        val cs = CsView(outcome, hrCs, hrN, CriticalSpeed.walkForward(efforts), garminRow?.lactateThresholdHr, garminRow?.sport)
+        val cs = CsView(outcome, hrCs, hrN, CriticalSpeed.walkForward(efforts, csDays), garminRow?.lactateThresholdHr, garminRow?.sport)
 
         // zones
         val zoneRuns = all.filter { it.histogram != null }.map { ZoneRun(it.date, it.histogram!!, it.sessionType, it.distanceMeters) }
-        val weeks = if (set != null) ZoneDistribution.byWeek(zoneRuns, set).takeLast(26) else emptyList()
-        val months = if (set != null) ZoneDistribution.byMonth(zoneRuns, set) else emptyList()
+        val firstWeek = WeeklyVolume.weekStart(today).minusWeeks(w.zoneWeeks - 1L)
+        val weeks = if (set != null) ZoneDistribution.byWeek(zoneRuns.filter { !it.date.isBefore(firstWeek) && !it.date.isAfter(today) }, set) else emptyList()
+        val firstMonth = java.time.YearMonth.from(today).minusMonths(w.intensityMonths - 1L).atDay(1)
+        val months = if (set != null) ZoneDistribution.byMonth(zoneRuns.filter { !it.date.isBefore(firstMonth) && !it.date.isAfter(today) }, set) else emptyList()
         val mixRuns = all.map { ZoneRun(it.date, emptyMap(), it.sessionType, it.distanceMeters) }
         val mixWeeks = ZoneDistribution.sessionMixByWeek(mixRuns).takeLast(12)
-        val mix4 = ZoneDistribution.sessionMixBy4Weeks(mixRuns, today).takeLast(13)
+        val mix4 = ZoneDistribution.sessionMixBy4Weeks(mixRuns, today).takeLast((w.mixWeeks + 3) / 4)
 
         // durability, long runs
         val durRows = steadyRuns.filter { it.durability != null }.map { r ->
             DurabilityRow(r.id, r.date, r.durability!!, set?.let { Stratum.of(r.ef!!.avgHr, it) }, r.name, r.validSeconds / 60)
         }.sortedByDescending { it.date }
         val dur60 = durRows.filter { it.run.efChangeAt60Pct != null }
-        val durB = dur60.filter { inLast(it.date, 90) }.map { it.run.efChangeAt60Pct!! }
-        val durA = dur60.filter { inPrev(it.date, 90) }.map { it.run.efChangeAt60Pct!! }
-        val durSummary = if (durB.size >= cfg.minRunsDurability) "Mediaan EF-verandering op minuut 60: ${"%.1f".format(java.util.Locale.ROOT, Stats.median(durB)!!)} % (n = ${durB.size}, 90 dagen)."
+        val durB = dur60.filter { inLast(it.date, w.durabilityDays.toLong()) }.map { it.run.efChangeAt60Pct!! }
+        val durSummary = if (durB.size >= cfg.minRunsDurability) "Mediaan EF-verandering op minuut 60: ${"%.1f".format(java.util.Locale.ROOT, Stats.median(durB)!!)} % (n = ${durB.size}, ${w.durabilityDays} dagen)."
         else "Onvoldoende data voor een samenvatting (n = ${durB.size} runs van minstens ${cfg.minDurabilityMinutes} min, minimum ${cfg.minRunsDurability})."
 
+        // Long run definition: always against the median of the last 90 days, so the chosen window does not change which runs count.
         val recentRuns = all.filter { inLast(it.date, 90) }
         val medMoving = Stats.median(recentRuns.map { it.movingSeconds.toDouble() })
         val longRows = all.filter { it.thirds != null && LongRun.isLongRun(it.workoutType, it.movingSeconds, medMoving) }
             .map { LongRunRow(it.id, it.date, it.validSeconds / 60, it.thirds!!, it.name) }.sortedByDescending { it.date }
-        val lrB = longRows.filter { inLast(it.date, 90) }
+        val lrB = longRows.filter { inLast(it.date, w.longRunDays.toLong()) }
         val longSummary = if (lrB.size >= cfg.minLongRunsList) {
             val m = { f: (LongRun.Thirds) -> Double -> "%.1f".format(java.util.Locale.ROOT, Stats.median(lrB.map { f(it.thirds) })!!) }
-            "Mediaan over ${lrB.size} lange runs (90 dagen): tempo ${m { it.speedChangePct }} %, HR ${m { it.hrChangeBpm }} bpm, EF ${m { it.efChangePct }} %." +
+            "Mediaan over ${lrB.size} lange runs (${w.longRunDays} dagen): tempo ${m { it.speedChangePct }} %, HR ${m { it.hrChangeBpm }} bpm, EF ${m { it.efChangePct }} %." +
                 if (lrB.size >= cfg.minLongRunsTrend) "" else " (een trend vraagt ${cfg.minLongRunsTrend} lange runs)"
         } else "Onvoldoende data voor een samenvatting (n = ${lrB.size} lange runs, minimum ${cfg.minLongRunsList})."
 
         // intervals and HRR
         val intervalRows = all.filter { it.intervals != null }.map { IntervalRow(it.id, it.date, it.intervals!!, it.name) }.sortedByDescending { it.date }
         val groups = intervalRows.filter { it.session.signature != null }.groupBy { it.session.signature!! }
-        val hrrAll = intervalRows.filter { inLast(it.date, 90) }.flatMap { r -> r.session.reps.mapNotNull { it.hrr } }
+        val hrrAll = intervalRows.filter { inLast(it.date, w.hrrDays.toLong()) }.flatMap { r -> r.session.reps.mapNotNull { it.hrr } }
         val medianInterval = Stats.median(all.mapNotNull { it.medianIntervalSeconds })
         val hrr = if (medianInterval != null && medianInterval > HeartRateRecovery.MAX_SAMPLE_INTERVAL_SECONDS) emptyList()
         else HeartRateRecovery.summarize(hrrAll, cfg.minHrrMeasurements)
@@ -300,16 +307,16 @@ class PerformanceService(
         val powerRuns = steadyRuns.filter { it.measuredPower && it.watts != null }.map {
             PowerRun(it.id, it.date, it.movingSeconds.toDouble(), it.distanceMeters, it.avgHr ?: 0.0, it.watts!!)
         }.filter { it.avgHr > 0 }
-        val power = PowerEfficiency.analyze(steadyDates, powerRuns, today, 90, cfg)
+        val power = PowerEfficiency.analyze(steadyDates, powerRuns, today, w.powerDays, cfg)
 
         // fitness view (#21)
-        val fitness = FitnessView.summarize(fitnessIndicators(efTrends90, outcome, prevOutcome, driftAll, dur60, today, cfg))
+        val fitness = FitnessView.summarize(fitnessIndicators(efTrendsFitness, outcome, prevOutcome, driftAll, dur60, today, cfg, w.trendDays))
 
-        val consistency = Consistency.analyze(all.map { it.date to it.distanceMeters }, today, cfg.minConsistencyWeeks)
+        val consistency = Consistency.analyze(all.map { it.date to it.distanceMeters }, today, cfg.minConsistencyWeeks, w.consistencyShortWeeks, w.consistencyLongWeeks)
 
         val report = PerformanceReport(
             PerformanceAlgorithm.VERSION, today, all.size, all.count { it.hasStream }, all.count { it.histogram != null || (it.hasStream && it.steadyFailure != SteadyFailure.NO_HR) },
-            steadyRuns.size, failures, set, zoneNote, maxHr, consistency, efTrends, windows, efMonthly, efPoints, steadyPerStratum, driftRows, driftSummary, fitness, cs,
+            steadyRuns.size, failures, set, zoneNote, maxHr, consistency, efTrends, windows, w, efMonthly, efPoints, steadyPerStratum, driftRows, driftSummary, fitness, cs,
             weeks, months, mixWeeks, mix4, durRows, durSummary, longRows, longSummary, intervalRows, groups, hrr, hrrAll.size, power,
             all.sortedByDescending { it.date }.take(40).map { RecentRun(it) },
         )
@@ -329,10 +336,11 @@ class PerformanceService(
         dur60: List<DurabilityRow>,
         today: LocalDate,
         cfg: PerformanceConfig,
+        days: Int,
     ): List<FitnessView.Indicator> {
-        fun inLast(d: LocalDate) = d.isAfter(today.minusDays(90)) && !d.isAfter(today)
-        fun inPrev(d: LocalDate) = d.isAfter(today.minusDays(180)) && !d.isAfter(today.minusDays(90))
-        val ef90 = efTrends.filter { it.windowDays == 90 }.maxByOrNull { it.nA + it.nB }
+        fun inLast(d: LocalDate) = d.isAfter(today.minusDays(days.toLong())) && !d.isAfter(today)
+        fun inPrev(d: LocalDate) = d.isAfter(today.minusDays(2L * days)) && !d.isAfter(today.minusDays(days.toLong()))
+        val ef90 = efTrends.filter { it.windowDays == days }.maxByOrNull { it.nA + it.nB }
         val a = if (ef90 != null) FitnessView.Indicator(
             "ef", "Aerobe efficiëntie (stabiele runs)", ef90.direction, FitnessView.Favourable.WHEN_HIGHER,
             "hogere EF = meer afstand per hartslag", ef90.nA, ef90.nB,
@@ -349,8 +357,8 @@ class PerformanceService(
                 change > 0 -> Direction.HIGHER
                 else -> Direction.LOWER
             }
-            FitnessView.Indicator("cs", "Geschatte kritische snelheid", dir, FitnessView.Favourable.WHEN_HIGHER, "hogere snelheid = sneller bij een inspanning van 3 tot 30 minuten", 1, 1, "${"%+.1f".format(java.util.Locale.ROOT, change)} % tegenover de schatting van 90 dagen geleden")
-        } else FitnessView.Indicator("cs", "Geschatte kritische snelheid", Direction.INSUFFICIENT, FitnessView.Favourable.WHEN_HIGHER, "hogere snelheid = sneller bij een inspanning van 3 tot 30 minuten", 0, 0, "nog geen twee bruikbare schattingen (nu en 90 dagen geleden)")
+            FitnessView.Indicator("cs", "Geschatte kritische snelheid", dir, FitnessView.Favourable.WHEN_HIGHER, "hogere snelheid = sneller bij een inspanning van 3 tot 30 minuten", 1, 1, "${"%+.1f".format(java.util.Locale.ROOT, change)} % tegenover de schatting van $days dagen geleden")
+        } else FitnessView.Indicator("cs", "Geschatte kritische snelheid", Direction.INSUFFICIENT, FitnessView.Favourable.WHEN_HIGHER, "hogere snelheid = sneller bij een inspanning van 3 tot 30 minuten", 0, 0, "nog geen twee bruikbare schattingen (nu en $days dagen geleden)")
 
         fun diff(label: String, key: String, fav: FitnessView.Favourable, meaning: String, unit: String, va: List<Double>, vb: List<Double>, min: Int, thr: Double): FitnessView.Indicator {
             val r = DifferenceTrend.evaluate(va, vb, min, thr)
@@ -365,7 +373,7 @@ class PerformanceService(
         return listOf(a, b, c, d)
     }
 
-    fun runReport(id: Long, zonePref: String? = null): RunReport? {
+    fun runReport(id: Long, zonePref: String? = null, typicalDays: Int = DEFAULT_TYPICAL_DAYS): RunReport? {
         val runs = eligibleRuns()
         val target = runs.firstOrNull { it.id == id } ?: activityRepository.findById(id)?.takeIf { it.isRun() } ?: return null
         val laps = activityRepository.findLapsForActivities((runs.map { it.id } + id).distinct())
@@ -378,17 +386,18 @@ class PerformanceService(
         val comparable = ComparableRuns.find(ref, profiles)
         val wanted = comparable.matches.map { it.run.activityId }.toSet()
         val names = runs.filter { it.id in wanted }.associate { it.id to it.name }
-        return RunReport(analysis, set, zoneSeconds, comparable, note, ref, typical(runs, laps, maxHr, set, analysis), names)
+        return RunReport(analysis, set, zoneSeconds, comparable, note, ref, typical(runs, laps, maxHr, set, analysis, typicalDays), names)
     }
 
-    private fun typical(runs: List<Activity>, laps: Map<Long, List<Lap>>, maxHr: Int?, set: HrZoneSet?, target: RunAnalysis): TypicalValues {
+    private fun typical(runs: List<Activity>, laps: Map<Long, List<Lap>>, maxHr: Int?, set: HrZoneSet?, target: RunAnalysis, days: Int): TypicalValues {
         val today = today()
         val recent = runs.filter { it.id != target.id }.map { analyze(it, laps[it.id].orEmpty(), maxHr) }
-            .filter { it.steady && it.ef != null && it.date.isAfter(today.minusDays(90)) && !it.date.isAfter(today) }
+            .filter { it.steady && it.ef != null && it.date.isAfter(today.minusDays(days.toLong())) && !it.date.isAfter(today) }
         val stratum = if (set != null && target.ef != null) Stratum.of(target.ef.avgHr, set) else null
         val sameStratum = if (stratum != null) recent.filter { Stratum.of(it.ef!!.avgHr, set!!) == stratum } else emptyList()
         val dur = recent.mapNotNull { it.durability?.efChangeAt60Pct }
         return TypicalValues(
+            days = days,
             n = recent.size,
             efSameStratum = Stats.median(sameStratum.map { it.ef!!.ef }), nEf = sameStratum.size,
             driftPct = Stats.median(recent.mapNotNull { r -> r.drift?.takeIf { it.driftAvailable }?.driftPct }),
@@ -407,10 +416,9 @@ class PerformanceService(
 
     companion object {
         val ZONE: ZoneId = ZoneId.of("Europe/Brussels")
-        const val DEFAULT_SHORT_DAYS = 28
-        const val DEFAULT_LONG_DAYS = 90
-        const val MIN_WINDOW_DAYS = 7
-        const val MAX_WINDOW_DAYS = 365
+        const val DEFAULT_TYPICAL_DAYS = 90
+        const val MIN_TYPICAL_DAYS = 14
+        const val MAX_TYPICAL_DAYS = 730
         private val ZONE_ID = ZONE
     }
 }
