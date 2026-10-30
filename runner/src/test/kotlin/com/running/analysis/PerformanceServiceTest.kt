@@ -94,6 +94,29 @@ class PerformanceServiceTest {
     }
 
     @Test
+    fun `run page names comparable runs, hides criteria without data and explains every metric`() {
+        val (s, _) = service()
+        val page = RunPageBuilder.build(s.runReport(1)!!)
+        assertTrue(page.cmpRows.first().self)
+        assertEquals(11, page.cmpRows.size)
+        assertTrue(page.cmpRows.drop(1).all { it.name.isNotBlank() })
+        assertTrue(page.cmpHeads.none { it.short.startsWith("Temp") }, "no temperature in any stream, so no column")
+        assertTrue(page.hiddenCriteria.any { it.startsWith("temperatuur") })
+        assertTrue(page.metrics.all { it.explanation.isNotBlank() })
+    }
+
+    @Test
+    fun `overview page uses dutch dates and the chosen comparison windows`() {
+        val (s, _) = service()
+        val r = s.report(shortDays = 14, longDays = 60)
+        assertEquals(listOf(14, 60), r.efWindows)
+        val page = PerformancePageBuilder.build(r)
+        assertTrue(page.ef.compares.all { it.windowDays in setOf(14, 60) })
+        assertEquals("30 okt 2026", PerfDates.day(java.time.LocalDate.of(2026, 10, 30)))
+        assertTrue(page.recent.none { it.date.contains("-") })
+    }
+
+    @Test
     fun `logging has counts only, no heart rate, coordinates or names`() {
         val logger = LoggerFactory.getLogger(PerformanceService::class.java) as Logger
         val appender = ListAppender<ILoggingEvent>().also { it.start() }

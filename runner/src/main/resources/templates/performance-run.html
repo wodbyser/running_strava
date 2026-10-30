@@ -5,78 +5,110 @@
     <div class="page-head">
         <div>
             <h1 th:text="${a.name}">-</h1>
-            <p class="page-meta"><span th:text="${a.date}">-</span> <a th:href="@{/activity/{id}(id=${a.id})}">Naar de training</a></p>
+            <p class="page-meta"><span th:text="${v.date}">-</span> · <a th:href="@{/activity/{id}(id=${a.id})}">Naar de training</a></p>
         </div>
     </div>
     <p class="callout mb-2" th:text="${safety}">-</p>
 
     <section class="card" aria-labelledby="h-basis">
-        <h2 id="h-basis">Overzicht <span class="badge badge-calc">[berekend]</span></h2>
-        <dl class="facts">
-            <div><dt>Afstand</dt><dd th:text="${#numbers.formatDecimal(a.distanceMeters / 1000, 1, 2, 'POINT')} + ' km'">-</dd></div>
-            <div><dt>Tempo</dt><dd th:text="${pace}">-</dd></div>
-            <div><dt>Sessietype (automatisch herkend)</dt><dd th:text="${typeText}">-</dd></div>
-            <div><dt>Stabiel?</dt><dd th:text="${steadyText}">-</dd></div>
-            <div><dt>HR-dekking</dt><dd th:text="${a.hasStream} ? ${coveragePct} + ' %' : '[onbeschikbaar] geen stream'">-</dd></div>
-            <div><dt>Terrein (Strava-hoogtemeters)</dt><dd th:text="${a.terrain.text} + ' (' + ${#numbers.formatDecimal(a.elevationPerKm, 1, 1, 'POINT')} + ' m/km)'">-</dd></div>
-        </dl>
+        <h2 id="h-basis">Overzicht</h2>
+        <div class="stat-grid">
+            <div class="stat stat-text" th:each="t : ${v.facts}" th:classappend="${t.tone.css} + (${t.estimate} ? ' is-est' : '')">
+                <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:if="${t.sub != null}" th:text="${t.sub}">-</span>
+            </div>
+        </div>
     </section>
 
     <section class="card" aria-labelledby="h-metrics">
-        <h2 id="h-metrics">Metingen van de run</h2>
-        <div class="table-wrap"><table>
-            <thead><tr><th>Maat</th><th>Waarde</th></tr></thead>
-            <tbody>
-            <tr><th scope="row">EF van het stabiele deel</th><td th:text="${efText} ?: '[onbeschikbaar] geen stabiele run'">-</td></tr>
-            <tr><th scope="row">EF op hellingsgecorrigeerd tempo</th><td th:text="${efGapText} ?: '[onbeschikbaar]'">-</td></tr>
-            <tr><th scope="row">Hellingsgecorrigeerd tempo (GAP)</th><td th:text="${gapPace} ?: ('[onbeschikbaar] ' + (${a.gap != null} ? ${a.gap.reason} : 'geen stream'))">-</td></tr>
-            <tr><th scope="row">HR-drift</th><td th:if="${a.drift != null}" th:text="${#numbers.formatDecimal(a.drift.driftBpm, 1, 1, 'POINT')} + ' bpm (' + ${#numbers.formatDecimal(a.drift.driftPct, 1, 1, 'POINT')} + ' %)' + (${a.drift.driftAvailable} ? '' : ' [onbeschikbaar] tempo veranderde te veel')">-</td><td th:unless="${a.drift != null}">[onbeschikbaar] geen stabiele run</td></tr>
-            <tr><th scope="row">Ontkoppeling</th><td th:if="${a.drift != null}" th:text="${#numbers.formatDecimal(a.drift.decouplingPct, 1, 1, 'POINT')} + ' %'">-</td><td th:unless="${a.drift != null}">[onbeschikbaar] geen stabiele run</td></tr>
-            <tr><th scope="row">EF-verandering op minuut 60</th><td th:if="${a.durability != null && a.durability.efChangeAt60Pct != null}" th:text="${#numbers.formatDecimal(a.durability.efChangeAt60Pct, 1, 1, 'POINT')} + ' %'">-</td><td th:unless="${a.durability != null && a.durability.efChangeAt60Pct != null}">[onbeschikbaar] geen stabiele run van minstens 75 minuten</td></tr>
-            </tbody>
-        </table></div>
-        <p class="note" th:text="${association}">-</p>
+        <h2 id="h-metrics">Metingen van de run <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span></h2>
+        <div class="lead">Wat elke waarde betekent, en hoe ze zich verhoudt tot je eigen stabiele runs van de laatste 90 dagen. De meeste waarden bestaan alleen voor <strong>stabiele runs</strong> <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></div>
+        <div class="metric-list">
+            <div class="metric" th:each="m : ${v.metrics}">
+                <div class="metric-name"><span th:text="${m.label}">-</span><th:block th:replace="~{fragments :: help(${m.tip == null ? null : g[m.tip]})}"/></div>
+                <div class="metric-value" th:classappend="${!m.available} ? 'is-na'" th:text="${m.available} ? ${m.value} : 'niet beschikbaar'">-</div>
+                <div class="metric-text"><span th:text="${m.explanation}">-</span><span class="ctx" th:if="${m.context != null && m.context != ''}" th:text="${m.context}">-</span></div>
+            </div>
+        </div>
+        <p class="note-xs mt-2" th:text="${association}">-</p>
     </section>
 
     <section class="card" aria-labelledby="h-zones">
-        <h2 id="h-zones">Tijd in zones (minuten)</h2>
-        <p class="note" th:text="${zoneNote}">-</p>
-        <p th:if="${zoneSeconds == null}">[onbeschikbaar] geen zones of onvoldoende hartslagdekking.</p>
-        <p th:if="${zoneSeconds != null}" th:text="'Z1 ' + ${zoneSeconds[0]} + ' | Z2 ' + ${zoneSeconds[1]} + ' | Z3 ' + ${zoneSeconds[2]} + ' | Z4 ' + ${zoneSeconds[3]} + ' | Z5 ' + ${zoneSeconds[4]}">-</p>
+        <h2 id="h-zones">Tijd in hartslagzones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></h2>
+        <p class="callout" th:if="${v.zoneShares == null}">Niet beschikbaar: geen hartslagzones of minder dan 90 % hartslagdekking.</p>
+        <th:block th:if="${v.zoneShares != null}">
+            <div class="zone-bar" role="img" aria-label="Verdeling van de looptijd over de hartslagzones; zie de legende hieronder">
+                <div th:each="z : ${v.zoneShares}" th:if="${z.pct > 0}" th:class="'zone-bg-' + ${z.zone}" th:style="'flex:' + ${#numbers.formatDecimal(z.pct, 1, 'POINT', 2, 'POINT')}" th:text="${z.pct >= 6} ? ${#numbers.formatDecimal(z.pct, 1, 0)} + '%' : ''" th:title="'Zone ' + ${z.zone} + ': ' + ${z.minutes}">-</div>
+            </div>
+            <div class="zone-legend">
+                <div th:each="z : ${v.zoneShares}"><strong><span class="zone-chip" th:classappend="'zone-bg-' + ${z.zone}"></span><span th:text="'Zone ' + ${z.zone} + ': ' + ${z.minutes}">-</span></strong><span th:text="${z.range} + ' · ' + ${#numbers.formatDecimal(z.pct, 1, 0)} + ' %'">-</span></div>
+            </div>
+        </th:block>
+        <p class="note-xs mt-2" th:text="${v.zoneNote}">-</p>
     </section>
 
-    <section class="card" th:if="${a.intervals != null}" aria-labelledby="h-int">
-        <h2 id="h-int">Intervallen (automatisch herkend)</h2>
-        <p class="note" th:text="${a.intervals.signature} ?: 'Gemengde repopbouw: niet vergeleken met andere sessies.'">-</p>
+    <section class="card" th:if="${!v.reps.isEmpty()}" aria-labelledby="h-int">
+        <h2 id="h-int">Intervallen <span class="badge badge-est" title="Reps worden automatisch herkend uit je rondes.">automatisch herkend</span><th:block th:replace="~{fragments :: help(${g['opbouw']})}"/></h2>
+        <p class="lead" th:text="${v.intervalSignature != null} ? ('Herkende opbouw: ' + ${v.intervalSignature} + '. Wordt vergeleken met andere trainingen met dezelfde opbouw.') : 'Reps van verschillende lengte (gemengd): niet vergeleken met andere trainingen.'">-</p>
         <div class="table-wrap"><table>
-            <thead><tr><th>Rep</th><th>Afstand</th><th>Tijd</th><th>Gem. HR</th><th>Rust (s)</th><th>HR-herstel 60 s</th></tr></thead>
+            <thead><tr><th>Rep</th><th class="num">Afstand</th><th class="num">Tijd</th><th class="num">Tempo</th><th class="num">Gem. hartslag</th><th class="num">Rust erna</th><th>Hartslagherstel na 60 s <th:block th:replace="~{fragments :: help(${g['hrr']})}"/></th></tr></thead>
             <tbody>
-            <tr th:each="rep : ${a.intervals.reps}">
+            <tr th:each="rep : ${v.reps}">
                 <td th:text="${rep.number}">-</td>
-                <td th:text="${#numbers.formatDecimal(rep.distanceMeters, 1, 0)} + ' m'">-</td>
-                <td th:text="${rep.seconds} + ' s'">-</td>
-                <td th:text="${rep.avgHr != null} ? ${#numbers.formatDecimal(rep.avgHr, 1, 0)} : '-'">-</td>
-                <td th:text="${rep.recoverySeconds} ?: '-'">-</td>
-                <td th:text="${rep.hrr != null} ? (${#numbers.formatDecimal(rep.hrr.hrr60, 1, 0)} + ' bpm (' + ${rep.hrr.protocol.text} + ')') : ('[onbeschikbaar] ' + ${rep.hrrNote})">-</td>
+                <td class="num" th:text="${rep.distance}">-</td>
+                <td class="num" th:text="${rep.time}">-</td>
+                <td class="num" th:text="${rep.pace}">-</td>
+                <td class="num" th:text="${rep.hr}">-</td>
+                <td class="num" th:text="${rep.rest}">-</td>
+                <td th:text="${rep.hrr}">-</td>
             </tr>
             </tbody>
         </table></div>
     </section>
 
     <section class="card" aria-labelledby="h-cmp">
-        <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est">[app-schatting]</span></h2>
-        <p class="note">Harde criteria: zelfde sessietype, buiten of trainer, afstand tussen 0,8 en 1,25 keer, zelfde terreinklasse, hartslag aanwezig of niet. Geen gelijkenisscore: volgorde naar aantal zachte criteria die kloppen, daarna dichtstbijzijnde datum. Verband, geen oorzaak.</p>
-        <p class="callout" th:if="${cmp.message != null}" th:text="${cmp.message}">-</p>
-        <div class="table-wrap" th:if="${!cmp.matches.isEmpty()}"><table>
-            <thead><tr><th>Datum</th><th>Afstand</th><th>Tempo</th><th>GAP</th><th>HR</th><th>EF</th><th>Drift</th><th>Zachte criteria</th></tr></thead>
+        <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est" title="Een selectie van de app.">app-schatting</span></h2>
+        <p class="lead">Runs die op deze run lijken, zodat je ze naast elkaar kunt leggen. Bovenaan staat deze run zelf. De vinkjes tonen op welke punten een run extra goed overeenkomt; runs met meer vinkjes staan hoger.</p>
+        <p class="callout" th:if="${v.cmpMessage != null}" th:text="${v.cmpMessage}">-</p>
+        <div class="table-wrap" th:if="${!v.cmpRows.isEmpty()}"><table>
+            <thead><tr>
+                <th>Datum</th><th>Run</th><th class="num">Afstand</th><th class="num">Tempo</th>
+                <th class="num">GAP <th:block th:replace="~{fragments :: help(${g['gap']})}"/></th>
+                <th class="num">Hartslag</th>
+                <th class="num">EF <th:block th:replace="~{fragments :: help(${g['ef']})}"/></th>
+                <th class="num">Drift <th:block th:replace="~{fragments :: help(${g['drift']})}"/></th>
+                <th class="crit" th:each="h : ${v.cmpHeads}" th:title="${h.long}" th:text="${h.short}">-</th>
+            </tr></thead>
             <tbody>
-            <tr th:each="m : ${cmpRows}">
-                <td><a th:href="@{/performance/run/{id}(id=${m.id})}" th:text="${m.date}">-</a></td>
-                <td th:text="${m.km}">-</td><td th:text="${m.pace}">-</td><td th:text="${m.gap}">-</td>
-                <td th:text="${m.hr}">-</td><td th:text="${m.ef}">-</td><td th:text="${m.drift}">-</td><td th:text="${m.criteria}">-</td>
+            <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'">
+                <td class="nowrap"><a th:unless="${m.self}" th:href="@{/performance/run/{id}(id=${m.id})}" th:text="${m.date}">-</a><span th:if="${m.self}" th:text="${m.date}">-</span></td>
+                <td th:text="${m.self} ? ${m.name} + ' (deze run)' : ${m.name}">-</td>
+                <td class="num" th:text="${m.km}">-</td>
+                <td class="num" th:text="${m.pace}">-</td>
+                <td class="num" th:text="${m.gap}">-</td>
+                <td class="num" th:text="${m.hr}">-</td>
+                <td class="num" th:text="${m.ef}">-</td>
+                <td class="num" th:text="${m.drift}">-</td>
+                <td class="crit" th:each="c : ${m.cells}" th:classappend="${c.css}" th:title="${c.title}"><span th:text="${c.symbol}">-</span><span class="sr-only" th:text="${c.title}">-</span></td>
             </tr>
             </tbody>
         </table></div>
+        <div class="legend" th:if="${!v.cmpRows.isEmpty()}">
+            <span><span class="crit-yes">✓</span> komt overeen</span>
+            <span><span class="crit-no">✗</span> verschilt</span>
+            <span><span class="crit-unknown">?</span> onbekend</span>
+            <span th:each="h : ${v.cmpHeads}"><strong th:text="${h.short}">-</strong>: <span th:text="${h.long}">-</span></span>
+        </div>
+        <details class="explain">
+            <summary>Hoe kiest de app vergelijkbare runs?</summary>
+            <div>
+                <p><strong>Altijd vereist</strong> (anders valt een run af): zelfde soort training, allebei buiten of allebei op de loopband, afstand tussen 0,8 en 1,25 keer deze run, zelfde terreinklasse, en allebei met of allebei zonder hartslag.</p>
+                <p><strong>Extra overeenkomsten</strong> (de vinkjes): bepalen alleen de volgorde. Bij een gelijk aantal vinkjes komt de run die het dichtst in de tijd ligt eerst. Er is geen gelijkenisscore.</p>
+                <p th:if="${!v.hiddenCriteria.isEmpty()}" th:text="'Niet getoond omdat de data bij geen enkele run beschikbaar is: ' + ${#strings.listJoin(v.hiddenCriteria, ', ')} + '.'">-</p>
+                <p th:text="${association}">-</p>
+            </div>
+        </details>
     </section>
 </th:block>
 </html>

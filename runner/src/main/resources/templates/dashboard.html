@@ -33,6 +33,8 @@
                         <div class="sync-more-panel">
                             <form method="post" action="/fetch-remaining" data-loading="Ontbrekende data ophalen..."><button type="submit" class="btn btn-secondary btn-sm">Ontbrekende data ophalen</button></form>
                             <p class="note-xs">Alleen activiteiten die nog niet in de database staan. Handig na een "too many requests"-fout.</p>
+                            <form method="post" action="/backfill-streams" data-loading="Detaildata aanvullen..."><button type="submit" class="btn btn-secondary btn-sm">Detaildata aanvullen</button></form>
+                            <p class="note-xs">Haalt de detailmetingen (tijd, afstand, hartslag en hoogte per seconde) op voor runs die ze nog missen. Nodig voor de Prestaties-pagina. Stopt bij de Strava-limiet; klik later opnieuw om verder te gaan.</p>
                             <form method="post" action="/backfill-laps" data-loading="Rondes ophalen voor bestaande trainingen..."><button type="submit" class="btn btn-secondary btn-sm">Intervallen ophalen voor bestaande trainingen</button></form>
                             <p class="note-xs">Haalt ronde/lap-data op voor trainingen die dit nog missen. Al verwerkte trainingen worden overgeslagen.</p>
                             <hr>

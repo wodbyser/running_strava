@@ -15,6 +15,8 @@ import com.running.strava.spi.StravaApiClient
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.backfill.BackfillLapsData
 import com.running.strava.usecase.backfill.impl.BackfillLapsDataImpl
+import com.running.strava.usecase.backfill.BackfillStreamsData
+import com.running.strava.usecase.backfill.impl.BackfillStreamsDataImpl
 import com.running.strava.usecase.exchange.ExchangeStravaCode
 import com.running.strava.usecase.exchange.impl.ExchangeStravaCodeImpl
 import com.running.strava.usecase.fetch.FetchAllHistoricalData
@@ -70,6 +72,13 @@ class AppConfig {
         tokenRepository: StravaTokenRepository,
         activityRepository: ActivityRepository,
     ): BackfillLapsData = BackfillLapsDataImpl(stravaApiClient, tokenRepository, activityRepository)
+
+    @Bean
+    fun backfillStreamsData(
+        stravaApiClient: StravaApiClient,
+        tokenRepository: StravaTokenRepository,
+        activityRepository: ActivityRepository,
+    ): BackfillStreamsData = BackfillStreamsDataImpl(stravaApiClient, tokenRepository, activityRepository)
 
     @Bean
     fun garminSyncSettings(properties: GarminProperties) = GarminSyncSettings(

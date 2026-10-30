@@ -13,6 +13,9 @@ interface ActivityRepository {
     fun saveLaps(activityId: Long, laps: List<Lap>)
     fun findById(id: Long): Activity?
     fun findStreams(activityId: Long): ActivityStream?
+
+    /** Ids of activities that have stored streams. Adapters should override this with a query that skips the stream data. */
+    fun findIdsWithStreams(): Set<Long> = findAllIds().filter { findStreams(it) != null }.toSet()
     fun findLaps(activityId: Long): List<Lap>
     fun findLapsForActivities(activityIds: Collection<Long>): Map<Long, List<Lap>>
     fun findAll(after: ZonedDateTime? = null): List<Activity>

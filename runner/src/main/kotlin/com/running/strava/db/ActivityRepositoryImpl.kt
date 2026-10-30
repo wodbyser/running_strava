@@ -16,7 +16,10 @@ interface ActivityJpaRepository : JpaRepository<ActivityEntity, Long> {
     @Query("SELECT a.id FROM ActivityEntity a")
     fun findAllIds(): List<Long>
 }
-interface ActivityStreamJpaRepository : JpaRepository<ActivityStreamEntity, Long>
+interface ActivityStreamJpaRepository : JpaRepository<ActivityStreamEntity, Long> {
+    @Query("SELECT s.activityId FROM ActivityStreamEntity s")
+    fun findAllActivityIds(): List<Long>
+}
 interface LapJpaRepository : JpaRepository<LapEntity, Long> {
     fun findByActivityIdOrderByLapIndexAsc(activityId: Long): List<LapEntity>
     fun findByActivityIdInOrderByActivityIdAscLapIndexAsc(activityIds: Collection<Long>): List<LapEntity>
@@ -80,6 +83,8 @@ class ActivityRepositoryImpl(
     override fun findAllIds(): Set<Long> {
         return activityJpaRepository.findAllIds().toSet()
     }
+
+    override fun findIdsWithStreams(): Set<Long> = streamJpaRepository.findAllActivityIds().toSet()
 
     override fun findStreams(activityId: Long): ActivityStream? {
         return streamJpaRepository.findById(activityId)

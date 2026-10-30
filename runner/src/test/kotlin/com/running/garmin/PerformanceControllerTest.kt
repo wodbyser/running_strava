@@ -28,7 +28,22 @@ class PerformanceControllerTest @Autowired constructor(private val mvc: MockMvc)
         assertTrue(html.contains("Verband, geen oorzaak."))
         assertTrue(html.contains("Onvoldoende data voor een samenvatting"))
         assertTrue(html.contains("href=\"/performance\""))
-        assertTrue(html.contains("[onbeschikbaar]"))
+        assertTrue(html.contains("Nog te weinig data voor een conditietrend"))
+        assertTrue(html.contains("id=\"begrippen\""))
+        // Conditietrend first, then efficiency, zones and drift.
+        val order = listOf("id=\"fitness\"", "id=\"ef\"", "id=\"zones\"", "id=\"drift\"").map { html.indexOf(it) }
+        assertTrue(order.all { it > 0 } && order == order.sorted(), order.toString())
+    }
+
+    @Test
+    fun `comparison windows are configurable and clamped`() {
+        val html = mvc.perform(get("/performance").param("short", "14").param("long", "60")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("value=\"14\""))
+        assertTrue(html.contains("value=\"60\""))
+        mvc.perform(get("/performance/data").param("short", "1").param("long", "9999"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.efWindows[0]").value(7))
+            .andExpect(jsonPath("$.efWindows[1]").value(365))
     }
 
     @Test

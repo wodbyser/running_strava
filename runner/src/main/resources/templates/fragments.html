@@ -2,6 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 
+<!--/* "?" button with a plain-language explanation. term = PerformanceGlossary Term (null renders nothing). */-->
+<details class="help" th:fragment="help(term)" th:if="${term != null}">
+    <summary th:attr="aria-label='Uitleg: ' + ${term.title}" th:title="'Uitleg: ' + ${term.title}">?</summary>
+    <div class="help-panel" role="note">
+        <strong th:text="${term.title}">Begrip</strong>
+        <span th:text="${term.text}">Uitleg</span>
+        <a th:href="'/performance#term-' + ${term.key}">Alle begrippen</a>
+    </div>
+</details>
+
 <!--/* Recovery conclusion card (day and period view). hero = RecoveryText.Hero, legend = text. */-->
 <th:block th:fragment="recoveryHero(hero, legend)">
     <section class="card hero" th:classappend="${hero.level.css}" aria-labelledby="h-hero">

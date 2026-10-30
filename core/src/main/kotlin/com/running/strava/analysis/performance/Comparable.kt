@@ -147,6 +147,8 @@ object Consistency {
         val medianRunsPerWeek: Double?,
     )
 
+    data class Week(val start: LocalDate, val runs: Int, val km: Double)
+
     data class Result(
         val completeWeeksOfHistory: Int,
         val enough: Boolean,
@@ -154,6 +156,8 @@ object Consistency {
         val last52: Window?,
         val currentWeekStart: LocalDate,
         val message: String?,
+        /** Every complete week of the last 52 (or fewer when the history is shorter), oldest first, empty weeks included. */
+        val weeks: List<Week> = emptyList(),
     )
 
     /** [runs]: (local date, distance in metres). Only complete weeks (Monday to Sunday before [today]'s week) count. */
@@ -193,6 +197,12 @@ object Consistency {
                 medianRunsPerWeek = Stats.median(counts.map { it.toDouble() }),
             )
         }
-        return Result(history, true, window(12), window(52), currentWeek, null)
+        val shown = minOf(52, history)
+        val weeks = (shown downTo 1).map { back ->
+            val ws = currentWeek.minusWeeks(back.toLong())
+            val inWeek = done.filter { WeeklyVolume.weekStart(it.first) == ws }
+            Week(ws, inWeek.size, inWeek.sumOf { it.second } / 1000)
+        }
+        return Result(history, true, window(12), window(52), currentWeek, null, weeks)
     }
 }

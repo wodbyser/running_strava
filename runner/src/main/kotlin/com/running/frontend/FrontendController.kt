@@ -23,6 +23,7 @@ import com.running.strava.analysis.WeeklyVolume
 import com.running.strava.spi.ActivityRepository
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.backfill.BackfillLapsData
+import com.running.strava.usecase.backfill.BackfillStreamsData
 import com.running.strava.usecase.fetch.FetchAllHistoricalData
 import com.running.strava.usecase.fetch.FetchRemainingData
 import com.running.strava.usecase.sync.SyncStravaData
@@ -49,6 +50,7 @@ class FrontendController(
     private val fetchAllHistoricalData: FetchAllHistoricalData,
     private val fetchRemainingData: FetchRemainingData,
     private val backfillLapsData: BackfillLapsData,
+    private val backfillStreamsData: BackfillStreamsData,
     private val aiAnalysisService: AiAnalysisService,
     private val periodComparisonService: PeriodComparisonService,
     private val bestEffortService: BestEffortService,
@@ -383,6 +385,22 @@ class FrontendController(
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
         ra.addFlashAttribute("flashErrors", result.errors.take(20))
+        return "redirect:/"
+    }
+
+    @PostMapping("/backfill-streams")
+    fun backfillStreams(ra: RedirectAttributes): String {
+        val r = backfillStreamsData.execute()
+        val msg = when {
+            r.missing == 0 && r.errors.isEmpty() -> "Detaildata is al volledig: elke run heeft detailmetingen."
+            r.rateLimited -> "Detaildata aangevuld voor ${r.fetched} van ${r.missing} runs. De Strava-limiet is bereikt; " +
+                "klik over 15 minuten opnieuw om de overige ${r.remaining} runs aan te vullen."
+            r.remaining == 0 -> "Detaildata aangevuld voor alle ${r.fetched} runs."
+            else -> "Detaildata aangevuld voor ${r.fetched} van ${r.missing} runs, ${r.remaining} mislukt."
+        }
+        ra.addFlashAttribute("flashMessage", msg)
+        ra.addFlashAttribute("flashType", if (r.remaining == 0 && r.errors.isEmpty()) "success" else "warning")
+        ra.addFlashAttribute("flashErrors", r.errors.take(20))
         return "redirect:/"
     }
 

@@ -6,77 +6,613 @@
             <h1>Prestaties</h1>
             <p th:text="${intro}">-</p>
         </div>
+        <nav class="actions" aria-label="Hartslagzones kiezen">
+            <span class="note">Zones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></span>
+            <a class="btn btn-sm" th:classappend="${zonesParam == ''} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance}">Standaard</a>
+            <a class="btn btn-sm" th:classappend="${zonesParam == 'garmin'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='garmin')}">Garmin</a>
+            <a class="btn btn-sm" th:classappend="${zonesParam == 'app'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='app')}">App-schatting</a>
+        </nav>
     </div>
 
-    <div class="filter-bar">
-        <div class="filter-row">
-            <nav class="actions" aria-label="Zones">
-                <a class="btn btn-sm" th:classappend="${zonesParam == ''} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance}">Standaard zones</a>
-                <a class="btn btn-sm" th:classappend="${zonesParam == 'garmin'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='garmin')}">Garmin-zones</a>
-                <a class="btn btn-sm" th:classappend="${zonesParam == 'app'} ? 'btn-primary' : 'btn-secondary'" th:href="@{/performance(zones='app')}">App-zones</a>
-            </nav>
-            <span class="note" th:text="'Algoritme ' + ${version}">-</span>
-        </div>
-    </div>
+    <nav class="toc" aria-label="Onderdelen van deze pagina">
+        <a href="#fitness">Conditietrend</a>
+        <a href="#ef">Efficiëntie</a>
+        <a href="#zones">Hartslagzones</a>
+        <a href="#drift">Drift</a>
+        <a href="#cs">Kritische snelheid</a>
+        <a href="#intensity">Intensiteit</a>
+        <a href="#consistency">Regelmaat</a>
+        <a href="#durability">Duurzaamheid</a>
+        <a href="#longruns">Lange runs</a>
+        <a href="#intervals">Intervallen</a>
+        <a href="#data">Welke runs tellen mee</a>
+        <a href="#begrippen">Begrippen</a>
+    </nav>
 
     <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
 
-    <section class="card" th:each="sec : ${sections}" th:attr="aria-labelledby='h-' + ${sec.id}">
-        <h2 th:id="'h-' + ${sec.id}"><span th:text="${sec.title}">Titel</span> <span class="badge badge-calc" th:text="${sec.tag}">-</span></h2>
-        <p class="note" th:each="n : ${sec.notes}" th:text="${n}">-</p>
-        <div class="table-wrap" th:if="${!sec.rows.isEmpty()}">
-            <table>
-                <thead><tr><th th:each="h : ${sec.headers}" th:text="${h}">-</th></tr></thead>
-                <tbody>
-                <tr th:each="row, st : ${sec.rows}">
-                    <td th:each="c, cs : ${row}">
-                        <a th:if="${cs.index == 0 && sec.links.containsKey(st.index)}" th:href="@{/performance/run/{id}(id=${sec.links.get(st.index)})}" th:text="${c}">-</a>
-                        <span th:unless="${cs.index == 0 && sec.links.containsKey(st.index)}" th:text="${c}">-</span>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
+    <!--/* 1. Conditietrend */-->
+    <section class="card perf-section trend-hero" id="fitness" th:classappend="${p.fitness.tone.css}" aria-labelledby="h-fitness">
+        <div class="trend-head">
+            <h2 id="h-fitness" class="sr-only">Conditietrend</h2>
+            <span class="note">Conditietrend · 4 traag veranderende indicatoren</span>
+            <span class="badge badge-est" title="Conclusie van de app op basis van je eigen cijfers, geen meting.">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['oordeel']})}"/>
         </div>
-        <div class="chart-box mt-2" th:if="${sec.id == 'ef' && !efLabels.isEmpty()}"><canvas id="efChart" role="img" aria-label="Mediaan EF per maand per zonegroep"></canvas></div>
-        <div class="chart-box mt-2" th:if="${sec.id == 'zones' && !zoneLabels.isEmpty()}"><canvas id="zoneChart" role="img" aria-label="Minuten per hartslagzone per week"></canvas></div>
+        <p class="trend-headline" th:text="${p.fitness.headline}">-</p>
+        <p class="note" th:text="${p.fitness.sub}">-</p>
+        <div class="trend-grid">
+            <div class="trend-card" th:each="c : ${p.fitness.cards}" th:classappend="${c.tone.css}">
+                <span class="trend-arrow" aria-hidden="true" th:text="${c.arrow}">↑</span>
+                <span class="trend-name">
+                    <span class="trend-title"><span th:text="${c.title}">-</span><th:block th:replace="~{fragments :: help(${g[c.key]})}"/></span>
+                    <span class="trend-dir" th:text="${c.direction}">hoger</span>
+                </span>
+                <div class="trend-body">
+                    <span class="pill" th:text="${c.verdict}">gunstig</span>
+                    <span th:text="${c.meaning}">-</span>
+                    <span class="note-xs" th:text="${c.detail}">-</span>
+                    <span class="note-xs"><a th:href="'#' + ${c.anchor}">Details</a></span>
+                </div>
+            </div>
+        </div>
+        <details class="explain">
+            <summary>Hoe moet ik dit lezen?</summary>
+            <div>
+                <p>Elke indicator vergelijkt de laatste 90 dagen met de 90 dagen daarvoor. De pijl toont de richting (hoger, lager, stabiel); de kleur toont of die richting gunstig is: groen = gunstig, rood = ongunstig, grijs = geen duidelijk verschil, oranje gestreept = onzeker.</p>
+                <p>De 4 indicatoren worden niet opgeteld tot één score. Snelle factoren (slaap, herstel, vermoeidheid van gisteren) horen er bewust niet bij: die vind je op de pagina Herstel. Een gunstige trend zegt iets over je basisconditie, niet over je wedstrijdvorm op één dag.</p>
+                <p th:text="${association}">-</p>
+            </div>
+        </details>
     </section>
 
-    <section class="card" aria-labelledby="h-recent">
-        <h2 id="h-recent">Recente runs</h2>
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Datum</th><th>Naam</th><th>Type</th><th>Stabiel?</th><th>HR-dekking</th></tr></thead>
+    <!--/* 2. Aerobe efficiëntie */-->
+    <section class="card perf-section" id="ef" aria-labelledby="h-ef">
+        <div class="card-head">
+            <h2 id="h-ef">Aerobe efficiëntie <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span><th:block th:replace="~{fragments :: help(${g['ef']})}"/></h2>
+        </div>
+        <p class="lead">Hoeveel <strong>meter je per hartslag</strong> aflegt tijdens rustige, stabiele runs. Stijgt dit over weken, dan loop je even snel met minder hartslag: je aerobe basis wordt sterker.</p>
+
+        <form method="get" action="/performance#ef" class="period-inputs" aria-label="Periodes kiezen">
+            <input type="hidden" name="zones" th:value="${zonesParam}" th:if="${zonesParam != ''}">
+            <span class="filter-group">
+                <label for="short">Korte periode</label>
+                <span class="inline"><input type="number" id="short" name="short" th:value="${shortDays}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
+            </span>
+            <span class="filter-group">
+                <label for="long">Lange periode</label>
+                <span class="inline"><input type="number" id="long" name="long" th:value="${longDays}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
+            </span>
+            <button type="submit" class="btn btn-secondary btn-sm">Vergelijk</button>
+            <th:block th:if="${shortDays != 28 || longDays != 90}">
+                <a class="btn btn-ghost btn-sm" th:if="${zonesParam == ''}" href="/performance#ef">Standaard (28 en 90)</a>
+                <a class="btn btn-ghost btn-sm" th:if="${zonesParam != ''}" th:href="@{/performance(zones=${zonesParam})} + '#ef'">Standaard (28 en 90)</a>
+            </th:block>
+            <span class="field-hint">Elke periode wordt vergeleken met even veel dagen daarvoor (tussen <span th:text="${minDays}">7</span> en <span th:text="${maxDays}">365</span> dagen).</span>
+        </form>
+
+        <p class="callout" th:if="${p.ef.noZones}">Geen hartslagzones beschikbaar: de efficiëntie kan niet per zonegroep vergeleken worden.</p>
+        <div class="cmp-grid" th:if="${!p.ef.compares.isEmpty()}">
+            <article class="cmp-card" th:each="c : ${p.ef.compares}" th:classappend="${c.tone.css}">
+                <div class="cmp-card-head">
+                    <h3 th:text="'Laatste ' + ${c.windowDays} + ' dagen tegenover de ' + ${c.windowDays} + ' dagen ervoor'">-</h3>
+                    <span class="pill" th:text="${c.verdict}">-</span>
+                </div>
+                <div class="cmp-cols">
+                    <div class="cmp-col">
+                        <span class="cap">Ervoor</span>
+                        <span class="big" th:text="${c.efEarlier}">-</span>
+                        <span class="small" th:text="${c.paceEarlier} + ' bij ' + ${c.hrEarlier}">-</span>
+                        <span class="note-xs" th:text="${c.earlierPeriod} + ' · ' + ${c.nEarlier} + ' runs'">-</span>
+                    </div>
+                    <div class="cmp-arrow" aria-hidden="true">→<small th:text="${c.change}">-</small></div>
+                    <div class="cmp-col">
+                        <span class="cap">Recent</span>
+                        <span class="big" th:text="${c.efRecent}">-</span>
+                        <span class="small" th:text="${c.paceRecent} + ' bij ' + ${c.hrRecent}">-</span>
+                        <span class="note-xs" th:text="${c.recentPeriod} + ' · ' + ${c.nRecent} + ' runs'">-</span>
+                    </div>
+                </div>
+                <p><span th:text="${c.explanation}">-</span> <span class="note-xs" th:text="'Zonegroep ' + ${c.stratum} + '; mediaan per hartslag, tempo en hartslag.'">-</span></p>
+            </article>
+        </div>
+        <p class="note mt-2" th:if="${p.ef.missingNote != null}" th:text="${p.ef.missingNote}">-</p>
+
+        <h3 class="sub-head">Verloop per run</h3>
+        <div class="chart-box" th:if="${!p.charts['efPoints'].isEmpty()}"><canvas id="efChart" role="img" aria-label="Efficiëntie per stabiele run en mediaan per maand"></canvas></div>
+        <p class="chart-empty" th:if="${p.charts['efPoints'].isEmpty()}">Nog geen stabiele runs.</p>
+        <p class="note-xs mt-2">Elk punt is een stabiele run (klik om te openen), de lijn is de mediaan per maand. Hoger = meer meter per hartslag.</p>
+
+        <details class="explain">
+            <summary>Meer uitleg over deze vergelijking</summary>
+            <div>
+                <p><strong>Wat wordt gemeten?</strong> De afstand gedeeld door het aantal hartslagen, alleen over het stabiele deel van stabiele runs: na de eerste 10 minuten opwarming, op een gelijkmatig tempo, zonder intervallen of veel hoogtemeters. Zo vergelijk je gelijkaardige runs met elkaar.</p>
+                <p><strong>Ervoor en recent.</strong> 'Recent' zijn de laatste X dagen tot vandaag, 'ervoor' de X dagen daarvoor. Onder elke kolom staat hoeveel stabiele runs in die periode vielen. Met minder dan 5 runs in een van beide periodes geeft de app geen oordeel: één toevallig goede of slechte dag zou dan te veel wegen.</p>
+                <p><strong>Wanneer is het gunstig?</strong> Als je recent meer dan 3 % meer meter per hartslag aflegde én dat verschil groter is dan de normale schommeling tussen je runs.</p>
+                <p><strong>Zonegroepen.</strong> Runs worden alleen vergeleken met runs met een gelijkaardige gemiddelde hartslag (zone 1-2, zone 3 of zone 4+), omdat je bij een hogere hartslag ook sneller loopt.</p>
+                <p>Deze EF verschilt van de EF over de hele run op de pagina Vergelijken: hier telt alleen het stabiele deel, en de waarde wordt getoond als meter per hartslag.</p>
+                <p th:text="${association}">-</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 3. Tijd in zones per week */-->
+    <section class="card perf-section" id="zones" aria-labelledby="h-zones">
+        <div class="card-head">
+            <h2 id="h-zones">Tijd in hartslagzones per week <span class="badge badge-calc" th:if="${p.zones.available}" th:text="${p.zones.sourceText}">Garmin-zones</span><th:block th:replace="~{fragments :: help(${g['zones']})}"/></h2>
+        </div>
+        <th:block th:if="${!p.zones.available}">
+            <p class="callout" th:text="${p.zones.note}">-</p>
+        </th:block>
+        <th:block th:if="${p.zones.available}">
+            <p class="lead">Hoeveel minuten je per week in elke hartslagzone liep, over de laatste 26 weken. Hoe hoger de zone, hoe zwaarder.</p>
+            <th:block th:if="${p.zones.recentLabel != ''}">
+                <p class="note mb-2" th:text="${p.zones.recentLabel}">-</p>
+                <div class="zone-bar" role="img" aria-label="Verdeling van je looptijd over de zones in de laatste 4 weken; zie de legende hieronder">
+                    <div th:each="z : ${p.zones.recentShares}" th:if="${z.pct > 0}" th:class="'zone-bg-' + ${z.zone}" th:style="'flex:' + ${#numbers.formatDecimal(z.pct, 1, 'POINT', 2, 'POINT')}" th:text="${z.pct >= 6} ? ${#numbers.formatDecimal(z.pct, 1, 0)} + '%' : ''" th:title="'Zone ' + ${z.zone} + ': ' + ${z.minutes}">-</div>
+                </div>
+                <div class="zone-legend mb-2">
+                    <div th:each="z : ${p.zones.recentShares}"><strong><span class="zone-chip" th:classappend="'zone-bg-' + ${z.zone}"></span><span th:text="'Zone ' + ${z.zone} + ': ' + ${#numbers.formatDecimal(z.pct, 1, 0)} + ' %'">-</span></strong><span th:text="${z.range} + ' · ' + ${z.minutes}">-</span></div>
+                </div>
+            </th:block>
+            <div class="chart-box mt-2"><canvas id="zoneChart" role="img" aria-label="Minuten per hartslagzone per week"></canvas></div>
+            <details class="more">
+                <summary>Toon als tabel</summary>
+                <div class="table-wrap"><table>
+                    <thead><tr><th>Week</th><th class="num">Runs</th><th class="num">Minuten</th><th class="num">Z1</th><th class="num">Z2</th><th class="num">Z3</th><th class="num">Z4</th><th class="num">Z5</th></tr></thead>
+                    <tbody><tr th:each="row : ${p.zones.rows}"><td th:text="${row[0]}">-</td><td class="num" th:each="c, s : ${row}" th:if="${s.index > 0}" th:text="${c}">-</td></tr></tbody>
+                </table></div>
+            </details>
+            <details class="explain">
+                <summary>Meer uitleg</summary>
+                <div>
+                    <p th:text="${p.zones.note}">-</p>
+                    <p>Alleen runs met detailmetingen en minstens 90 % hartslagdekking tellen mee. Weken zonder zulke runs ontbreken in de grafiek.</p>
+                </div>
+            </details>
+        </th:block>
+    </section>
+
+    <!--/* 4. Drift en ontkoppeling */-->
+    <section class="card perf-section" id="drift" aria-labelledby="h-drift">
+        <div class="card-head">
+            <h2 id="h-drift">Hartslagdrift en ontkoppeling <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span></h2>
+        </div>
+        <p class="lead">Blijft je hartslag rustig tot het einde van een stabiele run, of loopt hij op? Hoe kleiner deze waarden, hoe beter je lichaam het tempo volhoudt. Stabiele runs van de laatste 90 dagen.</p>
+        <div class="stat-grid">
+            <div class="stat" th:each="t : ${p.drift.tiles}" th:classappend="${t.tone.css}">
+                <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <p class="note mt-2" th:text="${p.drift.summary}">-</p>
+        <div class="chart-box mt-2" th:if="${!p.drift.rows.isEmpty()}"><canvas id="driftChart" role="img" aria-label="Drift en ontkoppeling per stabiele run"></canvas></div>
+        <p class="note-xs mt-2" th:if="${!p.drift.rows.isEmpty()}">Elk punt is een run. De gestreepte lijn is de vuistregel van 5 % voor ontkoppeling (niet gevalideerd): punten eronder wijzen op een stevige duurbasis.</p>
+        <details class="more" th:if="${!p.drift.rows.isEmpty()}">
+            <summary th:text="'Toon alle ' + ${p.drift.rows.size()} + ' runs'">Toon alle runs</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Run</th><th class="num">Stabiel deel</th><th class="num">Hartslagdrift</th><th class="num">Ontkoppeling</th><th class="num">Ontkoppeling op GAP <th:block th:replace="~{fragments :: help(${g['gap']})}"/></th></tr></thead>
                 <tbody>
-                <tr th:each="r : ${recent}">
-                    <td><a th:href="@{/performance/run/{id}(id=${r.id})}" th:text="${r.date}">-</a></td>
-                    <td th:text="${r.name}">-</td>
-                    <td th:text="${r.sessionType}">-</td>
-                    <td th:text="${r.steadyFailure == null} ? 'ja' : ${r.steadyFailure.text}">-</td>
-                    <td th:text="${r.hasStream} ? ${#numbers.formatDecimal(r.coverage * 100, 1, 0)} + ' %' : '-'">-</td>
+                <tr th:each="d : ${p.drift.rows}">
+                    <td class="nowrap"><a th:href="@{/performance/run/{id}(id=${d.id})}" th:text="${d.date}">-</a></td>
+                    <td th:text="${d.name}">-</td>
+                    <td class="num" th:text="${d.minutes}">-</td>
+                    <td class="num" th:text="${d.drift}">-</td>
+                    <td class="num" th:classappend="${d.decouplingTone.css}"><span th:classappend="${d.decouplingTone.name() == 'UNCERTAIN'} ? 't-text'" th:text="${d.decoupling}">-</span></td>
+                    <td class="num" th:text="${d.gapDecoupling}">-</td>
                 </tr>
                 </tbody>
-            </table>
+            </table></div>
+            <p class="note-xs" th:if="${p.drift.hasUnavailableDrift}">* Geen drift berekend: het tempo verschilde meer dan 5 % tussen beide helften. Oranje = ontkoppeling boven de vuistregel van 5 %.</p>
+        </details>
+        <details class="explain">
+            <summary>Meer uitleg</summary>
+            <div>
+                <p><strong>Hartslagdrift</strong>: het stabiele deel wordt in twee helften gesplitst. Drift = hoeveel % hoger je gemiddelde hartslag in de tweede helft lag. Alleen berekend als je tempo in beide helften gelijk bleef.</p>
+                <p><strong>Ontkoppeling</strong>: hoeveel % minder meter per hartslag je in de tweede helft liep. Werkt ook als je tempo een beetje veranderde. Een positief getal betekent dat je in de tweede helft minder efficiënt was.</p>
+                <p>Warmte, vochttekort, vermoeidheid of een slecht zittende hartslagband verhogen beide waarden. Kijk dus naar het patroon over veel runs, niet naar één run.</p>
+                <p th:text="${association}">-</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 5. Kritische snelheid */-->
+    <section class="card perf-section" id="cs" aria-labelledby="h-cs">
+        <div class="card-head">
+            <h2 id="h-cs">Kritische snelheid <span class="badge badge-est" title="Een model van de app, met onzekerheid.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['cs']})}"/></h2>
         </div>
+        <p class="lead">Een schatting van het snelste tempo dat je lang kunt volhouden (ongeveer je tempo voor 30 tot 60 minuten voluit), berekend uit je snelste 1, 3, 5 en 10 km van de laatste 90 dagen.</p>
+        <p class="callout mb-2" th:if="${!p.cs.available}" th:text="${p.cs.reason}">-</p>
+        <div class="stat-grid">
+            <div class="stat" th:each="t : ${p.cs.tiles}" th:classappend="${t.estimate} ? 'is-est'">
+                <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <th:block th:if="${!p.cs.anchors.isEmpty()}">
+            <h3 class="sub-head">Gebruikte snelste stukken <th:block th:replace="~{fragments :: help(${g['anker']})}"/></h3>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Afstand</th><th class="num">Tijd</th><th class="num">Tempo</th><th>Datum</th></tr></thead>
+                <tbody><tr th:each="a : ${p.cs.anchors}">
+                    <td th:text="${a[0]}">-</td><td class="num" th:text="${a[1]}">-</td><td class="num" th:text="${a[2]}">-</td>
+                    <td><a th:href="@{/performance/run/{id}(id=${a[4]})}" th:text="${a[3]}">-</a></td>
+                </tr></tbody>
+            </table></div>
+        </th:block>
+        <p class="note mt-2" th:text="${p.cs.validation}">-</p>
+        <details class="explain">
+            <summary>Meer uitleg</summary>
+            <div>
+                <p>Hoe langer je loopt, hoe trager je tempo. De app zet je snelste stukken uit als afstand tegenover tijd en trekt er een rechte lijn door. De helling van die lijn is je kritische snelheid; het startpunt is je reserve (D′).</p>
+                <p>Dit is geen lactaatdrempel en geen labotest. Liep je die stukken niet voluit (bv. een snelle 5 km midden in een training), dan ligt je echte kritische snelheid hoger: de schatting is een ondergrens. De Garmin-lactaatdrempel staat er ter vergelijking bij, maar wordt niet met de app-schatting gemengd.</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 6. Intensiteitsverdeling */-->
+    <section class="card perf-section" id="intensity" aria-labelledby="h-intensity" th:if="${!p.charts['intLabels'].isEmpty() || !p.charts['mixLabels'].isEmpty()}">
+        <div class="card-head">
+            <h2 id="h-intensity">Intensiteit en soort trainingen <span class="badge badge-est" title="Een groepering van de app.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['intensiteit']})}"/></h2>
+        </div>
+        <p class="lead">Welk deel van je looptijd was makkelijk, matig of zwaar, per maand? En welke soort trainingen deed je, per blok van 4 weken?</p>
+        <div class="chart-box" th:if="${!p.charts['intLabels'].isEmpty()}"><canvas id="intensityChart" role="img" aria-label="Aandeel makkelijk, matig en zwaar per maand"></canvas></div>
+        <h3 class="sub-head" th:if="${!p.charts['mixLabels'].isEmpty()}">Soort trainingen per 4 weken <th:block th:replace="~{fragments :: help(${g['sessietype']})}"/></h3>
+        <div class="chart-box" th:if="${!p.charts['mixLabels'].isEmpty()}"><canvas id="mixChart" role="img" aria-label="Aantal trainingen per soort per 4 weken"></canvas></div>
+        <details class="explain">
+            <summary>Meer uitleg</summary>
+            <div>
+                <p>Makkelijk = tijd in zone 1-2, matig = zone 3, zwaar = zone 4-5. Dit is een groepering van de app, niet de drie zones uit de wetenschappelijke literatuur (die vragen om een inspanningstest). De app legt geen ideale verdeling op.</p>
+                <p>Het soort training wordt automatisch herkend uit je rondes. Een maand met weinig runs (minder dan 3) is minder betrouwbaar.</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 7. Regelmaat */-->
+    <section class="card perf-section" id="consistency" aria-labelledby="h-consistency">
+        <div class="card-head">
+            <h2 id="h-consistency">Regelmaat <span class="badge badge-calc" title="Geteld uit je runs.">berekend</span></h2>
+        </div>
+        <p class="lead">Hoe constant train je? Alleen volledige weken (maandag tot zondag) tellen; de lopende week niet.</p>
+        <p class="callout" th:if="${!p.consistency.available}" th:text="${p.consistency.message}">-</p>
+        <th:block th:if="${p.consistency.available}">
+            <div class="chart-box"><canvas id="weekChart" role="img" aria-label="Kilometer en aantal runs per week, laatste 52 weken"></canvas></div>
+            <p class="note-xs mt-2">Balkjes = kilometer per week, lijn = aantal runs. Een week zonder balkje is een week zonder run.</p>
+            <div class="table-wrap mt-2"><table class="compare-table">
+                <thead><tr><th></th><th class="num">Laatste 12 weken</th><th class="num" th:text="'Laatste ' + ${p.consistency.weeks52} + ' weken'">Laatste 52 weken</th></tr></thead>
+                <tbody>
+                <tr th:each="row : ${p.consistency.rows}">
+                    <th scope="row"><span th:text="${row.label}">-</span> <th:block th:replace="~{fragments :: help(${row.tip == null ? null : g[row.tip]})}"/></th>
+                    <td class="num" th:text="${row.last12}">-</td>
+                    <td class="num" th:text="${row.last52}">-</td>
+                </tr>
+                </tbody>
+            </table></div>
+            <details class="more" th:if="${!p.consistency.gaps.isEmpty()}">
+                <summary th:text="'Pauzes van een week of langer (' + ${p.consistency.gaps.size()} + ')'">Pauzes</summary>
+                <ul class="note"><li th:each="gap : ${p.consistency.gaps}" th:text="${gap}">-</li></ul>
+            </details>
+            <details class="explain">
+                <summary>Meer uitleg</summary>
+                <div>
+                    <p>Neutrale cijfers zonder doel of oordeel. De app weet niet waarom je een week niet liep (blessure, ziekte, vakantie, bewuste rust).</p>
+                    <p>Een regelmatig trainingspatroon (veel weken met runs, weinig lange pauzes en een niet te sterk schommelende weekafstand) is meestal de basis voor vooruitgang.</p>
+                </div>
+            </details>
+        </th:block>
+    </section>
+
+    <!--/* 8. Duurzaamheid */-->
+    <section class="card perf-section" id="durability" aria-labelledby="h-durability">
+        <div class="card-head">
+            <h2 id="h-durability">Duurzaamheid op lange stabiele runs <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span><th:block th:replace="~{fragments :: help(${g['duurzaamheid']})}"/></h2>
+        </div>
+        <p class="lead">Blijf je even efficiënt naarmate een lange run vordert? Per blok van 10 minuten: je efficiëntie als percentage van het eerste blok. <strong>Hoe dichter bij 100 %, hoe beter</strong> je het volhoudt. Alleen stabiele runs van minstens 75 minuten.</p>
+        <div class="stat-grid">
+            <div class="stat" th:each="t : ${p.durability.tiles}" th:classappend="${t.tone.css}">
+                <span class="label"><span th:text="${t.label}">-</span></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <p class="note mt-2" th:text="${p.durability.summary}">-</p>
+        <div class="chart-box mt-2" th:if="${!p.durability.rows.isEmpty()}"><canvas id="durChart" role="img" aria-label="Efficiëntie per blok van 10 minuten voor de laatste lange runs"></canvas></div>
+        <p class="note-xs mt-2" th:if="${!p.durability.rows.isEmpty()}">Elke lijn is een run (de laatste 6). De gestreepte lijn op 100 % = even efficiënt als in het begin. Zakt een lijn weg, dan verloor je efficiëntie naarmate de run vorderde.</p>
+        <details class="more" th:if="${!p.durability.rows.isEmpty()}">
+            <summary th:text="'Toon alle ' + ${p.durability.rows.size()} + ' runs'">Toon alle runs</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Run</th><th class="num">Duur</th><th class="num">Efficiëntie na een uur</th><th class="num">Efficiëntie op het einde</th></tr></thead>
+                <tbody><tr th:each="d : ${p.durability.rows}">
+                    <td class="nowrap"><a th:href="@{/performance/run/{id}(id=${d.id})}" th:text="${d.date}">-</a></td>
+                    <td th:text="${d.name}">-</td>
+                    <td class="num" th:text="${d.minutes}">-</td>
+                    <td class="num" th:classappend="${d.tone.css}"><span th:classappend="${d.tone.name() == 'UNCERTAIN'} ? 't-text'" th:text="${d.at60}">-</span></td>
+                    <td class="num" th:text="${d.end}">-</td>
+                </tr></tbody>
+            </table></div>
+            <p class="note-xs">Oranje = meer dan 3 % efficiëntieverlies na een uur.</p>
+        </details>
+    </section>
+
+    <!--/* 9. Lange runs */-->
+    <section class="card perf-section" id="longruns" aria-labelledby="h-longruns">
+        <div class="card-head">
+            <h2 id="h-longruns">Lange runs: einde tegenover begin <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span><th:block th:replace="~{fragments :: help(${g['lange-run']})}"/></h2>
+        </div>
+        <p class="lead">Hoe verschilt het laatste derde van je lange runs van het eerste derde? Een lagere efficiëntie of een veel hogere hartslag op het einde wijst op vermoeidheid. Ook niet-stabiele lange runs tellen mee.</p>
+        <div class="stat-grid">
+            <div class="stat" th:each="t : ${p.longRuns.tiles}" th:classappend="${t.tone.css}">
+                <span class="label"><span th:text="${t.label}">-</span><th:block th:replace="~{fragments :: help(${t.tip == null ? null : g[t.tip]})}"/></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <p class="note mt-2" th:text="${p.longRuns.summary}">-</p>
+        <div class="chart-box mt-2" th:if="${!p.longRuns.rows.isEmpty()}"><canvas id="lrChart" role="img" aria-label="Verandering van efficiëntie en hartslag tussen eerste en laatste derde per lange run"></canvas></div>
+        <p class="note-xs mt-2" th:if="${!p.longRuns.rows.isEmpty()}">Elk balkje is een lange run: hoeveel % efficiënter (boven 0) of minder efficiënt (onder 0) je in het laatste derde liep dan in het eerste derde. Oranje = meer dan 5 % verlies.</p>
+        <details class="more" th:if="${!p.longRuns.rows.isEmpty()}">
+            <summary th:text="'Toon alle ' + ${p.longRuns.rows.size()} + ' lange runs'">Toon alle lange runs</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Run</th><th class="num">Duur</th><th class="num">Tempo op het einde</th><th class="num">Hartslag op het einde</th><th class="num">Efficiëntie op het einde</th><th class="num">Cadans</th><th class="num">Tijd trager dan begin</th></tr></thead>
+                <tbody><tr th:each="l : ${p.longRuns.rows}">
+                    <td class="nowrap"><a th:href="@{/performance/run/{id}(id=${l.id})}" th:text="${l.date}">-</a></td>
+                    <td th:text="${l.name}">-</td>
+                    <td class="num" th:text="${l.minutes}">-</td>
+                    <td class="num" th:text="${l.pace}">-</td>
+                    <td class="num" th:text="${l.hr}">-</td>
+                    <td class="num" th:classappend="${l.efTone.css}"><span th:classappend="${l.efTone.name() == 'UNCERTAIN'} ? 't-text'" th:text="${l.ef} + (${l.terrainOk} ? '' : ' †')">-</span></td>
+                    <td class="num" th:text="${l.cadence}">-</td>
+                    <td class="num" th:text="${l.slower}">-</td>
+                </tr></tbody>
+            </table></div>
+            <p class="note-xs">Alles tegenover het eerste derde (na 10 minuten opwarming). 'Tijd trager dan begin' = deel van de run dat meer dan 5 % trager was dan het tempo van het eerste derde. Oranje = meer dan 5 % efficiëntieverlies. † = andere hellingen in begin en einde, vergelijking onzeker.</p>
+        </details>
+    </section>
+
+    <!--/* 10. Intervallen */-->
+    <section class="card perf-section" id="intervals" aria-labelledby="h-intervals">
+        <div class="card-head">
+            <h2 id="h-intervals">Intervaltrainingen <span class="badge badge-est" title="Reps worden automatisch herkend uit je rondes.">automatisch herkend</span></h2>
+        </div>
+        <p class="lead">Word je sneller op dezelfde intervaltraining? Reps worden herkend uit je rondes (laps). Alleen trainingen met dezelfde opbouw worden met elkaar vergeleken.</p>
+        <p class="note" th:if="${p.intervals.rows.isEmpty()}">Nog geen intervaltrainingen herkend.</p>
+        <th:block th:if="${!p.intervals.groups.isEmpty()}">
+            <h3 class="sub-head">Trainingen die je minstens 3 keer deed <th:block th:replace="~{fragments :: help(${g['opbouw']})}"/></h3>
+            <div class="chart-box"><canvas id="intervalChart" role="img" aria-label="Gemiddeld reptempo per herhaalde intervaltraining"></canvas></div>
+            <p class="note-xs mt-2">Gemiddeld tempo van de reps per keer. Hoger in de grafiek = sneller. Klik op een punt om de training te openen.</p>
+            <div class="table-wrap mt-2"><table>
+                <thead><tr><th>Opbouw</th><th class="num">Keer</th><th>Periode</th><th>Evolutie van het reptempo</th></tr></thead>
+                <tbody><tr th:each="gr : ${p.intervals.groups}">
+                    <td class="nowrap"><strong th:text="${gr.signature}">-</strong></td>
+                    <td class="num" th:text="${gr.sessions}">-</td>
+                    <td th:text="${gr.first} + ' – ' + ${gr.last}">-</td>
+                    <td th:classappend="${gr.tone.css}"><span th:classappend="${gr.tone.name() == 'GOOD' || gr.tone.name() == 'BAD'} ? 't-text'" th:text="${gr.trend}">-</span></td>
+                </tr></tbody>
+            </table></div>
+        </th:block>
+        <th:block th:if="${!p.intervals.rows.isEmpty()}">
+            <h3 class="sub-head">Laatste intervaltrainingen</h3>
+            <div class="table-wrap"><table>
+                <thead><tr>
+                    <th>Datum</th><th>Run</th><th>Opbouw</th><th class="num">Gem. reptempo</th><th>Reps (hoger = sneller)</th>
+                    <th class="num">Laatste rep tegenover eerste <th:block th:replace="~{fragments :: help(${g['verval']})}"/></th>
+                    <th class="num">Spreiding <th:block th:replace="~{fragments :: help(${g['spreiding']})}"/></th>
+                    <th class="num">HR-stijging <th:block th:replace="~{fragments :: help(${g['hr-stijging']})}"/></th>
+                </tr></thead>
+                <tbody><tr th:each="i : ${p.intervals.rows}">
+                    <td class="nowrap"><a th:href="@{/performance/run/{id}(id=${i.id})}" th:text="${i.date}">-</a></td>
+                    <td th:text="${i.name}">-</td>
+                    <td class="nowrap" th:text="${i.signature}">-</td>
+                    <td class="num" th:text="${i.avgPace}">-</td>
+                    <td><span class="rep-bars" role="img" th:attr="aria-label=${#strings.listJoin(i.bars.![pace], ', ')}"><span th:each="b : ${i.bars}" th:style="'height:' + ${b.height} + '%'" th:title="${b.pace}"></span></span></td>
+                    <td class="num" th:classappend="${i.fadeTone.css}"><span th:classappend="${i.fadeTone.name() == 'GOOD' || i.fadeTone.name() == 'BAD'} ? 't-text'" th:text="${i.fade}">-</span></td>
+                    <td class="num" th:text="${i.spread}">-</td>
+                    <td class="num" th:text="${i.hrRise}">-</td>
+                </tr></tbody>
+            </table></div>
+            <p class="note-xs mt-2">Groen = laatste rep minstens 2 % sneller dan de eerste, rood = minstens 2 % trager. Statistieken pas vanaf 3 reps.</p>
+        </th:block>
+        <h3 class="sub-head">Hartslagherstel na een rep <th:block th:replace="~{fragments :: help(${g['hrr']})}"/></h3>
+        <p class="note" th:text="${p.hrrNote}">-</p>
+        <div class="stat-grid mt-2" th:if="${!p.hrr.isEmpty()}">
+            <div class="stat" th:each="t : ${p.hrr}" th:classappend="${t.tone.css}">
+                <span class="label" th:text="${t.label}">-</span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <details class="explain">
+            <summary>Meer uitleg</summary>
+            <div>
+                <p>De app herkent reps uit je rondes: zet je laps tijdens een intervaltraining (automatisch per km of met de lapknop) zodat elke rep een eigen ronde is. Trainingen met reps van verschillende lengte (bv. een piramide) heten 'gemengd' en worden niet vergeleken.</p>
+                <p>Hartslagherstel is een benadering: de 60-secondenmaat komt uit inspanningstesten, niet uit intervallen met wisselende rust.</p>
+                <p th:text="${association}">-</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 11. Vermogen */-->
+    <section class="card perf-section" id="power" aria-labelledby="h-power">
+        <div class="card-head">
+            <h2 id="h-power">Loopvermogen <span class="badge badge-calc" title="Gemeten door je horloge of voetsensor.">gemeten door je apparaat</span><th:block th:replace="~{fragments :: help(${g['vermogen']})}"/></h2>
+        </div>
+        <p class="note" th:text="${p.powerNote}">-</p>
+        <div class="stat-grid mt-2" th:if="${!p.power.isEmpty()}">
+            <div class="stat" th:each="t : ${p.power}" th:classappend="${t.tone.css}">
+                <span class="label" th:text="${t.label}">-</span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+    </section>
+
+    <!--/* 12. Databasis */-->
+    <section class="card perf-section" id="data" aria-labelledby="h-data">
+        <div class="card-head">
+            <h2 id="h-data">Welke runs tellen mee?</h2>
+        </div>
+        <p class="lead">Niet elke run is bruikbaar voor elke analyse. Voor de meeste onderdelen heeft de app de <strong>detailmetingen</strong> (stroomdata) nodig: de seconde-per-seconde reeksen van tijd, afstand, hartslag en hoogte. Zonder die reeksen kent de app alleen de totalen van een run.</p>
+        <div class="hbar-list">
+            <div class="hbar" th:each="s : ${p.coverage.steps}">
+                <span class="hbar-label"><span><span th:text="${s.label}">-</span><th:block th:replace="~{fragments :: help(${s.tip == null ? null : g[s.tip]})}"/></span><span class="note-xs" th:text="${s.note}">-</span></span>
+                <span class="hbar-track" aria-hidden="true"><span class="hbar-fill" th:style="'display:block;width:' + ${#numbers.formatDecimal(s.pct, 1, 'POINT', 1, 'POINT')} + '%'"></span></span>
+                <span class="hbar-count" th:text="${s.count}">-</span>
+            </div>
+        </div>
+        <th:block th:if="${!p.coverage.reasons.isEmpty()}">
+            <h3 class="sub-head">Waarom een run geen stabiele run is <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></h3>
+            <div class="hbar-list">
+                <div class="hbar" th:each="s : ${p.coverage.reasons}">
+                    <span class="hbar-label"><span th:text="${s.label}">-</span></span>
+                    <span class="hbar-track" aria-hidden="true"><span class="hbar-fill is-muted" th:style="'display:block;width:' + ${#numbers.formatDecimal(s.pct, 1, 'POINT', 1, 'POINT')} + '%'"></span></span>
+                    <span class="hbar-count" th:text="${s.count}">-</span>
+                </div>
+            </div>
+        </th:block>
+        <details class="explain">
+            <summary>Technische details</summary>
+            <div>
+                <p th:text="'Geschatte maximale hartslag (laatste 12 maanden): ' + ${p.coverage.maxHr} + '.'">-</p>
+                <p th:text="'Zones: ' + ${p.coverage.zoneNote}">-</p>
+                <p th:text="'Algoritme ' + ${p.coverage.version} + '. Alle drempels zijn voorstellen van de app, niet extern gevalideerd.'">-</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 13. Recente runs */-->
+    <section class="card perf-section" id="recent" aria-labelledby="h-recent">
+        <h2 id="h-recent">Recente runs</h2>
+        <p class="note mb-2">Open een run voor de analyse van die ene run en vergelijkbare runs.</p>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Datum</th><th>Naam</th><th>Soort</th><th>Stabiele run <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></th><th class="num">Hartslagdekking <th:block th:replace="~{fragments :: help(${g['hartslagdekking']})}"/></th></tr></thead>
+            <tbody>
+            <tr th:each="r : ${p.recent}">
+                <td class="nowrap"><a th:href="@{/performance/run/{id}(id=${r.id})}" th:text="${r.date}">-</a></td>
+                <td th:text="${r.name}">-</td>
+                <td th:text="${r.type}">-</td>
+                <td><span th:if="${r.steady}" class="pill tone-good">ja</span><span th:unless="${r.steady}" class="note" th:text="'nee: ' + ${r.reason}">-</span></td>
+                <td class="num" th:text="${r.coverage}">-</td>
+            </tr>
+            </tbody>
+        </table></div>
+    </section>
+
+    <!--/* 14. Begrippen */-->
+    <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">
+        <h2 id="h-begrippen">Begrippen</h2>
+        <p class="note mb-2">Alle termen van deze pagina in gewone taal.</p>
+        <dl class="glossary">
+            <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+        </dl>
     </section>
 
     <script th:inline="javascript">
         (function () {
             if (!window.Chart) return;
+            var C = /*[[${p.charts}]]*/ {};
+            var palette = ['#0e6655', '#c2410c', '#2f6db0', '#8a6500', '#5b2f86', '#15202b'];
+            var zoneCols = ['#2f6db0', '#26764a', '#8a6500', '#c2410c', '#a8261b'];
+            var MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+            function ts(iso) { return new Date(iso + 'T12:00:00').getTime(); }
+            function monthTick(v) { var d = new Date(v); return MONTHS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); }
+            function paceTick(v) { v = Math.round(v); return Math.floor(v / 60) + ':' + String(v % 60).padStart(2, '0'); }
+            function openRun(chart, evt, getId) {
+                var pts = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
+                if (pts.length) { var id = getId(pts[0]); if (id) window.location.href = '/performance/run/' + id; }
+            }
+            function titles(arr) { return { title: function (items) { return items.length ? arr[items[0].dataIndex] : ''; } }; }
+
             var ef = document.getElementById('efChart');
             if (ef) {
-                var series = /*[[${efSeries}]]*/ [];
-                var colors = [RC.s1, RC.s2, RC.accent];
-                new Chart(ef, { type: 'line', data: { labels: /*[[${efLabels}]]*/ [], datasets: series.map(function (s, i) {
-                    return { label: s.label, data: s.data, borderColor: colors[i], backgroundColor: colors[i], spanGaps: false, pointRadius: 3, borderWidth: 2, tension: 0, borderDash: i === 1 ? [6, 4] : i === 2 ? [2, 3] : [] };
-                }) }, options: { maintainAspectRatio: false, scales: { y: { title: RC.axisTitle('EF (m per hartslag)') } },
-                    plugins: { tooltip: { callbacks: { afterLabel: function (c) { return 'runs: ' + series[c.datasetIndex].counts[c.dataIndex]; } } } } } });
+                var ds = [];
+                C.efPoints.forEach(function (s, i) {
+                    var col = palette[i];
+                    ds.push({ type: 'scatter', label: s.label + ': per run', data: s.points.map(function (p) { return { x: ts(p.x), y: p.y, id: p.id, t: p.t }; }), backgroundColor: col + '55', borderColor: col, pointRadius: 3, pointHoverRadius: 5 });
+                    var line = [];
+                    s.monthly.forEach(function (p, k) {
+                        if (k > 0 && ts(p.x) - ts(s.monthly[k - 1].x) > 45 * 864e5) line.push({ x: ts(p.x) - 864e5, y: null });
+                        line.push({ x: ts(p.x), y: p.y, n: p.n, t: p.t });
+                    });
+                    ds.push({ type: 'line', label: s.label + ': mediaan per maand', data: line, borderColor: col, backgroundColor: col, borderWidth: 2.5, pointRadius: 2, tension: 0, spanGaps: false, borderDash: i === 0 ? [] : [6, 4] });
+                });
+                new Chart(ef, { data: { datasets: ds }, options: { maintainAspectRatio: false,
+                    onClick: function (e) { openRun(this, e, function (el) { return ds[el.datasetIndex].data[el.index].id; }); },
+                    scales: { x: { type: 'linear', ticks: { callback: monthTick, maxTicksLimit: 10 } }, y: { title: RC.axisTitle('Meter per hartslag', 'm/slag') } },
+                    plugins: { tooltip: { callbacks: {
+                        title: function (items) { return items.length ? items[0].raw.t : ''; },
+                        label: function (c) { return c.dataset.label + ': ' + c.raw.y.toFixed(2) + ' m' + (c.raw.n ? ' (' + c.raw.n + ' runs)' : ''); } } } } } });
             }
+
             var z = document.getElementById('zoneChart');
             if (z) {
-                var d = /*[[${zoneSeries}]]*/ [];
-                var cols = ['#2f6db0', '#26764a', '#8a6500', '#c2410c', '#a8261b'];
-                new Chart(z, { type: 'bar', data: { labels: /*[[${zoneLabels}]]*/ [], datasets: d.map(function (v, i) { return { label: 'Zone ' + (i + 1), data: v, backgroundColor: cols[i] }; }) },
-                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Minuten') } } } });
+                new Chart(z, { type: 'bar', data: { labels: C.zoneLabels, datasets: C.zoneSeries.map(function (v, i) { return { label: 'Zone ' + (i + 1), data: v, backgroundColor: zoneCols[i] }; }) },
+                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Minuten per week', 'min') } },
+                        plugins: { tooltip: { callbacks: Object.assign(titles(C.zoneTitles), { label: function (c) { return c.dataset.label + ' (' + C.zoneRanges[c.datasetIndex] + '): ' + Math.round(c.raw) + ' min'; } }) } } } });
+            }
+
+            var dr = document.getElementById('driftChart');
+            if (dr) {
+                new Chart(dr, { type: 'line', data: { labels: C.driftLabels, datasets: [
+                    { label: 'Ontkoppeling', data: C.decouplingValues, showLine: false, pointRadius: 4, pointStyle: 'circle', borderColor: palette[0], backgroundColor: palette[0] },
+                    { label: 'Hartslagdrift', data: C.driftValues, showLine: false, pointRadius: 4, pointStyle: 'triangle', borderColor: palette[1], backgroundColor: palette[1] },
+                    { label: 'Vuistregel 5 %', data: C.driftLabels.map(function () { return 5; }), borderColor: '#5b6875', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 }
+                ] }, options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 12 } }, y: { title: RC.axisTitle('% (lager = beter)', '%') } },
+                    plugins: { tooltip: { filter: function (c) { return c.datasetIndex < 2; }, callbacks: Object.assign(titles(C.driftTitles), { label: function (c) { return c.dataset.label + ': ' + (c.raw > 0 ? '+' : '') + c.raw + ' %'; } }) } } } });
+            }
+
+            var it = document.getElementById('intensityChart');
+            if (it) {
+                new Chart(it, { type: 'bar', data: { labels: C.intLabels, datasets: [
+                    { label: 'Makkelijk (zone 1-2)', data: C.intEasy, backgroundColor: '#26764a' },
+                    { label: 'Matig (zone 3)', data: C.intModerate, backgroundColor: '#d99a1c' },
+                    { label: 'Zwaar (zone 4-5)', data: C.intHard, backgroundColor: '#c2410c' }
+                ] }, options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100, title: RC.axisTitle('% van de looptijd', '%') } },
+                    plugins: { tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + Math.round(c.raw) + ' %'; }, afterTitle: function (items) { return items.length ? C.intRuns[items[0].dataIndex] + ' runs' : ''; } } } } } });
+            }
+
+            var mx = document.getElementById('mixChart');
+            if (mx) {
+                var typeCols = { STEADY: '#26764a', STRIDES: '#7fc8b8', TEMPO: '#8a6500', INTERVAL: '#c2410c', RACE: '#2f6db0' };
+                new Chart(mx, { type: 'bar', data: { labels: C.mixLabels, datasets: C.mixSeries.map(function (s) { return { label: s.label, data: s.data, backgroundColor: typeCols[s.type] }; }) },
+                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Aantal trainingen', 'aantal'), ticks: { precision: 0 } } },
+                        plugins: { tooltip: { callbacks: titles(C.mixTitles) } } } });
+            }
+
+            var wk = document.getElementById('weekChart');
+            if (wk) {
+                new Chart(wk, { data: { labels: C.weekLabels, datasets: [
+                    { type: 'bar', label: 'Kilometer', data: C.weekKm, backgroundColor: '#0e6655', yAxisID: 'y', order: 2 },
+                    { type: 'line', label: 'Aantal runs', data: C.weekRuns, borderColor: '#c2410c', backgroundColor: '#c2410c', pointRadius: 2, borderWidth: 2, tension: 0, yAxisID: 'y2', order: 1 }
+                ] }, options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 13 } }, y: { title: RC.axisTitle('Kilometer per week', 'km') }, y2: { position: 'right', grid: { display: false }, ticks: { precision: 0 }, title: RC.axisTitle('Runs per week', 'runs') } },
+                    plugins: { tooltip: { callbacks: titles(C.weekTitles) } } } });
+            }
+
+            var du = document.getElementById('durChart');
+            if (du) {
+                var dds = C.durSeries.map(function (s, i) { var last = i === C.durSeries.length - 1; return { label: s.label, data: s.points, borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length], borderWidth: last ? 3 : 1.5, pointRadius: last ? 3 : 1.5, tension: 0.2, id: s.id }; });
+                dds.push({ label: '100 % = begin', data: [{ x: 10, y: 100 }, { x: Math.max.apply(null, C.durSeries.map(function (s) { return s.points.length ? s.points[s.points.length - 1].x + 10 : 20; })), y: 100 }], borderColor: '#5b6875', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 });
+                new Chart(du, { type: 'line', data: { datasets: dds }, options: { maintainAspectRatio: false, parsing: true,
+                    onClick: function (e) { openRun(this, e, function (el) { return dds[el.datasetIndex].id; }); },
+                    scales: { x: { type: 'linear', title: RC.axisTitle('Minuut in de run', 'min') }, y: { title: RC.axisTitle('Efficiëntie, % van het begin', '%') } },
+                    plugins: { tooltip: { filter: function (c) { return c.dataset.id; }, callbacks: { title: function (items) { return items.length ? 'Vanaf minuut ' + items[0].raw.x : ''; }, label: function (c) { return c.dataset.label + ': ' + c.raw.y + ' %'; } } } } } });
+            }
+
+            var lr = document.getElementById('lrChart');
+            if (lr) {
+                new Chart(lr, { type: 'bar', data: { labels: C.lrLabels, datasets: [
+                    { label: 'Efficiëntie laatste derde tegenover eerste derde', data: C.lrEf, backgroundColor: C.lrEf.map(function (v) { return v < -5 ? '#d99a1c' : '#0e6655'; }) }
+                ] }, options: { maintainAspectRatio: false, scales: { y: { title: RC.axisTitle('Efficiëntie, verandering in %', '%') } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: Object.assign(titles(C.lrTitles), { label: function (c) { return 'Efficiëntie: ' + (c.raw > 0 ? '+' : '') + c.raw + ' %, hartslag: ' + (C.lrHr[c.dataIndex] > 0 ? '+' : '') + C.lrHr[c.dataIndex] + ' bpm'; } }) } } } });
+            }
+
+            var iv = document.getElementById('intervalChart');
+            if (iv) {
+                var ids = C.intervalGroups.map(function (g, i) { return { label: g.label, data: g.points.map(function (p) { return { x: ts(p.x), y: p.y, t: p.t, id: p.id }; }), borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length], pointRadius: 3, borderWidth: 2, tension: 0 }; });
+                new Chart(iv, { type: 'line', data: { datasets: ids }, options: { maintainAspectRatio: false,
+                    onClick: function (e) { openRun(this, e, function (el) { return ids[el.datasetIndex].data[el.index].id; }); },
+                    scales: { x: { type: 'linear', ticks: { callback: monthTick, maxTicksLimit: 10 } }, y: { reverse: true, ticks: { callback: paceTick }, title: RC.axisTitle('Gem. reptempo (min/km)', 'min/km') } },
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? items[0].raw.t : ''; }, label: function (c) { return c.dataset.label + ': ' + paceTick(c.raw.y) + ' /km'; } } } } } });
             }
         })();
     </script>
