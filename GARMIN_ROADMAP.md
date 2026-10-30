@@ -31,6 +31,7 @@ The phase mapping for the backlog is in `docs/garmin-feature-backlog-progress.md
 3. **Build:** code and tests, offline only. Strava tests must still pass.
 4. **Exit:** all exit criteria below pass. The agent writes a report and marks the phase "AWAITING APPROVAL". It does not start the next phase.
 5. **Approval:** only the owner marks a phase APPROVED in `GARMIN_PROGRESS.md`.
+6. **UI:** every page follows `docs/ui-guidelines.md` (owner feedback after Phases 2 and 3): the conclusion first, charts with reference bands over long tables, plain Dutch with `?` explanations for hard terms only, Dutch dates, every period user-adjustable with the documented default, checked in a browser on real data before the phase is reported.
 
 ## Phase 1: Garmin data foundation (Gates 0 to 3)
 
@@ -88,6 +89,8 @@ Needs Phase A approved. Every metric uses the corrected calculations.
 
 Note (2026-10-30): the owner added #21 (fitness trend model) to this phase in session; scope list above is unchanged by the agent. #20 stays out. See `docs/garmin-phase-3-design.md`.
 
+Status (2026-10-30): built, redesigned after owner review, APPROVED by the owner. Post-build changes in `docs/garmin-phase-3-design.md` section 13.
+
 Work:
 1. Design doc `docs/garmin-phase-3-design.md`. Define "steady run", session types, and the minimum sample size per metric.
 2. Metrics with a formula, a sample-size rule, and a validation set. Show trends, not single-run verdicts, unless the sample is large enough.
@@ -100,7 +103,7 @@ Work:
 
 Backlog items: #5, #10, #11, #13, #14, #15, #31, #33 to #39, #41 to #45, #47, #48, #81 (session-type readiness).
 
-Needs Phases 2 and 3 approved. The load model is new (no existing code).
+Needs Phases 2 and 3 approved (both APPROVED 2026-10-30). The owner must still confirm the Phase 4 scope before the design starts. The load model is new (no existing code).
 
 Work:
 1. Design doc `docs/garmin-phase-4-design.md`. Choose and document the internal load model (HR-based or TRIMP variant, or session RPE). Document the fitness-fatigue model and validate it before use (#37).

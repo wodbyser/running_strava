@@ -369,3 +369,58 @@ Consequences for the owner's data: 227 runs (mostly the older ones) have no stor
   - Grade share rule (more than 5 % beyond 25 %) is a share of valid time, not of samples.
 - Not done: no persisted results, no schema change, no AI prompt change (P3-10), no new Garmin endpoint call, no FIT decoding.
 - Not seen in a browser by the agent: pages were fetched as HTML only (status 200, texts present). Charts (Chart.js) and layout are unchecked visually.
+
+## 13. Post-build changes after the owner's review (eleventh session, 2026-10-30)
+
+All at the owner's written request in session. The metrics and formulas of sections 2 and 3 are unchanged unless listed here.
+Algorithm version stays `performance-v1` (the classifier change below changes session types, see 13.4).
+
+### 13.1 Redesign of `/performance` and `/performance/run/{id}` (owner: "niet overzichtelijk")
+
+- Section order set by the owner: Conditietrend, Aerobe efficiëntie, Tijd in hartslagzones, Drift en ontkoppeling, then
+  Kritische snelheid, Intensiteit, Regelmaat, Duurzaamheid, Lange runs, Intervallen (with HR recovery), Vermogen,
+  "Welke runs tellen mee?" (was "Databasis"), Recente runs, Begrippen.
+- Generic table renderer (`PSection`) replaced by typed view models: `PerformancePageBuilder` and `RunPageBuilder`
+  (`PerformanceText.kt`, `PerformanceRunPage.kt`). Charts per section (EF dots per run plus monthly median with gaps,
+  drift and decoupling dots with the 5 % rule-of-thumb line, weekly zone bars plus a 4-week zone bar, intensity 100 %
+  bars, session mix bars, weekly km/runs for consistency, durability lines per run with the 100 % line, long run EF
+  bars, repeated interval sessions' rep pace). Detailed tables folded away.
+- EF displayed as metres per heartbeat (EF x 60), display only. The compare page keeps its own notation.
+- EF section: zone groups without any runs are hidden with an explanation (steady runs are easy runs by definition, so
+  zone 3 and 4+ never have steady runs); comparison shown as "ervoor -> recent" cards with date ranges and run counts.
+- Run page: every measurement explained, with the owner's own median over recent steady runs as context
+  (`TypicalValues`); comparable runs show the Strava name, the run itself as the first row, criteria as compact
+  ✓/✗/? columns; criteria without data for every run (temperature) are hidden and named in the explanation.
+- Help popovers (`?`) and a glossary (`PerformanceGlossary`) for hard terms (GAP, EF, drift, ontkoppeling,
+  stroomdata/detailmetingen, hartslagdekking, ...). Dutch dates everywhere (`PerfDates`).
+- Rules derived from this review for all future pages: `docs/ui-guidelines.md`.
+
+### 13.2 Every period adjustable (owner request)
+
+`PerformanceWindows` (runner): trend 90, EF short 28 and long 90, zone weeks 26, drift 90, critical speed 90, intensity
+months 18, session mix weeks 52, consistency 12 and 52 weeks, durability 90, long runs 90, HR recovery 90, power 90 days;
+run page "Jouw mediaan" 90 days. Defaults = the design values. URL parameters, clamped ranges, other choices kept.
+Core: `CriticalSpeed.anchors/walkForward(windowDays)` and `Consistency.analyze(shortWeeks, longWeeks)` take parameters
+with the old values as defaults. Note: zones per week now means the last N calendar weeks (was: last N weeks with data).
+The long-run definition keeps its fixed 90-day median so the chosen window does not change which runs are long runs.
+
+### 13.3 Missing streams: "Detaildata aanvullen" (dashboard)
+
+Cause of the large gaps in the EF chart: 227 runs were stored without streams (rate limit during the full fetch), and
+`/fetch-remaining` only fetches activities that are not stored at all. New use case `BackfillStreamsData`
+(`POST /backfill-streams`, dashboard "Meer opties"): streams for stored runs without streams, newest first, one request per
+run, stops cleanly at the Strava rate limit, continues on the next click, progress logged per run with an ETA.
+`ActivityRepository.findIdsWithStreams()` added (id-only query in the adapter).
+
+### 13.4 Interval classification: hilly auto-lap rule (owner approved after an impact list)
+
+A trail with 1 km auto-laps (Kluisbos, 33 m/km) was classified "2 x 2000 m": lap pace followed the hills. Owner rejected
+a heart-rate check (HR not always reliable). Rule in `LapClassifier`: more than 15 m climbing per km AND every lap except
+the last exactly 1 km or 1 mile (±1.5 %) AND not a Strava workout -> no reps and no tempo. Elevation per km is passed
+from every caller. Impact on the owner's 534 runs, shown before the change: 10 runs INTERVAL -> STEADY (all trails or a
+hilly long run), 2 trails TEMPO -> STEADY, nothing else; hand-lapped hill intervals unchanged. Golden tests added.
+
+### 13.5 Tests
+
+330 offline tests pass (`:core:test :runner:test`, Java 23). No existing Strava test changed. Pages checked in a browser
+(headless Chrome, real data on a second instance).

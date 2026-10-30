@@ -4,7 +4,7 @@ Status of every item in `docs/garmin-feature-backlog.md`. Update this file whene
 
 Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md`.
 
-**Last updated:** 2026-10-30 by: tenth session (Phase 3 built: items 16 to 19, 21, 22, 24 to 30, 32, 40, 46 DONE, awaiting owner approval of the phase)
+**Last updated:** 2026-10-30 by: eleventh session (Phase 3 APPROVED by the owner: items 16 to 19, 21, 22, 24 to 30, 32, 40, 46 DONE; Phase 2 items approved earlier)
 
 Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). The Body Battery 180 s series is stored (owner decision 2026-10-25). Stress durations are already in the daily summary and are not stored twice. No analytics were built, so every item stays NOT STARTED.
 
@@ -27,38 +27,38 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 
 | # | Feature | Section | Priority | Proposed phase | Status | Blocked by / notes |
 |---|---|---|---|---|---|---|
-| 1 | Personal HRV baseline | A | Very high | Phase 2 | DONE | Gate 1: HRV nightly average, weekly average, 5-minute readings, Garmin baseline band all available since 2024-12-20. HRV measure/unit UNVERIFIED (owner decision on labelling) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 2 | HRV trend analysis | A | Very high | Phase 2 | DONE | #1. Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 3 | Resting heart rate analysis | A | Very high | Phase 2 | DONE | Gate 1: daily `restingHeartRate` verified (dailyHeartRate, dailysummaries). Measurement method UNVERIFIED Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 4 | Recovery Readiness (overall score) | A | Very high | Phase 2 | DONE | #1, #3, #6, #8, components shown Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. Four components, no score, no recent load (load comes with Phase 4 #5, #81). |
+| 1 | Personal HRV baseline | A | Very high | Phase 2 | DONE | Gate 1: HRV nightly average, weekly average, 5-minute readings, Garmin baseline band all available since 2024-12-20. HRV measure/unit UNVERIFIED (owner decision on labelling) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 2 | HRV trend analysis | A | Very high | Phase 2 | DONE | #1. Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 3 | Resting heart rate analysis | A | Very high | Phase 2 | DONE | Gate 1: daily `restingHeartRate` verified (dailyHeartRate, dailysummaries). Measurement method UNVERIFIED Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 4 | Recovery Readiness (overall score) | A | Very high | Phase 2 | DONE | #1, #3, #6, #8, components shown Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. Four components, no score, no recent load (load comes with Phase 4 #5, #81). |
 | 5 | Training response analysis | A | Very high | Phase 4 | NOT STARTED | Load model (Phase 4), #1 |
-| 6 | Sleep quality analysis | A | Very high | Phase 2 | DONE | Verified sleep fields (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 7 | Sleep debt | A | High | Phase 2 | DONE | #6. Owner input (2026-10-25): sleep need at least 7h30 and enough deep sleep. Garmin also returns its own `sleepNeed` (baseline 480, unit UNVERIFIED). Owner to confirm the exact number and the deep-sleep target Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 8 | Body Battery trends | A | High | Phase 2 | DONE | Verified Body Battery cadence (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
-| 9 | Autonomic stress analysis | A | High | Phase 2 | DONE | Verified stress fields (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase AWAITING APPROVAL. |
+| 6 | Sleep quality analysis | A | Very high | Phase 2 | DONE | Verified sleep fields (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 7 | Sleep debt | A | High | Phase 2 | DONE | #6. Owner input (2026-10-25): sleep need at least 7h30 and enough deep sleep. Garmin also returns its own `sleepNeed` (baseline 480, unit UNVERIFIED). Owner to confirm the exact number and the deep-sleep target Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 8 | Body Battery trends | A | High | Phase 2 | DONE | Verified Body Battery cadence (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
+| 9 | Autonomic stress analysis | A | High | Phase 2 | DONE | Verified stress fields (Gate 1) Built 2026-10-25 (`recovery-v1`, `/recovery`), offline tests pass, phase APPROVED. |
 | 10 | Recovery time estimation | A | Very high | Phase 4 | NOT STARTED | Load model, #1 to #9 history |
 | 11 | Early fatigue detection | A | Very high | Phase 4 | NOT STARTED | Load model, validation, no diagnosis (section 8) |
 | 12 | Illness pattern detection | A | Medium | Later | NOT STARTED | Needs strict medical rules (section 8 rule 9) |
 | 13 | Rest day effectiveness | A | High | Phase 4 | NOT STARTED | Load model, #1, #3 |
 | 14 | Deload effectiveness | A | Very high | Phase 4 | NOT STARTED | Load model, #1, #3 |
 | 15 | Recovery trend forecast | A | High | Phase 4 | NOT STARTED | Enough history, #2 |
-| 16 | Aerobic efficiency index | B | Very high | Phase 3 | DONE (awaiting owner approval) | Audit EF defect fixed (section 7.1) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 17 | Aerobic efficiency trends | B | Very high | Phase 3 | DONE (awaiting owner approval) | #16 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 18 | Heart rate drift analysis | B | Very high | Phase 3 | DONE (awaiting owner approval) | Streams (existing), steady-run detection (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 19 | Aerobic decoupling | B | Very high | Phase 3 | DONE (awaiting owner approval) | Streams (existing), #18 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 16 | Aerobic efficiency index | B | Very high | Phase 3 | DONE | Audit EF defect fixed (section 7.1) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 17 | Aerobic efficiency trends | B | Very high | Phase 3 | DONE | #16 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 18 | Heart rate drift analysis | B | Very high | Phase 3 | DONE | Streams (existing), steady-run detection (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 19 | Aerobic decoupling | B | Very high | Phase 3 | DONE | Streams (existing), #18 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 20 | Running economy proxy | B | High | Phase 3 | NOT STARTED | #16, power only if reliable |
-| 21 | Fitness trend model | B | Very high | Phase 3 | DONE (awaiting owner approval) | #16, #17, #22 (owner added to Phase 3 on 2026-10-30; built as four side by side indicators, no score; design section 3.4a) |
-| 22 | Threshold estimation | B | Very high | Phase 3 | DONE (awaiting owner approval) | Audit defects fixed, validation set (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 21 | Fitness trend model | B | Very high | Phase 3 | DONE | #16, #17, #22 (owner added to Phase 3 on 2026-10-30; built as four side by side indicators, no score; design section 3.4a) |
+| 22 | Threshold estimation | B | Very high | Phase 3 | DONE | Audit defects fixed, validation set (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 23 | VO2max trend validation | B | High | Later | UNAVAILABLE | Gate 1: `vO2MaxValue` is in the Swagger schema but absent from all 448 live activities |
-| 24 | Heart rate zone distribution | B | Very high | Phase 3 | DONE (awaiting owner approval) | Streams, zones (existing `CoachService` uses estimated max HR) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 25 | Durability analysis | B | Very high | Phase 3 | DONE (awaiting owner approval) | Streams, #18 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 26 | Long run fatigue analysis | B | Very high | Phase 3 | DONE (awaiting owner approval) | Streams, #25, session-type classification (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 27 | Interval performance analysis | B | Very high | Phase 3 | DONE (awaiting owner approval) | Interval classifier validated (audit 1.1) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 28 | Heart rate recovery | B | High | Phase 3 | DONE (awaiting owner approval) | Detail data supports it (to verify) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 29 | Power efficiency analysis | B | High | Phase 3 | DONE (awaiting owner approval) | Reliable power data (to verify) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
-| 30 | Terrain-adjusted performance | B | High | Phase 3 | DONE (awaiting owner approval) | Elevation streams, grade (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 24 | Heart rate zone distribution | B | Very high | Phase 3 | DONE | Streams, zones (existing `CoachService` uses estimated max HR) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 25 | Durability analysis | B | Very high | Phase 3 | DONE | Streams, #18 (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 26 | Long run fatigue analysis | B | Very high | Phase 3 | DONE | Streams, #25, session-type classification (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 27 | Interval performance analysis | B | Very high | Phase 3 | DONE | Interval classifier validated (audit 1.1) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 28 | Heart rate recovery | B | High | Phase 3 | DONE | Detail data supports it (to verify) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 29 | Power efficiency analysis | B | High | Phase 3 | DONE | Reliable power data (to verify) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
+| 30 | Terrain-adjusted performance | B | High | Phase 3 | DONE | Elevation streams, grade (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 31 | Fatigue-adjusted performance | B | Very high | Phase 4 | NOT STARTED | Load model, #21 |
-| 32 | Comparable run finder | B | Very high | Phase 3 | DONE (awaiting owner approval) | Session classification, terrain, conditions (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 32 | Comparable run finder | B | Very high | Phase 3 | DONE | Session classification, terrain, conditions (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 33 | Internal training load | C | Very high | Phase 4 | NOT STARTED | Model choice documented (HR-based or TRIMP) |
 | 34 | External training load | C | Very high | Phase 4 | NOT STARTED | Distance, duration, elevation (existing) |
 | 35 | Acute training load | C | Very high | Phase 4 | NOT STARTED | #33 or #34 |
@@ -66,13 +66,13 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 | 37 | Fitness-fatigue model | C | Very high | Phase 4 | NOT STARTED | #33 to #36, validation before use |
 | 38 | Training monotony | C | High | Phase 4 | NOT STARTED | #34 |
 | 39 | Training strain | C | High | Phase 4 | NOT STARTED | #38 |
-| 40 | Intensity distribution | C | Very high | Phase 3 | DONE (awaiting owner approval) | Zone distribution (#24) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 40 | Intensity distribution | C | Very high | Phase 3 | DONE | Zone distribution (#24) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 41 | Training load progression | C | Very high | Phase 4 | NOT STARTED | #35, #36 |
 | 42 | Recovery-adjusted load | C | Very high | Phase 4 | NOT STARTED | #33 to #36, #4 |
 | 43 | Workout effectiveness | C | Very high | Phase 4 | NOT STARTED | #17, #33, session classification |
 | 44 | Optimal training frequency | C | High | Phase 4 | NOT STARTED | #34, history |
 | 45 | Optimal long run duration | C | High | Phase 4 | NOT STARTED | #26, #34 |
-| 46 | Training consistency | C | High | Phase 3 | DONE (awaiting owner approval) | Activity history (existing) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` section 8) |
+| 46 | Training consistency | C | High | Phase 3 | DONE | Activity history (existing) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 47 | Detraining analysis | C | High | Phase 4 | NOT STARTED | Load model, #16 |
 | 48 | Training adaptation lag | C | High | Phase 4 | NOT STARTED | #17, #36 |
 | 49 | Race performance prediction | D | Very high | Phase 5 | NOT STARTED | Audit race-prediction defect fixed (section 7.1) |
@@ -111,12 +111,13 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 
 ## Open questions for the owner
 
-1. Confirm the phase mapping above, especially Phases 3 to 5.
-2. Who defines "personal sleep need" for #7?
-3. Is injury history (#63) something you want to record in the app? It needs an input UI.
+1. ~~Confirm the phase mapping~~ CONFIRMED 2026-10-25. Phase 4 scope still to be confirmed by the owner before its design starts.
+2. ~~Who defines "personal sleep need" for #7?~~ ANSWERED 2026-10-25: owner target 7 h 30 (adjustable in config).
+3. Is injury history (#63) something you want to record in the app? It needs an input UI. (Later item; history given 2026-10-25.)
 
 ## Log
 
 Newest first.
 
+- **2026-10-30:** Phase 3 APPROVED by the owner after the redesign (see `GARMIN_PROGRESS.md` log, eleventh session). Items 16 to 19, 21, 22, 24 to 30, 32, 40, 46 DONE. Phase 2 items marked as approved (they were approved 2026-10-25; the per-row text was stale).
 - **2026-10-24:** Created this file from `docs/garmin-feature-backlog.md`. All 81 items NOT STARTED. Phase mapping proposed, not confirmed.

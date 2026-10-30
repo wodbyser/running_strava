@@ -59,6 +59,8 @@ Scheduled sync: daily at 06:00 (`strava.sync.cron`), guarded by token presence.
 ## Frontend
 
 Thymeleaf templates in `runner/src/main/resources/templates/`. No JS build tool, no frontend framework. Layout via `layout.html`.
+Shared pieces: `fragments.html` (`help(term)` popover, `windowForm(keys, anchor)` period form, `recoveryHero`), Chart.js from CDN with defaults in `layout.html` (`window.RC`).
+UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, charts over tables, plain Dutch, explain only hard terms, Dutch dates via `PerfDates`, every period adjustable, check pages in a browser before reporting.
 
 ## AI Extension
 

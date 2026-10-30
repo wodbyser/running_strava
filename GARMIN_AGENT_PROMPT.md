@@ -14,6 +14,7 @@ STEP 1: READ THESE, IN THIS ORDER
 6. docs/audit/phase-1-report.md: defects the Garmin work must not inherit.
 7. connect-personal-api-python-main/src/garmin_personal_api/: auth.py, client.py, constants.py, errors.py, downloads.py (read only).
 8. docs/garmin-feature-backlog-progress.md: status of the 81 backlog items. Read it only when the current phase needs it.
+9. docs/ui-guidelines.md: how every page must look and read (owner feedback after Phases 2 and 3). Mandatory for any UI work.
 Do NOT implement backlog items outside the current phase. docs/garmin-feature-backlog.md is the idea list; the progress file is the tracker.
 
 STEP 2: FIND WHAT TO DO
@@ -26,6 +27,8 @@ STEP 3: DO THE WORK
 - Do only the work of the current gate or phase, as described in GARMIN_ROADMAP.md.
 - Write the design doc before code for any phase.
 - Build and test: JAVA_HOME=~/.sdkman/candidates/java/23-open ./gradlew :core:test :runner:test
+- UI: follow docs/ui-guidelines.md from the first version (conclusion first, charts over tables, plain Dutch, `?` only for hard terms, Dutch dates, every period adjustable with the current value as default). Before reporting, open every changed page in a browser with real data (second instance on port 8091, headless Chrome screenshots) and fix what is unclear. Never stop the owner's app on port 8080.
+- Before changing a rule that changes results (classification, thresholds), show the owner the impact on real data and ask.
 - Existing Strava tests must pass. A Strava test may change only when a documented audit decision requires it, with the old and new values listed in the design doc and the progress log.
 - If you need a decision that is not in the files, ask the owner. Do not invent one. Record it under "Open questions" in GARMIN_PROGRESS.md.
 
@@ -50,7 +53,7 @@ HARD RULES
 - Do not change buildSrc.
 - Keep ddl-auto: update. Do not rename or drop Strava columns.
 - Garmin endpoints that change state use POST. Never add state-changing GET endpoints.
-- Code, docs, and agent text in English. UI and AI prompt text in Dutch.
+- Code, docs, and agent text in English. UI and AI prompt text in Dutch. Answer the owner in the language he writes in.
 - Mark any fact not proven by a live response or by the Python client source as UNVERIFIED. Never guess endpoint fields, units, limits, or retry guidance.
 - Never call out-of-scope endpoints: rows 6, 16, 17 (food logs, menstrual cycle). Rows 3, 4, 5, 7 are excluded from Phase 1.
 - Health data never goes to an external AI provider. The app's AI stays copy-paste only.

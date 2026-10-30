@@ -233,3 +233,22 @@ Training load, training response (#5), recovery time (#10), fatigue detection (#
 - **Hero card (owner request, option "spectrum + conclusion card, no number"):** levels and rules as in the progress log; spectrum position = (clamp(deviation, -3, 3) + 3) / 6 x 100; no numeric score anywhere (test checks the output type has no score field). Thresholds are UNVERIFIED app estimates.
 - **Sleep target in the label (owner request after review):** `SleepTargetCheck`: average shortfall per night against `garmin.recovery.sleep-target-minutes`, over the nights with data (7 nights day view, the period in week and month view, minimum 5 resp. 70 %). z = -(average shortfall) / 20 min, banded like the other deviations (under 20 min within, 20 to 40 deviating, 40 and more strong). PROPOSAL, UNVERIFIED. Readiness counts sleep once; the larger deviation of own norm and target decides, so structural short sleep can no longer read "binnen je norm".
 - **Week and month conclusion:** `PeriodReport.readiness`: period median per component against the median and robust SD of the 28 days before the period (minimum 20 days), same bands and level rules as the day view; no sustained-trend sentence in period view. Charts per day with period median (and the sleep target line).
+
+## 11. Post-approval changes (eleventh session, 2026-10-30, owner request)
+
+Phase 2 was already APPROVED; the owner asked to redesign `/recovery` like Prestaties and to make every period adjustable.
+Calculations and bands are unchanged for the default periods; `recovery-v1` stays.
+
+- Hero card kept as it was (owner: "zegt in 1 oogopslag heel veel"); only its dates are Dutch now.
+- Day view: five small charts (HRV, rusthartslag, slaap as bars with the target line, Body Battery bij ontwaken, stress)
+  with the rolling own-norm band (median ± 1 robust SD of the N days before each day, `core/.../recovery/Daily.kt`,
+  `DailyNorms`) and dots coloured by band; one card per metric instead of tables (value, band pill, own norm, trend
+  sentence, extra facts, norms over other windows folded away, sleep stage bar, 7-night bars against the target,
+  Body Battery range bar); a colour-coded day table instead of the "Laatste 7 dagen" list; previous/next day links.
+- Week and month view: tiles (median, range, change against the previous period) instead of the table, the same charts,
+  colour-coded day table, Dutch titles.
+- `?` explanations only for hard terms (`RecoveryGlossary`: HRV, Body Battery, stress, eigen norm, SD, slaaptekort).
+- Adjustable periods (`RecoveryWindows` in `Baseline.kt`, settings in `RecoveryWindowSettings`): own norm 28, chart 60,
+  trend 7 against 60, sleep debt 7 nights, regularity 14 nights, day table 7 days (defaults = design values). Minimum
+  counts scale with the window (70 % rule; regularity half of the window). The AI `<herstel>` block always uses the defaults.
+- `RecoveryText.page()` (used by the AI prompt) is unchanged apart from window-aware wording.
