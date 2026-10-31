@@ -45,6 +45,11 @@
     <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
     <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
+    <section class="card link-card mb-2" aria-label="Welke training past vandaag?">
+        <span><strong>Welke training past vandaag?</strong> Je herstel naast je belasting en je vermoeidheidssignalen.</span>
+        <a class="btn btn-secondary btn-sm" href="/load#vandaag">Naar Belasting &rarr;</a>
+    </section>
+
     <!--/* ============================== week and month ============================== */-->
     <th:block th:if="${period != null}">
         <th:block th:replace="~{fragments :: recoveryHero(${period.hero}, ${legend})}"/>

@@ -58,6 +58,14 @@ garmin:
     sleep-target-minutes: 450
   performance:
     zone-set: garmin
+  load:
+    trimp-coefficient: 1.92
+    include-other-sports: true
+    min-hr-coverage: 0.80
+    min-isolated: 8
+    min-rest-days: 15
+    model-gain: 0.10
+    warm-up: true
 
 logging:
   level:

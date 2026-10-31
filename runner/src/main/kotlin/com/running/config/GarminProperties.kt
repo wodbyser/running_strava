@@ -16,6 +16,7 @@ data class GarminProperties(
     val retry: Retry = Retry(),
     val recovery: Recovery = Recovery(),
     val performance: Performance = Performance(),
+    val load: Load = Load(),
 ) {
     init {
         require(!timeout.isZero && !timeout.isNegative) { "garmin.timeout must be greater than 0" }
@@ -55,6 +56,38 @@ data class GarminProperties(
             minRunsDurability = minRunsDurability, minLongRunsList = minLongRunsList, minLongRunsTrend = minLongRunsTrend,
             minIntervalSessions = minIntervalSessions, minHrrMeasurements = minHrrMeasurements, minPowerRuns = minPowerRuns,
             minConsistencyWeeks = minConsistencyWeeks,
+        )
+    }
+
+    /** Phase 4 thresholds: PROPOSAL values from the design (section 2.5), UNVERIFIED. Defaults live in [LoadConfig]. */
+    data class Load(
+        val trimpCoefficient: Double = 1.92,
+        val includeOtherSports: Boolean = true,
+        val minHrCoverage: Double = 0.80,
+        val minIsolated: Int = 8,
+        val minRestDays: Int = 15,
+        val minDeloadSummary: Int = 3,
+        val minForecastHistory: Int = 120,
+        val minFatigueRuns: Int = 30,
+        val minFatigueGroup: Int = 8,
+        val minBlocks: Int = 12,
+        val minWeeksFrequency: Int = 6,
+        val minLongRunsGroup: Int = 5,
+        val minDetrainingSummary: Int = 3,
+        val minAdaptationWeeks: Int = 52,
+        val modelMinDays: Int = 180,
+        val modelMinPoints: Int = 30,
+        val modelGain: Double = 0.10,
+        /** Fill the per-activity caches in the background right after the app started (owner decision 2026-10-31). */
+        val warmUp: Boolean = true,
+    ) {
+        fun toConfig() = com.running.load.LoadConfig(
+            trimpB = trimpCoefficient, minHrCoverage = minHrCoverage, includeOtherSports = includeOtherSports,
+            minIsolated = minIsolated, minRestDays = minRestDays, minDeloadSummary = minDeloadSummary,
+            minForecastHistory = minForecastHistory, minFatigueRuns = minFatigueRuns, minFatigueGroup = minFatigueGroup,
+            minBlocks = minBlocks, minWeeksFrequency = minWeeksFrequency, minLongRunsGroup = minLongRunsGroup,
+            minDetrainingSummary = minDetrainingSummary, minAdaptationWeeks = minAdaptationWeeks,
+            modelMinDays = modelMinDays, modelMinPoints = modelMinPoints, modelGain = modelGain,
         )
     }
 

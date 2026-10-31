@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Belasting</h1>
+            <p th:text="${intro}">-</p>
+        </div>
+        <nav class="actions" aria-label="Pagina kiezen">
+            <a class="btn btn-sm btn-primary" href="/load" aria-current="page">Belasting</a>
+            <a class="btn btn-sm btn-secondary" th:href="${otherPage}">Reactie op training</a>
+        </nav>
+    </div>
+
+    <nav class="toc" aria-label="Onderdelen van deze pagina">
+        <a href="#vandaag">Welke training past vandaag?</a>
+        <a href="#tijd">Belasting over tijd</a>
+        <a href="#weken">Opbouw per week</a>
+        <a href="#herstel">Belasting en herstel</a>
+        <a href="#signalen">Vermoeidheidssignalen</a>
+        <a href="#afwisseling">Afwisseling</a>
+        <a href="#model">Fitheid-vermoeidheidsmodel</a>
+        <a href="#verwachting">Herstelverwachting</a>
+        <a href="#data">Welke activiteiten tellen mee?</a>
+        <a href="#begrippen">Begrippen</a>
+    </nav>
+
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
+
+    <!--/* 1. Conclusion */-->
+    <section class="card hero" th:classappend="${p.hero.css}" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${p.hero.headline}">Niets valt op</h2>
+            <span class="badge badge-est" title="Conclusie van de app op basis van je eigen cijfers, geen meting en geen diagnose.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:text="${p.hero.sub}">-</p>
+        <div class="hero-conclusion">
+            <p th:each="line : ${p.hero.lines}" th:text="${line}">-</p>
+        </div>
+        <div class="hero-facts">
+            <span th:each="fact : ${p.hero.facts}"><strong th:text="${fact.first}">-</strong>: <span th:text="${fact.second}">-</span></span>
+        </div>
+        <details class="explain">
+            <summary>Hoe komt deze conclusie tot stand?</summary>
+            <div><p th:each="m : ${p.hero.method}" th:text="${m}">-</p></div>
+        </details>
+    </section>
+
+    <!--/* 2. Which session fits today */-->
+    <section class="card perf-section" id="vandaag" aria-labelledby="h-vandaag">
+        <div class="card-head">
+            <h2 id="h-vandaag">Welke training past vandaag?</h2>
+            <span class="badge badge-est" title="Tegensignalen die de app uit je eigen gegevens haalt. Geen advies.">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['tegensignaal']})}"/>
+        </div>
+        <p class="lead">Per soort training zie je wat <strong>ervoor</strong> en wat <strong>ertegen</strong> pleit in je gegevens. Er is geen score en geen 'klaar of niet klaar': pijn, ziekte en je eigen gevoel wegen zwaarder.</p>
+        <p class="note" th:if="${p.types.isEmpty()}">Nog onvoldoende data om dit te tonen.</p>
+        <div class="type-list" th:unless="${p.types.isEmpty()}">
+            <div class="type-row" th:each="t : ${p.types}" th:classappend="${t.css}">
+                <div class="type-head">
+                    <strong th:text="${t.label}">Interval</strong>
+                    <span class="pill" th:text="${t.level}">Geen tegensignalen</span>
+                </div>
+                <ul class="type-parts">
+                    <li th:each="part : ${t.parts}" th:classappend="${part.css}"><span class="part-mark" th:text="${part.stance}">pleit ervoor</span><span><strong th:text="${part.title}">-</strong>: <span th:text="${part.detail}">-</span></span></li>
+                </ul>
+            </div>
+        </div>
+        <p class="note-xs mt-2" th:if="${p.readinessNote != null}" th:text="${p.readinessNote}">-</p>
+    </section>
+
+    <!--/* 3. Load over time */-->
+    <section class="card perf-section" id="tijd" aria-labelledby="h-tijd">
+        <div class="card-head">
+            <h2 id="h-tijd">Belasting over tijd</h2>
+            <span class="badge badge-calc" title="Met een vaste formule berekend uit je hartslag.">berekend</span>
+            <th:block th:replace="~{fragments :: help(${g['belasting']})}"/>
+        </div>
+        <p class="lead">Elke staaf is de belasting van één dag. De <strong>lijnen</strong> tonen je belasting van de laatste dagen en je gemiddelde week, de groene band is je eigen norm. Rustdagen zijn 0.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'acute','chronic','chart'} }, 'tijd')}"/>
+        <div class="stat-grid mt-2">
+            <div class="stat" th:each="t : ${p.tiles}" th:classappend="${t.tone}">
+                <span class="label"><span th:text="${t.label}">-</span><th:block th:if="${t.tip != null}" th:replace="~{fragments :: help(${g.get(t.tip)})}"/></span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <div class="chart-box chart-box--tall mt-2"><canvas id="cLoad" role="img" aria-label="Dagelijkse belasting met de belasting van de laatste dagen en je gemiddelde week"></canvas></div>
+        <p class="legend"><span>Blauw: runs</span><span>Paars: andere sport met hartslag</span><span>Grijs: geen hartslagdata, dus onbekend (geen 0)</span><span>Gestippeld: je eigen norm voor de laatste dagen</span></p>
+        <p class="note-xs">De vergelijking van de laatste dagen met je gemiddelde week is een gewone vergelijking, geen risicozone. <th:block th:replace="~{fragments :: help(${g['week-vergelijking']})}"/></p>
+    </section>
+
+    <!--/* 4. Weekly build-up */-->
+    <section class="card perf-section" id="weken" aria-labelledby="h-weken">
+        <div class="card-head">
+            <h2 id="h-weken">Opbouw per week</h2>
+            <span class="badge badge-calc">berekend</span>
+        </div>
+        <p class="lead">Hoe zwaar was elke week en hoe groot was de stap ten opzichte van je eigen gewoonte? De kleur van een staaf zegt hoe de week zich verhoudt tot je eigen weken van de afgelopen maanden.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'band'} }, 'weken')}"/>
+        <div class="stat-grid mt-2" th:if="${!p.weekTiles.isEmpty()}">
+            <div class="stat" th:each="t : ${p.weekTiles}" th:classappend="${t.tone}">
+                <span class="label" th:text="${t.label}">-</span>
+                <span class="value" th:text="${t.value}">-</span>
+                <span class="stat-sub" th:text="${t.sub}">-</span>
+            </div>
+        </div>
+        <div class="chart-box mt-2"><canvas id="cWeeks" role="img" aria-label="Belasting per week met het gemiddelde van de 4 weken ervoor"></canvas></div>
+        <p class="legend"><span>Grijsgroen: gewoon voor jou</span><span>Oranje: hoog voor jou</span><span>Geel: laag voor jou</span><span>Licht: de week loopt nog</span><span>Gestippeld: gemiddelde van de 4 weken ervoor</span></p>
+        <div class="chart-grid mt-2">
+            <figure class="mini-chart"><figcaption>Kilometers per week</figcaption><div class="chart-box chart-box--sm"><canvas id="cKm"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Uren per week</figcaption><div class="chart-box chart-box--sm"><canvas id="cHours"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Harde minuten per week (zone 4 en 5)</figcaption><div class="chart-box chart-box--sm"><canvas id="cHard"></canvas></div></figure>
+        </div>
+        <details class="more">
+            <summary>Toon alle weken als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Week</th><th class="num">Belasting</th><th class="num">Km</th><th class="num">Uren</th><th class="num">Harde min.</th><th class="num" th:if="${p.showKj}">Vermogen (kJ, apparaat)</th><th class="num">Verandering</th><th>Eigen geschiedenis</th><th>Voor jou</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${p.weekRows}">
+                    <td class="nowrap" th:text="${r.label}">-</td>
+                    <td class="num" th:text="${r.trimp}">-</td>
+                    <td class="num" th:text="${r.km}">-</td>
+                    <td class="num" th:text="${r.hours}">-</td>
+                    <td class="num" th:text="${r.hard}">-</td>
+                    <td class="num" th:if="${p.showKj}" th:text="${r.kj}">-</td>
+                    <td class="num" th:text="${r.change}">-</td>
+                    <td class="note-xs"><span th:text="${r.rank}">-</span><span th:if="${r.flags != ''}"> · <em th:text="${r.flags}">-</em></span></td>
+                    <td><span class="pill" th:classappend="${r.css}" th:text="${r.level}">-</span></td>
+                </tr>
+                </tbody>
+            </table></div>
+        </details>
+        <details class="explain">
+            <summary>Meer uitleg</summary>
+            <div>
+                <p>De verandering wordt vergeleken met je eigen weekwijzigingen van het afgelopen jaar. De regel 'niet meer dan 10 % per week' gebruikt de app niet: die is niet wetenschappelijk onderbouwd.</p>
+                <p>Na een onderbreking is elke herstart een grote procentuele stijging; zulke weken zijn gemarkeerd.</p>
+            </div>
+        </details>
+    </section>
+
+    <!--/* 5. Load and recovery */-->
+    <section class="card perf-section" id="herstel" aria-labelledby="h-herstel">
+        <div class="card-head">
+            <h2 id="h-herstel">Belasting en herstel</h2>
+            <span class="badge badge-est">app-schatting</span>
+        </div>
+        <p class="lead">Boven de belasting per dag, eronder hoeveel van je herstelwaarden die ochtend afweken van je eigen norm. Zo zie je naast elkaar wat je deed en hoe je lichaam er die dag voorstond. De twee worden <strong>niet</strong> samengevoegd tot één getal.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'norm'} }, 'herstel')}"/>
+        <div class="chart-box chart-box--sm mt-2"><canvas id="cTlLoad" role="img" aria-label="Belasting per dag"></canvas></div>
+        <div class="chart-box chart-box--sm"><canvas id="cTlDev" role="img" aria-label="Aantal herstelwaarden buiten je norm per ochtend"></canvas></div>
+        <div class="chart-box chart-box--sm"><canvas id="cTlSleep" role="img" aria-label="Minuten onder je slaapdoel per nacht"></canvas></div>
+        <p class="legend"><span>Groen: alle herstelwaarden binnen je norm</span><span>Geel: één wijkt af</span><span>Oranje: twee of meer wijken af</span><span>Donkerrood: een waarde wijkt sterk af</span><span>Grijs: te weinig data die ochtend</span></p>
+        <p class="note-xs">Kleur betekent afstand tot je eigen norm, niet goed of slecht. Herstelwaarden: HRV, rusthartslag, slaapduur en Body Battery bij opstaan.</p>
+    </section>
+
+    <!--/* 6. Fatigue signals */-->
+    <section class="card perf-section" id="signalen" aria-labelledby="h-signalen">
+        <div class="card-head">
+            <h2 id="h-signalen">Vermoeidheidssignalen</h2>
+            <span class="badge badge-est">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['vermoeidheidssignalen']})}"/>
+        </div>
+        <p class="lead">Zes losse controles die samen kunnen wijzen op oplopende vermoeidheid. <strong th:text="${p.signalSummary}">-</strong>. Er is geen totaalscore en geen diagnose.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'efdays'} }, 'signalen')}"/>
+        <div class="table-wrap mt-2"><table>
+            <thead><tr><th>Signaal</th><th>Nu</th><th>Waarde</th><th>Regel</th></tr></thead>
+            <tbody>
+            <tr th:each="s : ${p.signalRows}">
+                <td><strong th:text="${s.title}">-</strong></td>
+                <td><span class="pill" th:classappend="${s.css}" th:text="${s.state}">-</span></td>
+                <td th:text="${s.value}">-</td>
+                <td class="note-xs" th:text="${s.rule}">-</td>
+            </tr>
+            </tbody>
+        </table></div>
+        <div class="mt-2" th:if="${!p.baseRate.isEmpty()}">
+            <strong>Hoe vaak kwam dit voor in de laatste 12 maanden?</strong>
+            <ul class="plain"><li th:each="b : ${p.baseRate}" th:text="${b}">-</li></ul>
+            <p class="note-xs">Dit laat zien hoe ongewoon de huidige stand is. Het is geen kans op ziekte of blessure.</p>
+        </div>
+    </section>
+
+    <!--/* 7. Monotony */-->
+    <section class="card perf-section" id="afwisseling" aria-labelledby="h-afwisseling">
+        <div class="card-head">
+            <h2 id="h-afwisseling">Afwisseling</h2>
+            <span class="badge badge-calc">berekend</span>
+            <th:block th:replace="~{fragments :: help(${g['monotonie']})}"/>
+        </div>
+        <p class="lead" th:text="${p.monotonyText}">-</p>
+        <div class="chart-box mt-2"><canvas id="cMono" role="img" aria-label="Weekbelasting met monotonie per week"></canvas></div>
+        <p class="note-xs">Een week met één korte training geeft rekenkundig een lage monotonie; kijk daarom ook naar de belasting zelf. Er zijn geen grenzen uit de literatuur gebruikt, alleen je eigen weken.</p>
+    </section>
+
+    <!--/* 8. Model */-->
+    <section class="card perf-section" id="model" aria-labelledby="h-model">
+        <div class="card-head">
+            <h2 id="h-model">Fitheid-vermoeidheidsmodel</h2>
+            <span class="badge badge-est">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['model']})}"/>
+        </div>
+        <p class="lead"><strong th:text="${p.model.headline}">-</strong></p>
+        <p th:each="l : ${p.model.lines}" th:text="${l}">-</p>
+        <div class="chart-box mt-2"><canvas id="cModel" role="img" aria-label="Korte- en lange-termijnbelasting"></canvas></div>
+        <p class="legend"><span>Donker: lange termijn (ongeveer 6 weken)</span><span>Oranje: korte termijn (ongeveer 1 week)</span><span>Gestippeld deel: opbouwperiode, nog niet betrouwbaar</span></p>
+        <details class="more" th:if="${!p.model.rows.isEmpty()}">
+            <summary>Toon de test van het model</summary>
+            <div class="table-wrap"><table>
+                <tbody><tr th:each="r : ${p.model.rows}"><th th:text="${r.first}">-</th><td th:text="${r.second}">-</td></tr></tbody>
+            </table></div>
+            <p class="note-xs">Test: voor elke run werd het model alleen op eerdere runs aangepast en vergeleken met twee simpele gokken. De app toont de curve alleen als het model minstens 10 % minder fout maakte en de gewichten stabiel bleven.</p>
+        </details>
+    </section>
+
+    <!--/* 9. Forecast */-->
+    <section class="card perf-section" id="verwachting" aria-labelledby="h-verwachting">
+        <div class="card-head">
+            <h2 id="h-verwachting">Herstelverwachting</h2>
+            <span class="badge badge-est">app-schatting</span>
+        </div>
+        <p class="lead">Een voorzichtige verwachting voor de komende 3 dagen van je HRV en rusthartslag, alleen getoond als ze in het verleden beter was dan 'zoals vandaag'. Ze houdt geen rekening met je trainingsplan.</p>
+        <div class="cmp-card mb-2 tone-neutral" th:each="f : ${p.forecasts}">
+            <strong th:text="${f.label}">-</strong>
+            <p th:text="${f.text}">-</p>
+            <p class="note-xs" th:text="${f.detail}">-</p>
+        </div>
+    </section>
+
+    <!--/* 10. Coverage */-->
+    <section class="card perf-section" id="data" aria-labelledby="h-data">
+        <div class="card-head"><h2 id="h-data">Welke activiteiten tellen mee?</h2></div>
+        <ul class="plain"><li th:each="c : ${p.coverage}" th:text="${c}">-</li></ul>
+        <p class="note-xs">Algoritmeversie <span th:text="${version}">load-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+    </section>
+
+    <!--/* 11. Glossary */-->
+    <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">
+        <h2 id="h-begrippen">Begrippen</h2>
+        <dl class="glossary">
+            <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+        </dl>
+    </section>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var C = /*[[${p.charts}]]*/ {};
+            var MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+            function shortDate(iso) { var d = new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+            function tickLabel(labels) { return function (v) { var iso = labels[v]; return iso ? shortDate(iso) : ''; }; }
+            function fmt(v) { return Math.round(v); }
+            var NORMAL = '#8aa6a0', HIGH = '#c2410c', LOW = '#d99a1c';
+
+            var L = C.load, c1 = document.getElementById('cLoad');
+            if (c1 && L) {
+                var unknown = L.unknown.map(function (u) { return u ? 4 : null; });
+                new Chart(c1, { data: { labels: L.labels, datasets: [
+                    { type: 'bar', label: 'Runs', data: L.run, backgroundColor: '#2f6db0', stack: 's', yAxisID: 'y', order: 3 },
+                    { type: 'bar', label: 'Andere sport', data: L.other, backgroundColor: '#8a5cc2', stack: 's', yAxisID: 'y', order: 3 },
+                    { type: 'bar', label: 'Geen hartslagdata', data: unknown, backgroundColor: '#c9d1d8', stack: 's', yAxisID: 'y', order: 3 },
+                    { type: 'line', label: 'Eigen norm (laag)', data: L.labels.map(function () { return L.bandLow; }), borderWidth: 0, pointRadius: 0, yAxisID: 'y2', fill: false, order: 1 },
+                    { type: 'line', label: 'Eigen norm laatste dagen', data: L.labels.map(function () { return L.bandHigh; }), borderColor: 'rgba(47,143,91,0.5)', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, yAxisID: 'y2', fill: '-1', backgroundColor: 'rgba(47,143,91,0.12)', order: 1 },
+                    { type: 'line', label: 'Laatste ' + L.acuteDays + ' dagen', data: L.acute, borderColor: '#c2410c', borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: 'y2', spanGaps: false, order: 0 },
+                    { type: 'line', label: 'Gemiddelde week (laatste ' + L.chronicDays + ' dagen)', data: L.chronic, borderColor: '#15202b', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, tension: 0, yAxisID: 'y2', spanGaps: false, order: 0 }
+                ] }, options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: { stacked: true, ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(L.labels) } },
+                        y: { stacked: true, position: 'left', title: RC.axisTitle('Belasting per dag (punten)', 'dag') },
+                        y2: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: RC.axisTitle('Belasting per week (punten)', 'week') } },
+                    plugins: { legend: { labels: { filter: function (i) { return i.text.indexOf('(laag)') < 0; } } }, tooltip: { callbacks: {
+                        title: function (items) { return items.length ? RC.fullDate(L.labels[items[0].dataIndex]) + (L.labels[items[0].dataIndex] === L.today ? ' (loopt nog)' : '') : ''; },
+                        afterTitle: function (items) { return items.length ? L.names[items[0].dataIndex] : ''; },
+                        label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw) + (c.dataset.label === 'Geen hartslagdata' ? '' : ' punten'); } } } } } });
+            }
+
+            var W = C.weeks, c2 = document.getElementById('cWeeks');
+            if (c2 && W) {
+                var cols = W.levels.map(function (l) { return l === 'HIGH' ? HIGH : l === 'LOW' ? LOW : l === 'OPEN' ? '#d5dde0' : NORMAL; });
+                new Chart(c2, { data: { labels: W.labels, datasets: [
+                    { type: 'bar', label: 'Belasting per week', data: W.trimp, backgroundColor: cols },
+                    { type: 'line', label: 'Gemiddelde van de 4 weken ervoor', data: W.mean4, borderColor: '#15202b', borderDash: [6, 3], borderWidth: 2, pointRadius: 0, spanGaps: false }
+                ] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(W.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') } },
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw); } } } } } });
+            }
+            function mini(id, data, color, unit, digits) {
+                var el = document.getElementById(id); if (!el || !W) return;
+                new Chart(el, { type: 'bar', data: { labels: W.labels, datasets: [{ label: unit, data: data, backgroundColor: color }] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 6, callback: tickLabel(W.labels) } }, y: { beginAtZero: true } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.raw.toFixed(digits) + ' ' + unit; } } } } } });
+            }
+            if (W) { mini('cKm', W.km, '#2f6db0', 'km', 1); mini('cHours', W.hours, '#0e6655', 'uur', 1); mini('cHard', W.hard, '#c2410c', 'min', 0); }
+
+            var T = C.timeline;
+            if (T) {
+                var tl = document.getElementById('cTlLoad');
+                if (tl) new Chart(tl, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Belasting', data: T.load, backgroundColor: '#2f6db0' }] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(T.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting (punten)', 'punten') } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(T.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : fmt(c.raw) + ' punten'; } } } } } });
+                var td = document.getElementById('cTlDev');
+                if (td) new Chart(td, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Herstelwaarden buiten je norm', data: T.deviating.map(function (v) { return v === null ? 0.3 : Math.max(v, 0.08); }),
+                    backgroundColor: T.deviating.map(function (v, i) { return v === null ? '#c9d1d8' : T.strong[i] ? '#7a1d10' : v === 0 ? '#2f8f5b' : v === 1 ? '#d99a1c' : '#c2410c'; }) }] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(T.labels) } }, y: { beginAtZero: true, max: 4, ticks: { stepSize: 1 }, title: RC.axisTitle('Waarden buiten je norm (van 4)', 'van 4') } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(T.labels[items[0].dataIndex]) : ''; },
+                        label: function (c) { var v = T.deviating[c.dataIndex]; return v === null ? 'te weinig data die ochtend' : v + ' van 4 buiten je norm' + (T.strong[c.dataIndex] ? ' (waarvan een sterk)' : ''); } } } } } });
+                var ts = document.getElementById('cTlSleep');
+                if (ts) new Chart(ts, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Slaaptekort', data: T.sleepShort, backgroundColor: '#5b6875' }] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(T.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Minuten onder je slaapdoel', 'min') } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(T.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? 'geen slaapdata' : fmt(c.raw) + ' min onder je doel'; } } } } } });
+            }
+
+            var m = document.getElementById('cMono');
+            if (m && W) {
+                var wk = W.labels.map(function (l, i) { return i; }).filter(function (i) { return W.complete[i]; });
+                var lab = wk.map(function (i) { return W.labels[i]; });
+                new Chart(m, { data: { labels: lab, datasets: [
+                    { type: 'bar', label: 'Belasting per week', data: wk.map(function (i) { return W.trimp[i]; }), backgroundColor: '#8aa6a0', yAxisID: 'y' },
+                    { type: 'line', label: 'Monotonie', data: wk.map(function (i) { return W.monotony[i]; }), borderColor: '#c2410c', borderWidth: 2, pointRadius: 3, yAxisID: 'y2', spanGaps: false }
+                ] }, options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(lab) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') }, y2: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: RC.axisTitle('Monotonie', 'mon.') } },
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(lab[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? c.dataset.label + ': niet te berekenen' : c.dataset.label + ': ' + (c.dataset.yAxisID === 'y2' ? c.raw.toFixed(2) : fmt(c.raw)); } } } } } });
+            }
+
+            var M = C.model, cm = document.getElementById('cModel');
+            if (cm && M) {
+                var runIn = M.runInUntil;
+                function seg() { return { borderDash: function (ctx) { return ctx.p0DataIndex <= runIn ? [3, 4] : undefined; } }; }
+                var ds = [
+                    { label: 'Lange termijn (ongeveer 6 weken)', data: M.fitness, borderColor: '#15202b', borderWidth: 2, pointRadius: 0, tension: 0, segment: seg(), yAxisID: 'y' },
+                    { label: 'Korte termijn (ongeveer 1 week)', data: M.fatigue, borderColor: '#c2410c', borderWidth: 2, pointRadius: 0, tension: 0, segment: seg(), yAxisID: 'y' }
+                ];
+                if (M.show) ds.push({ label: 'Verwachte efficiëntie (% van je mediaan)', data: M.predicted, borderColor: '#0e6655', borderDash: [2, 3], borderWidth: 1.5, pointRadius: 0, yAxisID: 'y2' });
+                new Chart(cm, { type: 'line', data: { labels: M.labels, datasets: ds }, options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(M.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per dag (gemiddeld)', 'punten') }, y2: { display: !!M.show, position: 'right', grid: { drawOnChartArea: false } } },
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(M.labels[items[0].dataIndex]) + (items[0].dataIndex <= runIn ? ' (opbouwperiode)' : '') : ''; }, label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + c.raw.toFixed(1); } } } } } });
+            }
+        })();
+    </script>
+</th:block>
+</html>

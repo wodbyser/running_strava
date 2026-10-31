@@ -10,7 +10,7 @@ class NoStateChangingGetTest {
 
     @Test
     fun `no GET endpoint in the Strava controllers changes state`() {
-        val offenders = listOf(FrontendController::class.java, CoachController::class.java, RecoveryController::class.java, PerformanceController::class.java)
+        val offenders = listOf(FrontendController::class.java, CoachController::class.java, RecoveryController::class.java, PerformanceController::class.java, LoadController::class.java)
             .flatMap { c -> c.declaredMethods.mapNotNull { it.getAnnotation(GetMapping::class.java) } }
             .flatMap { it.value.toList() }
             .filter { path -> stateChanging.any { path.contains(it) } }

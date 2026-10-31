@@ -105,6 +105,8 @@ Backlog items: #5, #10, #11, #13, #14, #15, #31, #33 to #39, #41 to #45, #47, #4
 
 Needs Phases 2 and 3 approved (both APPROVED 2026-10-30). The owner must still confirm the Phase 4 scope before the design starts. The load model is new (no existing code).
 
+Status (2026-10-31): scope confirmed by the owner (full list above, unchanged). Design `docs/garmin-phase-4-design.md` written and APPROVED by the owner (2026-10-31). Built the same day (`load-v1`, pages `/load` and `/load/response`), AWAITING APPROVAL. Note: build deviations are in design section 11 (for example critical speed is not part of #43 and #47), the model validation report is section 12, and the first-render speed question is open for the owner.
+
 Work:
 1. Design doc `docs/garmin-phase-4-design.md`. Choose and document the internal load model (HR-based or TRIMP variant, or session RPE). Document the fitness-fatigue model and validate it before use (#37).
 2. Caution from the backlog: no single formula decides how much to train. The acute:chronic ratio is not a validated injury predictor.

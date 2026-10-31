@@ -394,6 +394,23 @@
             * { transition: none !important; scroll-behavior: auto !important; }
         }
 
+        /* ---------- Load pages (Belasting, Reactie op training) ---------- */
+        .type-list { display: grid; gap: var(--sp-3); }
+        .type-row { border: 1px solid var(--line); border-left: 4px solid var(--tone-line, var(--line-strong)); border-radius: var(--radius-sm); padding: var(--sp-3) var(--sp-4); background: var(--surface); }
+        .type-row.tone-none, .type-row.tone-uncertain { border-left-style: dashed; }
+        .type-head { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; margin-bottom: var(--sp-2); }
+        .type-head strong { font-family: var(--font-display); font-size: var(--fs-lg); }
+        .type-parts { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
+        .type-parts li { display: grid; grid-template-columns: 8.5em 1fr; gap: var(--sp-2); align-items: baseline; }
+        .type-parts .part-mark { font-weight: 600; color: var(--tone, var(--ink-2)); white-space: nowrap; }
+        .type-parts strong { color: var(--ink); font-weight: 600; }
+        @media (max-width: 640px) { .type-parts li { grid-template-columns: 1fr; } }
+        ul.plain { margin: var(--sp-2) 0 0 1.2em; list-style: disc; font-size: var(--fs-sm); color: var(--ink-2); }
+        ul.plain li + li { margin-top: var(--sp-1); }
+        .finding-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-2); }
+        .finding-list li { padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-left: 4px solid var(--est-line); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+        .link-card { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: space-between; }
+
         /* ---------- Charts ---------- */
         .chart-box { position: relative; height: 340px; width: 100%; }
         .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -745,6 +762,7 @@
                 <a href="/coach">Coach</a>
                 <a href="/recovery" data-match="/recovery">Herstel</a>
                 <a href="/performance" data-match="/performance">Prestaties</a>
+                <a href="/load" data-match="/load">Belasting</a>
                 <a href="/compare" data-match="/compare">Vergelijken</a>
             </div>
             <div class="nav-group" role="group" aria-labelledby="nav-ai">

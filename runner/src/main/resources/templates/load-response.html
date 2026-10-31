@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Reactie op training</h1>
+            <p th:text="${intro}">-</p>
+        </div>
+        <nav class="actions" aria-label="Pagina kiezen">
+            <a class="btn btn-sm btn-secondary" th:href="${otherPage}">Belasting</a>
+            <a class="btn btn-sm btn-primary" href="/load/response" aria-current="page">Reactie op training</a>
+        </nav>
+    </div>
+
+    <nav class="toc" aria-label="Onderdelen van deze pagina">
+        <a href="#reactie">Reactie per soort training</a>
+        <a href="#hersteltijd">Hersteltijd</a>
+        <a href="#rust">Rustdagen</a>
+        <a href="#rustweken">Rustweken</a>
+        <a href="#lang">Lange duurloop</a>
+        <a href="#moe">Efficiëntie en vermoeidheid</a>
+        <a href="#frequentie">Trainingsfrequentie</a>
+        <a href="#effect">Wat bracht verbetering?</a>
+        <a href="#pauze">Na een onderbreking</a>
+        <a href="#begrippen">Begrippen</a>
+    </nav>
+
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
+
+    <!--/* 1. Conclusion */-->
+    <section class="card hero" th:classappend="${p.findings.isEmpty()} ? 'hero-na' : 'hero-warn'" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${p.headline}">-</h2>
+            <span class="badge badge-est" title="Wat je eigen geschiedenis laat zien, geen meting en geen advies.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:if="${p.findings.isEmpty()}">Geen enkel verschil was groot genoeg om zeker te zijn, of er is nog te weinig data. Dat is een normale uitkomst: zie per onderdeel hieronder hoeveel trainingen er zijn.</p>
+        <ul class="finding-list" th:unless="${p.findings.isEmpty()}">
+            <li th:each="f : ${p.findings}" th:text="${f}">-</li>
+        </ul>
+        <p class="note mt-2" th:text="${p.periodLine}">-</p>
+        <p class="note-xs">Een verschil telt alleen als het groter is dan het toeval (onzekerheidsmarge) en er genoeg trainingen zijn. <th:block th:replace="~{fragments :: help(${g['marge']})}"/> Verband, geen oorzaak. <th:block th:replace="~{fragments :: help(${g['verband']})}"/></p>
+    </section>
+
+    <!--/* 2. Reaction per session type */-->
+    <section class="card perf-section" id="reactie" aria-labelledby="h-reactie">
+        <div class="card-head">
+            <h2 id="h-reactie">Reactie per soort training</h2>
+            <span class="badge badge-calc">berekend</span>
+            <th:block th:replace="~{fragments :: help(${g['losstaand']})}"/>
+        </div>
+        <p class="lead" th:text="${p.reaction.lead}">-</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'follow','isolate','norm'} }, 'reactie')}"/>
+        <div class="chart-grid mt-2" id="respGrid"></div>
+        <p class="legend"><span>Elke lijn is een soort training; punten zijn de mediaan van je afwijking in SD (0 = precies je eigen norm)</span><span>Gestippeld: dagen zonder run, als referentie</span><span>Lichte lijnen: te weinig trainingen voor een oordeel</span></p>
+        <details class="more">
+            <summary>Toon de cijfers als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th th:each="h : ${p.reaction.table.head}" th:text="${h}">-</th></tr></thead>
+                <tbody><tr th:each="r : ${p.reaction.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+            </table></div>
+        </details>
+        <details class="explain"><summary>Meer uitleg</summary><div><p th:text="${p.reaction.note}">-</p></div></details>
+    </section>
+
+    <!--/* 3. Recovery time */-->
+    <section class="card perf-section" id="hersteltijd" aria-labelledby="h-hersteltijd">
+        <div class="card-head">
+            <h2 id="h-hersteltijd">Hersteltijd</h2>
+            <span class="badge badge-est">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['hersteltijd']})}"/>
+        </div>
+        <p class="lead" th:text="${p.recoveryTime.lead}">-</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'horizon'} }, 'hersteltijd')}"/>
+        <div class="table-wrap mt-2"><table>
+            <thead><tr><th th:each="h : ${p.recoveryTime.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.recoveryTime.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:text="${p.recoveryTime.note}">-</p>
+    </section>
+
+    <!--/* 4. Rest days */-->
+    <section class="card perf-section" id="rust" aria-labelledby="h-rust">
+        <div class="card-head">
+            <h2 id="h-rust">Rustdagen</h2>
+            <span class="badge badge-calc">berekend</span>
+        </div>
+        <p class="lead" th:text="${p.rest.lead}">-</p>
+        <div class="chart-grid mt-2">
+            <figure class="mini-chart"><figcaption>HRV <span class="unit">ms</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRest0" role="img" aria-label="Verandering van HRV per soort dag"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Rusthartslag <span class="unit">bpm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRest1" role="img" aria-label="Verandering van rusthartslag per soort dag"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Body Battery bij opstaan <span class="unit">punten</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRest2" role="img" aria-label="Verandering van Body Battery per soort dag"></canvas></div></figure>
+        </div>
+        <p class="legend"><span>Staaf: mediaan van de verandering van de ochtend zelf naar de ochtend erna; streepje: onzekerheidsmarge</span><span>Lichte staaf: te weinig dagen voor een oordeel</span></p>
+        <details class="more">
+            <summary>Toon de cijfers als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th th:each="h : ${p.rest.table.head}" th:text="${h}">-</th></tr></thead>
+                <tbody><tr th:each="r : ${p.rest.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+            </table></div>
+        </details>
+        <details class="explain"><summary>Meer uitleg</summary><div><p th:text="${p.rest.note}">-</p></div></details>
+    </section>
+
+    <!--/* 5. Deload */-->
+    <section class="card perf-section" id="rustweken" aria-labelledby="h-rustweken">
+        <div class="card-head">
+            <h2 id="h-rustweken">Rustweken</h2>
+            <span class="badge badge-est">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['rustweek']})}"/>
+        </div>
+        <p class="lead" th:text="${p.deload.lead}">-</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'deload'} }, 'rustweken')}"/>
+        <p th:each="l : ${p.deload.lines}" class="mt-2" th:text="${l}">-</p>
+        <div class="table-wrap mt-2" th:if="${!p.deload.table.rows.isEmpty()}"><table>
+            <thead><tr><th th:each="h : ${p.deload.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.deload.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note mt-2" th:if="${p.deload.table.rows.isEmpty()}">Geen rustweken herkend met deze drempel.</p>
+        <p class="note-xs mt-2" th:text="${p.deload.note}">-</p>
+    </section>
+
+    <!--/* 6. Long run duration */-->
+    <section class="card perf-section" id="lang" aria-labelledby="h-lang">
+        <div class="card-head">
+            <h2 id="h-lang">Lengte van je lange duurloop</h2>
+            <span class="badge badge-calc">berekend</span>
+        </div>
+        <p class="lead" th:text="${p.longRuns.lead}">-</p>
+        <div class="chart-grid mt-2">
+            <figure class="mini-chart"><figcaption>HRV de eerste ochtend erna <span class="unit">ms tegenover je norm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cLongHrv" role="img" aria-label="HRV de ochtend na een lange duurloop per lengte"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Rusthartslag de eerste ochtend erna <span class="unit">bpm tegenover je norm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cLongRhr" role="img" aria-label="Rusthartslag de ochtend na een lange duurloop per lengte"></canvas></div></figure>
+        </div>
+        <div class="table-wrap mt-2"><table>
+            <thead><tr><th th:each="h : ${p.longRuns.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.longRuns.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:text="${p.longRuns.note}">-</p>
+    </section>
+
+    <!--/* 7. Efficiency and fatigue */-->
+    <section class="card perf-section" id="moe" aria-labelledby="h-moe">
+        <div class="card-head">
+            <h2 id="h-moe">Efficiëntie en vermoeidheid</h2>
+            <span class="badge badge-est">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${g['eigen-niveau']})}"/>
+        </div>
+        <p class="lead" th:text="${p.fatigue.lead}">-</p>
+        <p th:each="l : ${p.fatigue.lines}" th:text="${l}">-</p>
+        <div class="table-wrap mt-2" th:if="${p.fatigue.table != null}"><table>
+            <thead><tr><th th:each="h : ${p.fatigue.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.fatigue.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:if="${p.fatigue.note != null}" th:text="${p.fatigue.note}">-</p>
+    </section>
+
+    <!--/* 8. Frequency */-->
+    <section class="card perf-section" id="frequentie" aria-labelledby="h-frequentie">
+        <div class="card-head">
+            <h2 id="h-frequentie">Trainingsfrequentie en reactie</h2>
+            <span class="badge badge-calc">berekend</span>
+        </div>
+        <p class="lead" th:text="${p.frequency.lead}">-</p>
+        <p th:each="l : ${p.frequency.lines}" class="callout" th:text="${l}">-</p>
+        <div class="chart-grid mt-2">
+            <figure class="mini-chart"><figcaption>Belasting per week <span class="unit">punten, mediaan</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cFreqTrimp" role="img" aria-label="Mediaan weekbelasting per aantal runs"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Kilometers per week <span class="unit">mediaan</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cFreqKm" role="img" aria-label="Mediaan kilometers per aantal runs"></canvas></div></figure>
+        </div>
+        <div class="table-wrap mt-2"><table>
+            <thead><tr><th th:each="h : ${p.frequency.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.frequency.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:text="${p.frequency.note}">-</p>
+    </section>
+
+    <!--/* 9. Effect and lag */-->
+    <section class="card perf-section" id="effect" aria-labelledby="h-effect">
+        <div class="card-head">
+            <h2 id="h-effect">Wat bracht verbetering?</h2>
+            <span class="badge badge-est">app-schatting</span>
+        </div>
+        <p class="lead" th:text="${p.effect.lead}">-</p>
+        <p th:each="l : ${p.effect.lines}" th:text="${l}">-</p>
+        <div class="table-wrap mt-2"><table>
+            <thead><tr><th th:each="h : ${p.effect.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.effect.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:text="${p.effect.note}">-</p>
+    </section>
+
+    <!--/* 10. Detraining */-->
+    <section class="card perf-section" id="pauze" aria-labelledby="h-pauze">
+        <div class="card-head">
+            <h2 id="h-pauze">Na een onderbreking</h2>
+            <span class="badge badge-calc">berekend</span>
+            <th:block th:replace="~{fragments :: help(${g['onderbreking']})}"/>
+        </div>
+        <p class="lead" th:text="${p.detraining.lead}">-</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'detrain'} }, 'pauze')}"/>
+        <p th:each="l : ${p.detraining.lines}" class="mt-2" th:text="${l}">-</p>
+        <div class="table-wrap mt-2" th:if="${!p.detraining.table.rows.isEmpty()}"><table>
+            <thead><tr><th th:each="h : ${p.detraining.table.head}" th:text="${h}">-</th></tr></thead>
+            <tbody><tr th:each="r : ${p.detraining.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+        </table></div>
+        <p class="note-xs mt-2" th:text="${p.detraining.note}">-</p>
+    </section>
+
+    <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">
+        <h2 id="h-begrippen">Begrippen</h2>
+        <dl class="glossary">
+            <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+        </dl>
+        <p class="note-xs mt-2">Algoritmeversie <span th:text="${version}">load-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+    </section>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var C = /*[[${p.charts}]]*/ {};
+            var palette = ['#2f6db0', '#0e6655', '#8a6500', '#c2410c', '#5b2f86', '#15202b'];
+            function fmt(v, d) { return v === null || v === undefined ? '-' : v.toFixed(d === undefined ? 1 : d); }
+
+            var grid = document.getElementById('respGrid');
+            if (grid && C.response) {
+                C.response.forEach(function (m, i) {
+                    var fig = document.createElement('figure'); fig.className = 'mini-chart';
+                    var cap = document.createElement('figcaption'); cap.textContent = m.metric;
+                    var box = document.createElement('div'); box.className = 'chart-box chart-box--sm';
+                    var cv = document.createElement('canvas'); cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', 'Reactie van ' + m.metric + ' in de ochtenden na een training');
+                    box.appendChild(cv); fig.appendChild(cap); fig.appendChild(box); grid.appendChild(fig);
+                    var labels = m.series[0].z.map(function (_, k) { return (k + 1) + (k === 0 ? 'e ochtend' : 'e'); });
+                    var ds = m.series.map(function (s, k) {
+                        var col = s.dashed ? '#5b6875' : palette[k % palette.length];
+                        return { label: s.label, data: s.z, borderColor: s.enough || s.dashed ? col : col + '55', backgroundColor: col, borderDash: s.dashed ? [5, 4] : [], borderWidth: s.dashed ? 1.5 : 2, pointRadius: 3, tension: 0, spanGaps: false, _s: s };
+                    });
+                    new Chart(cv, { type: 'line', data: { labels: labels, datasets: ds }, options: { maintainAspectRatio: false,
+                        scales: { y: { title: RC.axisTitle('Afwijking van je norm (SD)', 'SD'), grid: { color: function (c) { return c.tick.value === 0 ? '#5b6875' : '#e1e6ea'; } } } },
+                        plugins: { legend: { display: i === 0, labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: function (c) {
+                            var s = c.dataset._s, k = c.dataIndex;
+                            if (s.z[k] === null) return s.label + ': geen data';
+                            return s.label + ': ' + (s.diff[k] >= 0 ? '+' : '') + fmt(s.diff[k]) + ' ' + m.unit + ' (' + fmt(s.z[k], 2) + ' SD, marge ' + fmt(s.lo[k], 2) + ' tot ' + fmt(s.hi[k], 2) + '), n = ' + s.n[k] + ', ' + s.verdict[k];
+                        } } } } } });
+                });
+            }
+
+            function rangeBars(id, labels, median, lo, hi, n, verdict, unit, minN) {
+                var el = document.getElementById(id); if (!el) return;
+                var cols = labels.map(function (_, i) { return verdict[i] === 'onvoldoende data' ? '#c9d1d855' : verdict[i] === 'duidelijk verschil' ? '#c2410c' : '#8aa6a0'; });
+                var whisk = { id: 'whisk', afterDatasetsDraw: function (chart) {
+                    var meta = chart.getDatasetMeta(0), ctx = chart.ctx, y = chart.scales.y;
+                    ctx.save(); ctx.strokeStyle = '#15202b'; ctx.lineWidth = 1.5;
+                    meta.data.forEach(function (bar, i) { if (lo[i] === null || hi[i] === null) return; var a = y.getPixelForValue(lo[i]), b = y.getPixelForValue(hi[i]);
+                        ctx.beginPath(); ctx.moveTo(bar.x, a); ctx.lineTo(bar.x, b); ctx.moveTo(bar.x - 5, a); ctx.lineTo(bar.x + 5, a); ctx.moveTo(bar.x - 5, b); ctx.lineTo(bar.x + 5, b); ctx.stroke(); });
+                    ctx.restore(); } };
+                var all = median.concat(lo, hi).filter(function (v) { return v !== null; });
+                var pad = all.length ? (Math.max.apply(null, all) - Math.min.apply(null, all)) * 0.1 || 1 : 1;
+                var ymin = all.length ? Math.min(0, Math.min.apply(null, all)) - pad : -1, ymax = all.length ? Math.max(0, Math.max.apply(null, all)) + pad : 1;
+                new Chart(el, { type: 'bar', data: { labels: labels, datasets: [{ data: median, backgroundColor: cols }] }, plugins: [whisk], options: { maintainAspectRatio: false,
+                    scales: { x: { ticks: { callback: function (v) { var s = labels[v] || ''; return s.length > 18 ? s.slice(0, 17) + '…' : s; } } }, y: { min: ymin, max: ymax, title: RC.axisTitle('Verandering (' + unit + ')', unit) } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { var i = c.dataIndex; return median[i] === null ? 'geen data' : (median[i] >= 0 ? '+' : '') + fmt(median[i]) + ' ' + unit + ' (marge ' + fmt(lo[i]) + ' tot ' + fmt(hi[i]) + '), n = ' + n[i] + ', ' + verdict[i]; } } } } } });
+            }
+            if (C.rest) C.rest.forEach(function (m, i) { rangeBars('cRest' + i, m.labels, m.median, m.lo, m.hi, m.n, m.verdict, m.unit); });
+
+            function simpleBars(id, labels, data, enough, unit, color) {
+                var el = document.getElementById(id); if (!el) return;
+                new Chart(el, { type: 'bar', data: { labels: labels, datasets: [{ data: data, backgroundColor: enough.map(function (e) { return e ? color : color + '55'; }) }] }, options: { maintainAspectRatio: false,
+                    scales: { y: { title: RC.axisTitle(unit, unit) } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { return c.raw === null ? 'geen data' : (c.raw >= 0 ? '+' : '') + fmt(c.raw) + ' ' + unit + (enough[c.dataIndex] ? '' : ' (te weinig runs voor een oordeel)'); } } } } } });
+            }
+            if (C['long']) {
+                simpleBars('cLongHrv', C['long'].labels, C['long'].hrv, C['long'].enough, 'ms', '#2f6db0');
+                simpleBars('cLongRhr', C['long'].labels, C['long'].rhr, C['long'].enough, 'bpm', '#c2410c');
+            }
+            if (C.freq) {
+                var ok = C.freq.weeks.map(function () { return true; });
+                simpleBars('cFreqTrimp', C.freq.labels, C.freq.trimp, ok, 'punten', '#0e6655');
+                simpleBars('cFreqKm', C.freq.labels, C.freq.km, ok, 'km', '#2f6db0');
+            }
+        })();
+    </script>
+</th:block>
+</html>

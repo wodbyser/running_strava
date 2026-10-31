@@ -41,6 +41,7 @@ STRAVA_CLIENT_ID=xxx STRAVA_CLIENT_SECRET=xxx ./gradlew :runner:bootRun
 | `GET /` | Dashboard (Thymeleaf) |
 | `GET /activities` | Activity list |
 | `GET /activity/{id}` | Activity detail |
+| `GET /recovery`, `/performance`, `/load`, `/load/response` | Garmin recovery, performance, training load and "reaction to training" pages (read-only, computed on demand; `/load/data` is the JSON) |
 | `GET /ai` | AI prompt page (copy-paste for external chatbots, no API key needed) |
 | `GET /auth/strava` | Strava OAuth initiation |
 | `GET /h2-console` | H2 console (dev only) |
