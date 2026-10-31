@@ -114,7 +114,7 @@
         <p th:each="l : ${p.deload.lines}" class="mt-2" th:text="${l}">-</p>
         <div class="table-wrap mt-2" th:if="${!p.deload.table.rows.isEmpty()}"><table>
             <thead><tr><th th:each="h : ${p.deload.table.head}" th:text="${h}">-</th></tr></thead>
-            <tbody><tr th:each="r : ${p.deload.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+            <tbody><tr th:each="r : ${p.deload.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}" style="white-space: pre-line; vertical-align: top;">-</td></tr></tbody>
         </table></div>
         <p class="note mt-2" th:if="${p.deload.table.rows.isEmpty()}">Geen rustweken herkend met deze drempel.</p>
         <p class="note-xs mt-2" th:text="${p.deload.note}">-</p>
@@ -127,6 +127,7 @@
             <span class="badge badge-calc">berekend</span>
         </div>
         <p class="lead" th:text="${p.longRuns.lead}">-</p>
+        <p class="note-xs" th:each="l : ${p.longRuns.lines}" th:text="${l}">-</p>
         <div class="chart-grid mt-2">
             <figure class="mini-chart"><figcaption>HRV de eerste ochtend erna <span class="unit">ms tegenover je norm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cLongHrv" role="img" aria-label="HRV de ochtend na een lange duurloop per lengte"></canvas></div></figure>
             <figure class="mini-chart"><figcaption>Rusthartslag de eerste ochtend erna <span class="unit">bpm tegenover je norm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cLongRhr" role="img" aria-label="Rusthartslag de ochtend na een lange duurloop per lengte"></canvas></div></figure>

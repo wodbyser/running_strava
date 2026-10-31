@@ -98,6 +98,10 @@ data class ReadinessInput(
     /** Minutes the last night was under the owner's sleep target, or null when unknown. */
     val sleepShortfallMinutes: Double?,
     val activeSignals: Int?,
+    /** Names (Dutch) of the recovery values outside the own norm, and of those that deviate strongly. */
+    val deviatingNames: List<String> = emptyList(),
+    val strongNames: List<String> = emptyList(),
+    val activeSignalNames: List<String> = emptyList(),
 )
 
 object SessionReadiness {
@@ -118,12 +122,18 @@ object SessionReadiness {
         val strongOnly = type == ReadinessType.EASY
         val title = "Herstel vandaag"
         val dev = i.deviatingComponents
+        val strongText = when (i.strongNames.size) {
+            0 -> "minstens één herstelwaarde wijkt sterk af van je norm"
+            1 -> "${i.strongNames.first()} wijkt sterk af van je norm"
+            else -> "${i.strongNames.joinToString(", ")} wijken sterk af van je norm"
+        }
+        val devList = if (i.deviatingNames.isEmpty()) "" else " (${i.deviatingNames.joinToString(", ")})"
         return when {
             dev == null -> ReadinessPart("recovery", title, Stance.UNKNOWN, "te weinig herstelwaarden om een samenvatting te geven")
-            strongOnly && i.anyStrongDeviation -> ReadinessPart("recovery", title, Stance.AGAINST, "minstens één herstelwaarde wijkt sterk af van je norm")
+            strongOnly && i.anyStrongDeviation -> ReadinessPart("recovery", title, Stance.AGAINST, strongText)
             strongOnly -> ReadinessPart("recovery", title, Stance.FOR, "geen herstelwaarde wijkt sterk af (bij rustig lopen telt alleen een sterke afwijking)")
-            dev >= 2 || i.anyStrongDeviation -> ReadinessPart("recovery", title, Stance.AGAINST, if (i.anyStrongDeviation) "minstens één herstelwaarde wijkt sterk af van je norm" else "$dev herstelwaarden wijken af van je norm")
-            else -> ReadinessPart("recovery", title, Stance.FOR, if (dev == 0) "alle herstelwaarden binnen je norm" else "1 herstelwaarde wijkt af van je norm")
+            dev >= 2 || i.anyStrongDeviation -> ReadinessPart("recovery", title, Stance.AGAINST, if (i.anyStrongDeviation) strongText else "$dev herstelwaarden wijken af van je norm$devList")
+            else -> ReadinessPart("recovery", title, Stance.FOR, if (dev == 0) "alle herstelwaarden binnen je norm" else "1 herstelwaarde wijkt af van je norm$devList")
         }
     }
 
@@ -137,6 +147,8 @@ object SessionReadiness {
         return if (daysSince < need) ReadinessPart(key, title, Stance.AGAINST, "$noun $ago, korter dan $source")
         else ReadinessPart(key, title, Stance.FOR, "$noun $ago, niet korter dan $source")
     }
+
+    private fun names(i: ReadinessInput) = if (i.activeSignalNames.isEmpty()) "" else ": ${i.activeSignalNames.joinToString(", ")}"
 
     private fun parts(type: ReadinessType, i: ReadinessInput): List<ReadinessPart> {
         val load = when (i.load7Level) {
@@ -153,8 +165,8 @@ object SessionReadiness {
         val active = i.activeSignals
         val signals = when {
             active == null -> ReadinessPart("signals", "Vermoeidheidssignalen", Stance.UNKNOWN, "te weinig data voor de signalen")
-            active >= SIGNAL_LIMIT -> ReadinessPart("signals", "Vermoeidheidssignalen", Stance.AGAINST, "$active van 6 signalen actief")
-            else -> ReadinessPart("signals", "Vermoeidheidssignalen", Stance.FOR, "$active van 6 signalen actief")
+            active >= SIGNAL_LIMIT -> ReadinessPart("signals", "Vermoeidheidssignalen", Stance.AGAINST, "$active van 6 signalen actief${names(i)}")
+            else -> ReadinessPart("signals", "Vermoeidheidssignalen", Stance.FOR, "$active van 6 signalen actief${names(i)}")
         }
         return when (type) {
             ReadinessType.EASY -> listOf(recovery(type, i), signals)

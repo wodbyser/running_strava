@@ -55,6 +55,7 @@ class FrontendController(
     private val aiAnalysisService: AiAnalysisService,
     private val periodComparisonService: PeriodComparisonService,
     private val bestEffortService: BestEffortService,
+    private val garminSync: com.running.garmin.web.GarminSyncView,
 ) {
 
     @GetMapping("/")
@@ -115,6 +116,8 @@ class FrontendController(
         model.addAttribute("filterEvolutionTill", evolutionTill ?: "")
 
         model.addAttribute("hasToken", hasToken)
+        model.addAttribute("garminSyncLine", garminSync.line())
+        model.addAttribute("garminSyncPossible", garminSync.possible)
         model.addAttribute("hasData", runs.isNotEmpty())
         model.addAttribute("stats", mapOf<String, Any>(
             "totalRuns" to runs.size,

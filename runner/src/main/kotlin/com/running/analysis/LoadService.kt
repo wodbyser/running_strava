@@ -426,7 +426,9 @@ class LoadService(
         val lastLong = upToday.filter { it.cls == SessionClass.LONG }.maxByOrNull { it.date }
         val times = ResponseAnalyzer(b.series, b.sessions, b.cfg, w).recoveryTimes().associate { it.cls to it.time }
         val summary = report?.readiness?.summary
-        val strong = summary?.deviating?.any { it.band == DeviationBand.STRONG } == true
+        fun dutch(k: String) = when (k) { "HRV" -> "HRV"; "RESTING_HR" -> "rusthartslag"; "SLEEP" -> "slaap"; "BODY_BATTERY" -> "Body Battery"; else -> k.lowercase() }
+        val strongNames = summary?.deviating?.filter { it.band == DeviationBand.STRONG }?.map { dutch(it.kind.name) }.orEmpty()
+        val strong = strongNames.isNotEmpty()
         val readinessInput = ReadinessInput(
             deviatingComponents = summary?.takeIf { it.available }?.deviating?.size, anyStrongDeviation = strong,
             daysSinceHard = lastHard?.let { ChronoUnit.DAYS.between(it.date, today).toInt() },
@@ -435,6 +437,8 @@ class LoadService(
             recoveryAfterLong = times[SessionClass.LONG],
             load7Level = OwnBand.evaluate(t7.filterKeys { it.isBefore(today.minusDays(1)) }.values.toList(), last7, MIN_BAND_DAYS).level,
             sleepShortfallMinutes = shortfall, activeSignals = set.active.takeIf { set.withData >= 3 },
+            deviatingNames = summary?.deviating?.map { dutch(it.kind.name) }.orEmpty(), strongNames = strongNames,
+            activeSignalNames = set.signals.filter { it.active == true }.map { it.key.label },
         )
         val names = summary?.deviating?.map { it.kind.name } ?: emptyList()
         return view to ReadinessView(

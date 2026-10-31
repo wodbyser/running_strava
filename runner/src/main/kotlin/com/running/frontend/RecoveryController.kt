@@ -107,7 +107,7 @@ class RecoveryController(
         recoveryService.report(date)
 
     @PostMapping("/recovery/garmin-update")
-    fun update(ra: RedirectAttributes): String {
+    fun update(ra: RedirectAttributes, @RequestParam(required = false) back: String?): String {
         val (msg, type) = when (coordinator.startSync()) {
             GarminStartOutcome.STARTED -> "Garmin-synchronisatie gestart op de achtergrond. Ververs de pagina over een minuut." to "success"
             GarminStartOutcome.BUSY -> "Er loopt al een synchronisatie. Er is geen nieuwe gestart." to "warning"
@@ -116,6 +116,6 @@ class RecoveryController(
         }
         ra.addFlashAttribute("flashMessage", msg)
         ra.addFlashAttribute("flashType", type)
-        return "redirect:/recovery"
+        return if (back == "dashboard") "redirect:/" else "redirect:/recovery"
     }
 }

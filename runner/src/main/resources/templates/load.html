@@ -163,7 +163,9 @@
             <span class="badge badge-est">app-schatting</span>
             <th:block th:replace="~{fragments :: help(${g['vermoeidheidssignalen']})}"/>
         </div>
-        <p class="lead">Zes losse controles die samen kunnen wijzen op oplopende vermoeidheid. <strong th:text="${p.signalSummary}">-</strong>. Er is geen totaalscore en geen diagnose.</p>
+        <p class="lead">Zes losse controles: HRV aanhoudend lager, rusthartslag aanhoudend hoger, slaaptekort, efficiëntie lager, belasting hoog voor jou en monotonie hoog voor jou. Elk is <strong>actief</strong> als de regel in de tabel klopt voor jouw cijfers van vandaag. <strong th:text="${p.signalSummary}">-</strong>. Er is geen totaalscore en geen diagnose.</p>
+        <p class="note-xs" th:if="${!p.signalMeaning.isEmpty()}"><strong>Wat betekent dit nu?</strong> <span th:text="${p.signalMeaning}">-</span></p>
+        <p class="note-xs">'Geen data' betekent dat de app dat signaal vandaag niet kan controleren (bijvoorbeeld geen HRV gemeten). Zo'n signaal telt dan niet mee als actief.</p>
         <th:block th:replace="~{fragments :: windowForm(${ {'efdays'} }, 'signalen')}"/>
         <div class="table-wrap mt-2"><table>
             <thead><tr><th>Signaal</th><th>Nu</th><th>Waarde</th><th>Regel</th></tr></thead>
@@ -202,7 +204,8 @@
             <span class="badge badge-est">app-schatting</span>
             <th:block th:replace="~{fragments :: help(${g['model']})}"/>
         </div>
-        <p class="lead"><strong th:text="${p.model.headline}">-</strong></p>
+        <p class="lead">Hoe zwaar je training de laatste week was (korte termijn, kost je even energie) tegenover wat je de laatste 6 weken opbouwde (lange termijn, maakt je fitter). Het model test of die twee samen voorspellen hoe efficiënt je loopt. Alleen als dat in het verleden klopte, toont de app de uitkomst.</p>
+        <p><strong th:text="${p.model.headline}">-</strong></p>
         <p th:each="l : ${p.model.lines}" th:text="${l}">-</p>
         <div class="chart-box mt-2"><canvas id="cModel" role="img" aria-label="Korte- en lange-termijnbelasting"></canvas></div>
         <p class="legend"><span>Donker: lange termijn (ongeveer 6 weken)</span><span>Oranje: korte termijn (ongeveer 1 week)</span><span>Gestippeld deel: opbouwperiode, nog niet betrouwbaar</span></p>
@@ -221,7 +224,7 @@
             <h2 id="h-verwachting">Herstelverwachting</h2>
             <span class="badge badge-est">app-schatting</span>
         </div>
-        <p class="lead">Een voorzichtige verwachting voor de komende 3 dagen van je HRV en rusthartslag, alleen getoond als ze in het verleden beter was dan 'zoals vandaag'. Ze houdt geen rekening met je trainingsplan.</p>
+        <p class="lead">Waar je HRV en rusthartslag de komende 3 dagen waarschijnlijk rond liggen, als je ongeveer doet wat je gewoonlijk doet. De app toont een verwachting alleen als die in het verleden beter klopte dan de simpele gok 'morgen is het zoals vandaag'. Is dat niet zo, dan staat er geen cijfer. Dat is normaal en geen fout. Het houdt geen rekening met je trainingsplan.</p>
         <div class="cmp-card mb-2 tone-neutral" th:each="f : ${p.forecasts}">
             <strong th:text="${f.label}">-</strong>
             <p th:text="${f.text}">-</p>
@@ -232,6 +235,7 @@
     <!--/* 10. Coverage */-->
     <section class="card perf-section" id="data" aria-labelledby="h-data">
         <div class="card-head"><h2 id="h-data">Welke activiteiten tellen mee?</h2></div>
+        <p class="note-xs"><strong>Wordt dit bijgewerkt?</strong> Alles op deze pagina wordt opnieuw berekend telkens je de pagina opent of herlaadt, met de data die op dat moment in de app staat. Nieuwe runs en Garmin-data komen binnen bij de dagelijkse synchronisatie (06:00) of als je zelf synchroniseert. De pagina ververst zichzelf niet terwijl je ze open hebt staan. Dezelfde regel geldt voor 'Reactie op training'.</p>
         <ul class="plain"><li th:each="c : ${p.coverage}" th:text="${c}">-</li></ul>
         <p class="note-xs">Algoritmeversie <span th:text="${version}">load-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
     </section>

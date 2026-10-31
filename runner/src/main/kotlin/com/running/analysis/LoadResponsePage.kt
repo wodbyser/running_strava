@@ -161,9 +161,9 @@ object LoadResponsePageBuilder {
     private fun deload(r: LoadResponse): ResponseSection {
         val d = r.deload
         val rows = d.weeks.map { w ->
-            val ch = w.changes.joinToString("; ") { c -> "${c.metric.label} ${if (c.changeZ == null) "-" else s(c.changeZ, 1) + " SD"}" }
-            val ef = if (w.efChange != null) "${s(w.efChange)} procentpunt (${w.efBeforeN} runs ervoor, ${w.efAfterN} erna)" else "te weinig runs (${w.efBeforeN} ervoor, ${w.efAfterN} erna, minstens ${Deload.EF_MIN_PER_SIDE} per kant)"
-            ResponseRow(listOf(PerfDates.weekOf(w.weekStart.toString()), "${f(w.pctOfPrior, 0)} %", ch, ef))
+            val ch = w.changes.joinToString("\n") { c -> "${c.metric.label}: ${if (c.changeZ == null) "geen data" else s(c.changeZ, 1) + " SD"}" }
+            val ef = if (w.efChange != null) "${s(w.efChange)} procentpunt\n${w.efBeforeN} runs ervoor, ${w.efAfterN} erna" else "te weinig runs\n${w.efBeforeN} ervoor, ${w.efAfterN} erna (minstens ${Deload.EF_MIN_PER_SIDE} per kant)"
+            ResponseRow(listOf(PerfDates.weekOf(w.weekStart.toString()), "${f(w.pctOfPrior, 0)} % van de 3 weken ervoor", ch, ef))
         }
         val lines = mutableListOf<String>()
         d.summary?.let { sm ->
@@ -173,12 +173,23 @@ object LoadResponsePageBuilder {
         return ResponseSection(
             "Hielp een rustweek? De app zoekt weken met hooguit ${d.thresholdPct} % van de belasting van de 3 weken ervoor en kijkt naar je herstel in de laatste 3 dagen van die week en je efficiëntie in de 14 dagen erna.",
             "Gedetecteerde weken staan hieronder: kloppen ze met wat jij weet? Een week zonder run telt niet als rustweek (dat is een onderbreking). ${LoadText.ASSOCIATION}",
-            ResponseTable(listOf("Week", "Belasting t.o.v. 3 weken ervoor", "Herstel (verschil laatste 3 dagen, in SD)", "Efficiëntie erna tegenover 4 weken ervoor"), rows),
+            ResponseTable(listOf("Week", "Belasting", "Herstelwaarden de laatste 3 dagen (SD tegenover je norm)", "Efficiëntie erna tegenover 4 weken ervoor"), rows),
             lines,
         )
     }
 
     // ------------------------------------------------------------------ #45
+
+    private fun efCell(pct: Double, n: Int): String {
+        val dir = when {
+            abs(pct) < 0.05 -> "even efficiënt in het laatste derde"
+            pct > 0 -> "efficiënter in het laatste derde"
+            else -> "minder efficiënt in het laatste derde"
+        }
+        val runs = if (n == 1) "1 run" else "$n runs"
+        val few = if (n < LoadConfig.DEFAULT.minLongRunsGroup) ", te weinig voor een oordeel" else ""
+        return "${s(pct)} %: $dir ($runs$few)"
+    }
 
     private fun longRuns(r: LoadResponse): ResponseSection {
         val rows = r.longRuns.map { g ->
@@ -187,13 +198,22 @@ object LoadResponsePageBuilder {
             ResponseRow(listOf(
                 g.label, "${g.isolated} van ${g.runs}${if (g.enough) "" else " (te weinig)"}",
                 cell(hrv, "ms"), cell(rhr, "bpm"),
-                if (g.efN > 0) "${s(g.efChangePct)} % (n = ${g.efN})" else "-",
+                g.efChangePct?.takeIf { g.efN > 0 }?.let { efCell(it, g.efN) } ?: "-",
             ))
         }
+        val total = r.longRuns.sumOf { it.runs }
+        val isolated = r.longRuns.sumOf { it.isolated }
+        val lines = listOf(
+            "Waarom zie je maar weinig? Je hebt $total lange duurlopen van minstens 75 minuten. Daarvan staan er $isolated los (zonder andere harde training in de ${r.windows.isolationDays} dagen ervoor en de ${r.windows.followUpMornings} dagen erna). " +
+                "Alleen die tellen mee, want anders weet je niet of de reactie van de lange duurloop komt. Daarna valt er nog af wat geen HRV- of rusthartslagmeting had op de ochtend erna.",
+            "Een staaf in de grafiek verschijnt pas bij minstens $MIN_PLOT_N ochtenden met meting. Een groep krijgt pas een oordeel bij minstens ${LoadConfig.DEFAULT.minLongRunsGroup} losstaande lange duurlopen " +
+                "(in de tabel staat 'te weinig' als dat niet haalbaar is). Een ontbrekende staaf betekent dus 'te weinig data', geen 0. Een staaf van +0.0 is wel echt: geen verschil met je norm.",
+        )
         return ResponseSection(
             "Hoe reageert je lichaam na een lange duurloop van 75 tot 90, 90 tot 105, 105 tot 120 of meer dan 120 minuten? De app kiest geen 'beste lengte'.",
-            "Eerste ochtend na de run, losstaande lange duurlopen, minstens ${LoadConfig.DEFAULT.minLongRunsGroup} per groep. De efficiëntieverandering is het verschil tussen het laatste en eerste derde van de run. ${LoadText.ASSOCIATION}",
-            ResponseTable(listOf("Lengte", "Losstaande lange duurlopen", "HRV eerste ochtend", "Rusthartslag eerste ochtend", "Efficiëntie laatste tegenover eerste derde"), rows),
+            "Eerste ochtend na de run, losstaande lange duurlopen, minstens ${LoadConfig.DEFAULT.minLongRunsGroup} per groep. De efficiëntieverandering vergelijkt hoe efficiënt (meter per hartslag) je liep in het laatste derde van de lange duurloop met het eerste derde. Zo zie je hoeveel je naar het einde toe inzakt: +3 % betekent dat je aan het einde 3 % efficiënter liep dan aan het begin, -3 % dat je 3 % minder efficiënt liep (meer vermoeid). Het getal is de middelste waarde over de losstaande lange duurlopen in die groep; 'runs' is hoeveel er meetellen. ${LoadText.ASSOCIATION}",
+            ResponseTable(listOf("Lengte", "Losstaande lange duurlopen", "HRV eerste ochtend", "Rusthartslag eerste ochtend", "Efficiëntie: laatste derde tegenover eerste derde van de run"), rows),
+            lines,
         )
     }
 
@@ -207,9 +227,10 @@ object LoadResponsePageBuilder {
         fun row(g: FatigueGroup) = ResponseRow(listOf(g.label, g.n.toString(), if (g.verdict == Verdict.INSUFFICIENT) "onvoldoende data" else "${s(g.median)} %", if (g.low != null) "${s(g.low)} tot ${s(g.high)} %" else "-", g.verdict.text))
         val rows = (fa.byLoad + fa.byReadiness).map(::row)
         return ResponseSection(
-            "Efficiëntie van je stabiele runs ten opzichte van je eigen niveau van de 90 dagen ervoor, gegroepeerd naar de belasting van de 3 dagen ervoor en naar hoeveel herstelwaarden die ochtend afweken.",
+            "Hoe efficiënt je liep (meter per hartslag) op je stabiele runs, vergeleken met wat gewoon is voor jou in de 90 dagen ervoor. Een plus betekent efficiënter dan je eigen niveau (meer meters per hartslag), een min minder efficiënt. 0 % is precies je eigen niveau. " +
+                "De runs zijn gegroepeerd naar de belasting van de 3 dagen ervoor en naar hoeveel herstelwaarden die ochtend afweken.",
             "${fa.n} stabiele runs, minstens ${LoadConfig.DEFAULT.minFatigueGroup} per groep. De app rekent geen 'moeheidsvrije efficiëntie' uit: de groepen zijn de correctie. ${LoadText.ASSOCIATION}",
-            ResponseTable(listOf("Groep", "Runs", "Verschil met je eigen niveau", "Onzekerheidsmarge", "Oordeel"), rows),
+            ResponseTable(listOf("Groep", "Runs", "Verschil met je eigen niveau (+ efficiënter, - minder efficiënt)", "Onzekerheidsmarge", "Oordeel"), rows),
         )
     }
 
@@ -235,24 +256,39 @@ object LoadResponsePageBuilder {
     private fun effect(r: LoadResponse): ResponseSection {
         val b = r.blocks
         val rows = b.effects.map { e ->
+            val rho = e.rho
+            val p = e.pValue
+            val verdict = when {
+                rho == null || p == null -> "te weinig blokken om iets te zeggen"
+                p < 0.05 && rho > 0 -> "duidelijk verband: blokken met meer ${e.cls.label.lowercase()} werden vaker gevolgd door een betere efficiëntie"
+                p < 0.05 -> "duidelijk verband: blokken met meer ${e.cls.label.lowercase()} werden vaker gevolgd door een slechtere efficiëntie"
+                else -> "geen duidelijk verband: het verschil is te klein om meer te zijn dan toeval"
+            } + if (e.confounded) " (viel samen met totale belasting, effect niet te scheiden)" else ""
             ResponseRow(listOf(
-                e.cls.label, e.n.toString(), if (e.rho == null) "-" else f(e.rho, 2), if (e.pValue == null) "-" else f(e.pValue, 2),
-                e.verdict + if (e.confounded) " (viel samen met totale belasting, effect niet te scheiden)" else "",
+                e.cls.label, e.n.toString(), if (rho == null) "-" else f(rho, 2),
+                if (p == null) "-" else "${(p * 100).roundToInt()} %", verdict,
             ))
         }
         val lines = mutableListOf<String>()
-        lines += if (!b.enough) "Onvoldoende data: ${b.usable} bruikbare blokken van 4 weken, minstens ${b.needed} nodig. Het blijft lang 'onvoldoende data' of 'geen duidelijk verband'."
-        else "Gebaseerd op ${b.usable} blokken van 4 weken."
+        lines += if (!b.enough) "Onvoldoende data: ${b.usable} bruikbare blokken van 4 weken, minstens ${b.needed} nodig. Zolang dat zo is staat hier 'onvoldoende data' of 'geen duidelijk verband'."
+        else "Vergeleken zijn ${b.usable} blokken van 4 weken, elk met het blok erna."
+        val found = b.effects.filter { (it.pValue ?: 1.0) < 0.05 }
+        if (b.enough) lines += if (found.isEmpty()) "Conclusie: bij geen enkel soort training zie je een duidelijk verband tussen hoeveel ervan je deed en hoe je efficiëntie daarna veranderde. Dat betekent niet dat training niet werkt, maar dat je eigen data dit niet aantoont."
+        else "Conclusie: een duidelijk verband zie je bij ${found.joinToString(", ") { it.cls.label.lowercase() }}. Zie de tabel voor de richting."
         val l = r.lag
         lines += when {
             !l.enough -> "Vertraging: ${l.reason}."
-            l.found -> "Vertraging: een verandering in belasting ging samen met een verandering in efficiëntie ${l.bestLag} weken later (correlatie ${f(l.bestCorrelation, 2)}, drempel ${f(l.threshold, 2)} uit 2000 geschudde reeksen, ${l.weeksUsed} weken). Verband, geen oorzaak."
-            else -> "Vertraging: geen meetbare vertraging gevonden (${l.weeksUsed} weken; beste correlatie ${f(l.bestCorrelation, 2)} bleef onder de drempel ${f(l.threshold, 2)})."
+            l.found -> "Vertraging: een verandering in je belasting werd gevolgd door een verandering in je efficiëntie ongeveer ${l.bestLag} weken later. De correlatie is ${f(l.bestCorrelation, 2)}" +
+                " (0 = geen verband, ${if ((l.bestCorrelation ?: 0.0) >= 0) "positief: meer belasting ging samen met hogere efficiëntie later" else "negatief: meer belasting ging samen met lagere efficiëntie later"}). " +
+                "Dat is sterker dan toeval zou geven: in 2000 willekeurig door elkaar geschudde reeksen bleef de correlatie in 95 % van de gevallen onder ${f(l.threshold, 2)}. Gebaseerd op ${l.weeksUsed} weken."
+            else -> "Vertraging: geen duidelijke vertraging gevonden. De sterkste correlatie (${f(l.bestCorrelation, 2)}) bleef onder wat toeval ook kan geven (${f(l.threshold, 2)}), over ${l.weeksUsed} weken."
         }
         return ResponseSection(
-            "Wat bracht verbetering? De app vergelijkt blokken van 4 weken met meer of minder interval, tempo en lange duurlopen met de verandering van je efficiëntie in het blok erna. En: komt een verandering in belasting pas na een tijd door in je efficiëntie?",
-            "Een correlatie tussen aandeel en verandering met een permutatietoets (2000 keer geschud). ${LoadText.ASSOCIATION}",
-            ResponseTable(listOf("Soort training", "Blokken", "Correlatie (aandeel tegenover verandering erna)", "Kans bij toeval", "Oordeel"), rows),
+            "Welk soort training ging samen met een betere efficiëntie, en hoeveel weken later zie je dat? De app vergelijkt blokken van 4 weken met meer of minder interval, tempo en lange duurlopen " +
+                "met hoe je efficiëntie (meter per hartslag) in het blok erna veranderde. Daarnaast kijkt ze of een verandering in belasting pas na een aantal weken in je efficiëntie zichtbaar wordt.",
+            "Verband (correlatie) loopt van -1 tot 1: 0 is geen verband, hoe verder van 0 hoe sterker. 'Kans dat het toeval is' komt uit een test waarbij de uitkomsten 2000 keer door elkaar werden geschud: " +
+                "onder 5 % noemt de app het een duidelijk verband. ${LoadText.ASSOCIATION}",
+            ResponseTable(listOf("Soort training", "Blokken", "Verband met verandering erna", "Kans dat het toeval is", "Oordeel"), rows),
             lines,
         )
     }

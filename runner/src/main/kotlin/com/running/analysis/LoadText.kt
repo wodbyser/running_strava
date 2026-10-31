@@ -44,13 +44,16 @@ object LoadGlossary {
         ),
         Term(
             "vermoeidheidssignalen", "Vermoeidheidssignalen",
-            "Zes losse controles die elk een eigen regel hebben (HRV, rusthartslag, slaap, efficiëntie, belasting en monotonie). Ze worden niet tot één score samengevoegd. " +
+            "Zes losse controles die elk een eigen regel hebben: HRV aanhoudend lager, rusthartslag aanhoudend hoger, slaaptekort, lagere efficiëntie, hoge belasting en hoge monotonie (de regels staan in de tabel). Ze worden niet tot één score samengevoegd. " +
+                "Een signaal is 'actief' als jouw cijfers van vandaag afwijken van je eigen norm; 0 actief betekent dat niets afwijkt. Een signaal zonder data telt niet mee. " +
                 "De app telt hoeveel er tegelijk actief zijn en laat zien hoe vaak dat de afgelopen 12 maanden voorkwam. Dat is geen kans op iets.",
             P,
         ),
         Term(
             "model", "Fitheid-vermoeidheidsmodel",
-            "Een model uit de sportwetenschap dat uit je belasting probeert te voorspellen hoe efficiënt je loopt: lange belasting bouwt conditie op, korte belasting kost je even. " +
+            "Een model uit de sportwetenschap met een eenvoudig idee: elke training doet twee dingen. Op lange termijn (weken) maakt ze je fitter, op korte termijn (dagen) maakt ze je moe. " +
+                "Fit zijn en moe zijn werken tegen elkaar: je loopt het best als je veel opgebouwd hebt en weinig moe bent. " +
+                "De app probeert dus uit je belasting te voorspellen hoe efficiënt je loopt (meter per hartslag). " +
                 "De app toont de curve alleen als het model je efficiëntie in het verleden duidelijk beter voorspelde dan de simpele gok 'zoals de laatste 4 weken'. " +
                 "Een getal voor 'vorm' toont de app nooit.",
             P,
@@ -98,7 +101,7 @@ object LoadGlossary {
         ),
         Term(
             "eigen-niveau", "Efficiëntie tegenover je eigen niveau",
-            "De efficiëntie (meter per hartslag) van een stabiele run als percentage van je mediaan van de 90 dagen ervoor. Zo verdwijnt de trage verandering van je conditie en blijft het effect van die dag over.",
+            "De efficiëntie (meter per hartslag) van een stabiele run als percentage verschil met je mediaan van de 90 dagen ervoor: +2 % betekent 2 % efficiënter dan gewoonlijk, -2 % betekent 2 % minder efficiënt. Zo verdwijnt de trage verandering van je conditie en blijft het effect van die dag over.",
             R,
         ),
         Term(
@@ -117,7 +120,8 @@ object LoadText {
     const val INTRO = "Hoeveel heb je getraind, hoe zwaar was dat voor jou en hoe staat je lichaam er nu voor? Deze pagina zet je belasting, je herstel en je " +
         "vermoeidheidssignalen naast elkaar, steeds vergeleken met je eigen geschiedenis. Klik op een ? voor uitleg bij een begrip."
     const val INTRO_RESPONSE = "Hoe reageerde je lichaam in de ochtenden na een training, een rustdag of een rustweek? Alles komt uit je eigen geschiedenis, met altijd het " +
-        "aantal trainingen erbij. Waar er te weinig data is, zegt de pagina dat."
+        "aantal trainingen erbij. Waar er te weinig data is, zegt de pagina dat. De pagina wordt opnieuw berekend elke keer je ze opent of herlaadt, " +
+        "met de data van dat moment: nieuwe runs en Garmin-data komen binnen via de dagelijkse synchronisatie (06:00) of je eigen synchronisatie."
     val SAFETY = RecoveryText.SAFETY
     const val ASSOCIATION = "Verband, geen oorzaak. Slaap, ziekte, stress, warmte en andere trainingen beïnvloeden deze waarden."
     const val COLOUR_LEGEND = "Kleur betekent afstand tot je eigen norm, niet goed of slecht."

@@ -48,6 +48,7 @@ data class LoadPage(
     val showKj: Boolean,
     val weekTiles: List<LoadTile>,
     val signalSummary: String,
+    val signalMeaning: String,
     val signalRows: List<SignalRow>,
     val baseRate: List<String>,
     val monotonyText: String,
@@ -132,7 +133,13 @@ object LoadPageBuilder {
         if (s != null && s.set.withData >= 3) {
             val a = s.set.active
             val base = if (a >= 1) s.baseRate[a]?.let { " $a of meer tegelijk kwam in de laatste 12 maanden op $it van de ${s.baseRateDays} dagen voor." } ?: "" else ""
-            lines += "$a van ${s.set.signals.size} vermoeidheidssignalen ${if (a == 1) "is" else "zijn"} actief.$base"
+            val names = s.set.signals.joinToString(", ") { it.key.label }
+            val activeNames = s.set.signals.filter { it.active == true }.joinToString(", ") { it.key.label }
+            val noData = s.set.signals.filter { it.active == null }.joinToString(", ") { it.key.label }
+            lines += "$a van ${s.set.signals.size} vermoeidheidssignalen ${if (a == 1) "is" else "zijn"} actief." +
+                (if (a >= 1) " Actief: $activeNames." else " Er is geen enkel signaal dat afwijkt van je eigen norm.") +
+                " De zes controles zijn: $names." +
+                (if (noData.isNotEmpty()) " Niet te controleren (geen data): $noData." else "") + base
             if (a >= 3) flags++
         }
         val css = when (flags) {
@@ -202,6 +209,19 @@ object LoadPageBuilder {
             )
         }
     }.orEmpty()
+
+    private fun signalMeaning(o: LoadOverview): String {
+        val s = o.signals ?: return ""
+        val a = s.set.active
+        val noData = s.set.signals.size - s.set.withData
+        val missing = if (noData > 0) " ${if (noData == 1) "Eén signaal kon niet gecontroleerd worden" else "$noData signalen konden niet gecontroleerd worden"} omdat er te weinig data is (zie 'geen data' in de tabel)." else ""
+        return when {
+            s.set.withData < 3 -> "Er is te weinig data om hier iets over te zeggen.$missing"
+            a == 0 -> "Geen enkele controle springt op rood: je cijfers wijken niet af van wat voor jou gewoon is. Dat is het rustige resultaat; er is niets om op te letten.$missing"
+            a <= 2 -> "$a signaal${if (a == 1) "" else "en"} actief. Dat komt regelmatig voor en betekent op zich weinig. Kijk in de tabel welk signaal het is.$missing"
+            else -> "$a signalen tegelijk actief. Dat is ongewoner (zie hieronder hoe vaak dat voorkwam). Het wijst op een verband met vermoeidheid, niet op een zekerheid: let op hoe je je voelt.$missing"
+        }
+    }
 
     private fun baseRate(o: LoadOverview): List<String> {
         val s = o.signals ?: return emptyList()
@@ -344,6 +364,7 @@ object LoadPageBuilder {
             },
             weekRows = weekRows(o), showKj = o.weeks.any { it.week.kilojoules != null }, weekTiles = weekTiles,
             signalSummary = o.signals?.let { s -> "${s.set.active} van ${s.set.signals.size} signalen actief (${s.set.withData} met data)" } ?: "Geen signalen beschikbaar",
+            signalMeaning = signalMeaning(o),
             signalRows = signalRows(o), baseRate = baseRate(o), monotonyText = monotonyText(o),
             model = model(o), forecasts = forecasts(o), coverage = coverage(o), charts = charts(o),
         )
