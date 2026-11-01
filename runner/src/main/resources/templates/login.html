@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inloggen - Running Coach</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Barlow', -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #f2f4f5; color: #15202b; line-height: 1.55;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+        }
+        .card {
+            background: #fff; border-radius: 10px; width: 100%; max-width: 360px; padding: 2rem;
+            box-shadow: 0 1px 2px rgba(21,32,43,0.06), 0 0 0 1px rgba(21,32,43,0.04);
+        }
+        h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem; }
+        label { display: block; font-size: 0.875rem; color: #33414e; margin-bottom: 0.25rem; }
+        input {
+            width: 100%; font: inherit; padding: 0.6rem 0.75rem; margin-bottom: 1rem;
+            border: 1px solid #c9d1d8; border-radius: 6px;
+        }
+        input:focus { outline: none; border-color: #0e6655; box-shadow: 0 0 0 3px rgba(14,102,85,0.35); }
+        button {
+            width: 100%; font: inherit; font-weight: 600; padding: 0.7rem; border: 0; border-radius: 6px;
+            background: #0e6655; color: #fff; cursor: pointer;
+        }
+        button:hover { background: #0a5043; }
+        .msg { font-size: 0.875rem; padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 1rem; }
+        .bad { background: #fbe9e7; color: #a8261b; }
+        .ok { background: #e5f3ea; color: #1d6f3f; }
+    </style>
+</head>
+<body>
+<main class="card">
+    <h1>Running Coach</h1>
+    <p class="msg bad" th:if="${param.error}">Gebruikersnaam of wachtwoord klopt niet.</p>
+    <p class="msg ok" th:if="${param.logout}">Je bent uitgelogd.</p>
+    <form method="post" action="/login">
+        <label for="username">Gebruikersnaam</label>
+        <input id="username" name="username" autocomplete="username" required autofocus>
+        <label for="password">Wachtwoord</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Inloggen</button>
+    </form>
+</main>
+</body>
+</html>

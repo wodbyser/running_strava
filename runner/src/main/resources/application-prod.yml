@@ -1,0 +1,28 @@
+# Online deployment. Activated with SPRING_PROFILES_ACTIVE=prod (the Docker image sets it).
+spring:
+  datasource:
+    # Required, no local fallback: e.g. jdbc:postgresql://<host>/<db>?sslmode=require
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 2
+      minimum-idle: 0
+  thymeleaf:
+    cache: true
+
+app:
+  security:
+    # Required: the app refuses to start online without a login password.
+    password: ${APP_PASSWORD}
+
+server:
+  # Behind an HTTPS proxy or tunnel; trust its X-Forwarded-* headers for redirects.
+  forward-headers-strategy: framework
+  tomcat:
+    threads:
+      max: 20
+
+logging:
+  level:
+    com.running: INFO

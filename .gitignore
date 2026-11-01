@@ -49,3 +49,9 @@ data/
 
 ### Mac OS ###
 .DS_Store
+# Deploy
+!deploy/.env.example
+deploy/.env
+deploy/backups/
+deploy/*.dump
+/*.zip

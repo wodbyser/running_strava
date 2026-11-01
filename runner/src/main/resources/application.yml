@@ -28,12 +28,22 @@ spring:
     locale-resolver: fixed
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+  servlet:
+    session:
+      cookie:
+        same-site: lax
+
+app:
+  security:
+    username: ${APP_USERNAME:wout}
+    password: ${APP_PASSWORD:}
+    remember-me-key: ${APP_REMEMBER_ME_KEY:}
 
 strava:
   client-id: ${STRAVA_CLIENT_ID:}
   client-secret: ${STRAVA_CLIENT_SECRET:}
-  redirect-uri: http://localhost:8080/callback
+  redirect-uri: ${STRAVA_REDIRECT_URI:http://localhost:8080/callback}
   sync:
     cron: 0 0 6 * * *
 

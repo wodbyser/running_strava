@@ -1,0 +1,53 @@
+name: running
+
+# Always-on deployment on a home machine, reachable worldwide through Tailscale Funnel.
+# Start with:  docker compose up -d --build
+# The app listens on 127.0.0.1 only: Funnel reaches it locally, the LAN cannot.
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: running-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: running
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      TZ: ${TZ:-Europe/Brussels}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d running"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: running-coach:latest
+    container_name: running-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      TZ: ${TZ:-Europe/Brussels}
+      DB_URL: jdbc:postgresql://postgres:5432/running
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      APP_USERNAME: ${APP_USERNAME:-wout}
+      APP_PASSWORD: ${APP_PASSWORD:?set APP_PASSWORD in .env}
+      APP_REMEMBER_ME_KEY: ${APP_REMEMBER_ME_KEY:-}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+      STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-}
+      GARMIN_PERSONAL_API_KEY: ${GARMIN_PERSONAL_API_KEY:-}
+    mem_limit: 2g
+
+volumes:
+  pgdata:

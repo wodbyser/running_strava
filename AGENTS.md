@@ -72,3 +72,22 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
 - **prod**: PostgreSQL 17 via `docker-compose.yml` (Hibernate `update` DDL)
 - **dev**: H2 file `data/running.mv.db` with PostgreSQL compatibility mode (`MODE=PostgreSQL`)
 - Reset: `docker compose down -v`
+
+## Deployment
+
+Online/always-on hosting lives in `deploy/` (`DEPLOY.md` is the full runbook, in Dutch; target is a Windows 11
+machine with Docker Desktop + Tailscale Funnel).
+
+- `deploy/docker-compose.yml` — app + Postgres, app on `127.0.0.1:8080`, one named volume `pgdata`, no bind mounts.
+- `deploy/setup.ps1` (Windows) / `deploy/setup.sh` (Linux) — installs Docker + Tailscale, disables sleep, creates
+  `.env`, starts the stack.
+- `deploy/migrate.ps1` / `migrate.sh` — `dump` / `restore` / `backup`, only via `docker compose exec|cp`.
+- `Dockerfile` — multi-stage build with an AppCDS archive (faster start-up); `application-prod.yml` sets cache,
+  INFO logging, `PORT`/`forward-headers-strategy` and requires `APP_PASSWORD`.
+- Login: `SecurityConfig` + `AppSecurityProperties` (`app.security.*`). Blank `APP_PASSWORD` = open app (local).
+  CSRF is disabled on purpose (plain Thymeleaf forms); keep the session cookie `SameSite=Lax`.
+- Public URL: only `STRAVA_REDIRECT_URI` (Strava authorize URL, path `/callback`). No other base-URL setting.
+- Schema: Hibernate `ddl-auto: update`, no Flyway/seeds. All state (incl. Strava tokens, Garmin raw payloads) is in
+  Postgres; there are no uploads.
+- A 512 MB / 0.1 CPU cloud host was measured and is too small (4 min start-up, `/load` OOM). Do not deploy there.
+
