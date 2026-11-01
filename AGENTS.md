@@ -78,9 +78,17 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
 Online/always-on hosting lives in `deploy/` (`DEPLOY.md` is the full runbook, in Dutch; target is a Windows 11
 machine with Docker Desktop + Tailscale Funnel).
 
+- **Day-to-day on the server: `deploy/START-STOP.md`** (Dutch, start there): `deploy/start.ps1`,
+  `deploy/stop.ps1`, `deploy/status.ps1`. `start` = Docker up + wait for `/login` + Funnel on; `stop` = Funnel
+  off + containers stopped (DB volume kept); `status` exits 0 when healthy. Live at
+  <https://desktop-ekbqgir.tailfd47be.ts.net> on Windows host `C:\Users\Gebruiker\running`.
 - `deploy/docker-compose.yml` — app + Postgres, app on `127.0.0.1:8080`, one named volume `pgdata`, no bind mounts.
 - `deploy/setup.ps1` (Windows) / `deploy/setup.sh` (Linux) — installs Docker + Tailscale, disables sleep, creates
   `.env`, starts the stack.
+- Never `docker compose down -v`: that drops the `pgdata` volume, i.e. the whole database.
+- `docker compose` in PowerShell can exit 1 because progress goes to stderr; trust `docker compose ps` /
+  `status.ps1`, not the exit code. Shell scripts need LF: `.gitattributes` pins `gradlew` and `*.sh` to `eol=lf`
+  (CRLF made the Docker build fail with `./gradlew: not found`).
 - `deploy/migrate.ps1` / `migrate.sh` — `dump` / `restore` / `backup`, only via `docker compose exec|cp`.
 - `Dockerfile` — multi-stage build with an AppCDS archive (faster start-up); `application-prod.yml` sets cache,
   INFO logging, `PORT`/`forward-headers-strategy` and requires `APP_PASSWORD`.

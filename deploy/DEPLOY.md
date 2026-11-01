@@ -14,6 +14,13 @@ opstarten 4 minuten, dashboard 3 minuten, `/load` crasht door geheugengebrek. Ee
 
 ---
 
+## Dagelijks starten en stoppen
+
+Deze handleiding is eenmalig (installatie). Voor het dagelijkse gebruik staat alles in
+[`START-STOP.md`](START-STOP.md): `start.ps1`, `stop.ps1` en `status.ps1`.
+
+---
+
 ## Feiten over deze app (voor de agent op de doelmachine)
 
 | Vraag | Antwoord |
