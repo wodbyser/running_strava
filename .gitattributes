@@ -1,0 +1,7 @@
+# Shell scripts must keep LF line endings, also when the repo is checked out on Windows
+# with core.autocrlf=true. A CRLF shebang ("#!/bin/sh\r") makes Linux/Docker report
+# "./gradlew: not found", which breaks the Dockerfile build and deploy/setup.sh.
+gradlew     text eol=lf
+*.sh        text eol=lf
+gradlew.bat text eol=crlf
+*.bat       text eol=crlf
