@@ -8,10 +8,30 @@ Tailscale Funnel. Dit bestand is de korte bedieningshandleiding; de volledige in
 |---|---|
 | Lokaal | <http://127.0.0.1:8080> |
 | Publiek | <https://desktop-ekbqgir.tailfd47be.ts.net> (login nodig) |
-| Repo | `C:\Users\Gebruiker\running` |
+| Repo | `C:\Users\Gebruiker\running`, branch `main` |
+| Login | gebruikersnaam en wachtwoord staan in `deploy\.env` (`APP_USERNAME` / `APP_PASSWORD`) |
 | Containers | `running-app` (de app) en `running-db` (Postgres 17) |
 | Database | named volume `running_pgdata` — nooit verwijderen |
 | Sleutels | `deploy\.env` (niet in git) |
+
+## Voor een agent zonder context
+
+Kopieer dit als opdracht; de rest vindt de agent in dit bestand.
+
+```
+De Running Coach draait op deze Windows-laptop in Docker, publiek op
+https://desktop-ekbqgir.tailfd47be.ts.net. Repo: C:\Users\Gebruiker\running (branch main).
+
+Lees eerst deploy\START-STOP.md. Beheer gaat met drie scripts:
+  start:  powershell -ExecutionPolicy Bypass -File .\deploy\start.ps1
+  stop:   powershell -ExecutionPolicy Bypass -File .\deploy\stop.ps1
+  status: powershell -ExecutionPolicy Bypass -File .\deploy\status.ps1   (exitcode 0 = gezond)
+
+Regels: nooit "docker compose down -v" (dat wist de database). "docker compose" kan in
+PowerShell exitcode 1 geven door stderr; kijk naar status.ps1 of "docker compose ps".
+Logs: docker compose -f .\deploy\docker-compose.yml logs --tail 50 app
+Sleutels staan in deploy\.env (niet in git, nooit doorsturen).
+```
 
 ## De drie commando's
 
@@ -45,9 +65,17 @@ eerste controle bij elke klacht.
 
 ## Na een herstart van de pc
 
-Docker Desktop start automatisch mee (instelling `AutoStart`) en de containers hebben
-`restart: unless-stopped`. Na een gewone herstart komt de app dus vanzelf terug — mits Docker Desktop
-automatisch start en de gebruiker is ingelogd.
+De twee containers hebben `restart: unless-stopped` en Docker Desktop staat ingesteld om bij het
+aanmelden te starten. Na een herstart komt de app dus vanzelf terug — maar pas nadat iemand op deze
+pc is ingelogd: Docker Desktop is geen Windows-service en start niet op het inlogscherm. Tailscale
+start wel meteen (dat is een Windows-service), dus de publieke link geeft tot die tijd geen antwoord.
+
+Twee dingen die daardoor misgaan:
+
+| Situatie | Gevolg |
+|---|---|
+| Er is niemand ingelogd na een herstart of stroompanne | De app blijft offline tot iemand op de pc inlogt. Zet `AutoAdminLogon` aan als dat automatisch moet. |
+| De laptop staat op accu | Na 3 minuten stilte gaat hij in slaapstand en is de app offline. Op netstroom gebeurt dat niet, ook niet met de klep dicht. |
 
 Stond de stack met `stop.ps1` uit, dan blijft hij na een herstart uit. Dat is de bedoeling: start dan
 weer met `start.ps1`.
@@ -57,6 +85,16 @@ Controle na een herstart:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\deploy\status.ps1
 ```
+
+## Logs bekijken
+
+```powershell
+docker compose -f .\deploy\docker-compose.yml logs --tail 50 app      # laatste 50 regels app
+docker compose -f .\deploy\docker-compose.yml logs -f app             # live meekijken, Ctrl+C stopt
+docker compose -f .\deploy\docker-compose.yml logs --tail 50 postgres # database
+```
+
+Bij een gezonde start staat er `Started ApplicationKt in ... seconds`.
 
 ## Code bijwerken
 

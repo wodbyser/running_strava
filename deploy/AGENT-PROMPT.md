@@ -2,6 +2,9 @@
 
 Kopieer alles onder de streep als prompt. Vervang eerst de `<<<...>>>`-plaatsaanduidingen.
 
+Dit is de **eenmalige installatie**. Is de app al geïnstalleerd en gaat het alleen om starten, stoppen of
+controleren, gebruik dan `deploy/START-STOP.md` (met een kant-en-klaar promptblok bovenaan).
+
 ---
 
 ## Doel
