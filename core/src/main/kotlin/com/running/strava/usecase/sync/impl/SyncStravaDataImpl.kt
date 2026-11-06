@@ -19,7 +19,15 @@ class SyncStravaDataImpl(
 
     private val log = LoggerFactory.getLogger(SyncStravaDataImpl::class.java)
 
-    override fun execute(): SyncStravaData.SyncResult {
+    override fun execute(): SyncStravaData.SyncResult = sync(fullRecheck = false)
+
+    /**
+     * Re-reads every activity summary once (list calls only: about one call per 100 activities). Edits made on Strava to old
+     * activities (for example a race marking) are stored; details and streams are fetched only for new or cropped activities.
+     */
+    override fun executeFull(): SyncStravaData.SyncResult = sync(fullRecheck = true)
+
+    private fun sync(fullRecheck: Boolean): SyncStravaData.SyncResult {
         val token = tokenRepository.get()
             ?: return SyncStravaData.SyncResult(0, 0, 0, listOf("No Strava token found. Complete OAuth first."))
 
@@ -35,7 +43,7 @@ class SyncStravaDataImpl(
         // RECHECK_DAYS: activities edited on Strava (name, type, race/long-run/workout tag, trainer, cropped
         // distance/time) are updated. Unchanged stored activities cost no extra API calls.
         val lastSync = activityRepository.findLatestActivityTimestamp()
-        val afterEpoch = lastSync?.let {
+        val afterEpoch = if (fullRecheck) null else lastSync?.let {
             minOf(it.minusDays(OVERLAP_DAYS), ZonedDateTime.now().minusDays(RECHECK_DAYS)).toEpochSecond()
         }
         val knownIds = activityRepository.findAllIds().toMutableSet()

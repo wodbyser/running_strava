@@ -1,7 +1,7 @@
 # Garmin Phase 4 design: training load and recovery-adjusted analysis
 
 Date: 2026-10-31. Status: DESIGN APPROVED by the owner 2026-10-31 (P4-1 to P4-12 answered in session, see section 9;
-review notes for the start of the build in `GARMIN_PROGRESS.md`, open questions). BUILT 2026-10-31, AWAITING APPROVAL of the phase:
+review notes for the start of the build in `GARMIN_PROGRESS.md`, open questions). BUILT 2026-10-31, PHASE APPROVED by the owner 2026-10-31:
 build notes and deviations in section 11, model validation report on real data in section 12. Algorithm version for everything below: `load-v1`.
 
 Scope (roadmap Phase 4, confirmed by the owner in session 2026-10-31: "Hele lijst zoals roadmap"): backlog #5 training
@@ -557,7 +557,7 @@ changes.
 | No health data, identifiers or coordinates in logs | DONE: `LoadServiceTest` captures the log (counts and version only); `LoadControllerTest` checks the JSON for key, token and coordinates |
 | Existing tests pass unchanged | DONE: 452 tests, 0 failures. One existing test extended, none changed: `NoStateChangingGetTest` now also covers `LoadController` |
 | Pages checked in a browser on real data | DONE: headless Chrome on a second instance (port 8091), `/load` and `/load/response` read in full, two layout fixes made afterwards (section 11). `/recovery` link card checked |
-| Owner approval of the phase | NOT STARTED: AWAITING APPROVAL. The first-render speed question is answered (background warm-up, section 11, "Speed") |
+| Owner approval of the phase | DONE (owner, 2026-10-31, after the wording review in session) |
 
 ## 9. Questions for the owner: ALL ANSWERED 2026-10-31 in session
 

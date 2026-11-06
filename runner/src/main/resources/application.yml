@@ -76,6 +76,16 @@ garmin:
     min-rest-days: 15
     model-gain: 0.10
     warm-up: true
+  race:
+    min-own-error-races: 5
+    min-taper-races: 6
+    min-group-races: 4
+    min-pacing-races: 3
+    min-feasibility-weeks: 26
+    calm-start-pct: 2.0
+    specificity-minutes: 20
+    longest-run-share: 0.75
+    warm-up: true
 
 logging:
   level:

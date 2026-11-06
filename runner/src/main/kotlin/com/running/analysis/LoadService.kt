@@ -132,6 +132,15 @@ data class LoadResponse(
     val perfStratum: String?,
 )
 
+/** What the race analysis (Phase 5) reuses from the load analysis: sessions, days, Garmin series and the overview with the readiness. */
+data class LoadSnapshot(
+    val today: LocalDate,
+    val sessions: List<LoadSession>,
+    val days: List<DayLoad>,
+    val series: RecoverySeries,
+    val overview: LoadOverview,
+)
+
 /**
  * Loads activities, streams and Garmin rows, runs the pure load analysis and caches the expensive per-activity part in memory.
  * No schema change. Logs counts and the algorithm version only: no heart rate, load, recovery value or activity name.
@@ -499,6 +508,11 @@ class LoadService(
     } catch (e: Exception) {
         log.warn("Load warm-up failed: {}", e.javaClass.simpleName)
         false
+    }
+
+    fun snapshot(w: LoadWindows = LoadWindows.DEFAULT): LoadSnapshot {
+        val b = base()
+        return LoadSnapshot(b.today, b.sessions, b.days, b.series, overview(b, w))
     }
 
     fun both(w: LoadWindows = LoadWindows.DEFAULT): Pair<LoadOverview, LoadResponse> {

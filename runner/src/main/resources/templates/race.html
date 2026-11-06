@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Wedstrijd</h1>
+            <p th:text="${intro}">-</p>
+        </div>
+        <nav class="actions" aria-label="Pagina kiezen">
+            <a class="btn btn-sm btn-primary" href="/race" aria-current="page">Voorspelling en plan</a>
+            <a class="btn btn-sm btn-secondary" th:href="${otherPage}">Terugblik op wedstrijden</a>
+        </nav>
+    </div>
+
+    <nav class="toc" aria-label="Onderdelen van deze pagina">
+        <a href="#doelen">Doelen</a>
+        <a href="#tijden">Voorspelde tijden</a>
+        <a href="#schema">Tempo en schema</a>
+        <a href="#vorm">Wedstrijdvorm</a>
+        <a href="#wedstrijdweek">Wedstrijdweek</a>
+        <a href="#kandidaten">Niet gemarkeerde wedstrijden</a>
+        <a href="#begrippen">Begrippen</a>
+    </nav>
+
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
+
+    <!--/* 1. Conclusion */-->
+    <section class="card hero" th:classappend="${p.hero.css}" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${p.hero.headline}">5 km op 5 dec 2026</h2>
+            <span class="badge badge-est" title="Schatting van de app uit je eigen eerdere inspanningen, geen belofte.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:text="${p.hero.sub}">-</p>
+        <div class="hero-conclusion">
+            <p th:each="line : ${p.hero.lines}" th:text="${line}">-</p>
+        </div>
+    </section>
+
+    <!--/* 2. Goals */-->
+    <section class="card perf-section" id="doelen" aria-labelledby="h-doelen">
+        <div class="card-head"><h2 id="h-doelen">Doelen</h2></div>
+        <p class="lead">Het eerstvolgende doel bepaalt de rest van de pagina. De doeltijd is niet verplicht. Een doel van de afgelopen dagen blijft staan tot je het verwijdert, zodat je het met je echte wedstrijd kunt vergelijken.</p>
+        <div class="table-wrap" th:if="${!p.goals.isEmpty()}">
+            <table>
+                <thead><tr><th>Wedstrijd</th><th>Datum</th><th class="num">Doeltijd</th><th>Stand</th><th></th></tr></thead>
+                <tbody>
+                <tr th:each="g : ${p.goals}">
+                    <td><strong th:text="${g.title}">5 km</strong><div class="note-xs" th:if="${g.matchText != null}" th:text="${g.matchText}">-</div></td>
+                    <td class="nowrap"><span th:text="${g.dateText}">-</span><div class="note-xs" th:text="${g.daysText}">-</div></td>
+                    <td class="num" th:text="${g.target}">19:00</td>
+                    <td th:text="${g.status}">-</td>
+                    <td><form method="post" th:action="'/race/goal/' + ${g.id} + '/delete'"><button type="submit" class="btn btn-secondary btn-sm">Verwijderen</button></form></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="note" th:if="${p.goals.isEmpty()}">Je hebt nog geen doel toegevoegd.</p>
+        <form method="post" action="/race/goal" class="inline-form inset mt-2" aria-label="Doel toevoegen">
+            <span class="filter-group">
+                <label for="g-distance">Afstand</label>
+                <select id="g-distance" name="distance">
+                    <option value="5000" selected>5 km</option>
+                    <option value="10000">10 km</option>
+                    <option value="21097.5">Halve marathon</option>
+                    <option value="42195">Marathon</option>
+                    <option value="custom">Andere afstand</option>
+                </select>
+            </span>
+            <span class="filter-group">
+                <label for="g-custom">Andere afstand (km)</label>
+                <input type="text" id="g-custom" name="custom" inputmode="decimal" placeholder="bv. 15">
+            </span>
+            <span class="filter-group">
+                <label for="g-date">Datum</label>
+                <input type="date" id="g-date" name="date" required th:min="${today}">
+            </span>
+            <span class="filter-group">
+                <label for="g-target">Doeltijd (optioneel)</label>
+                <input type="text" id="g-target" name="target" inputmode="numeric" placeholder="19:00" aria-describedby="g-target-hint">
+            </span>
+            <span class="filter-group">
+                <label for="g-name">Naam (optioneel)</label>
+                <input type="text" id="g-name" name="name" maxlength="120" placeholder="bv. Kerstloop">
+            </span>
+            <button type="submit" class="btn btn-primary btn-sm">Doel toevoegen</button>
+            <span class="field-hint" id="g-target-hint">Typ minuten:seconden (19:00) of uren:minuten:seconden (1:45:00).</span>
+        </form>
+    </section>
+
+    <!--/* 3. Predictions */-->
+    <section class="card perf-section" id="tijden" aria-labelledby="h-tijden">
+        <div class="card-head">
+            <h2 id="h-tijden">Voorspelde tijden <span class="badge badge-est" title="Een model van de app, met onzekerheid.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['riegel']})}"/></h2>
+        </div>
+        <div class="lead">Wat je nu zou kunnen lopen op een rechte, vlakke wedstrijd, uit je eigen <strong>ankers</strong><th:block th:replace="~{fragments :: help(${g['anker']})}"/>. Onder elke tijd staat de <strong>bandbreedte</strong><th:block th:replace="~{fragments :: help(${g['bandbreedte']})}"/> en waarop die steunt.</div>
+        <th:block th:replace="~{fragments :: windowForm(${ {'anchor','chart'} }, 'tijden')}"/>
+        <p class="note mt-2" th:if="${p.violationNote != null}" th:text="${p.violationNote}">-</p>
+        <p class="note mt-2" th:if="${!p.hasData}">Er zijn nog geen runs in de app.</p>
+        <div class="stat-grid mt-2">
+            <div class="stat stat-text" th:each="t : ${p.tiles}" th:classappend="${t.has} ? '' : 'stat-empty'">
+                <span class="label" th:text="${t.label}">5 km</span>
+                <span class="value" th:text="${t.time}">19:45</span>
+                <span class="stat-sub" th:if="${t.has}">Bandbreedte <span th:text="${t.range}">-</span></span>
+                <span class="stat-sub" th:if="${t.has}"><span th:text="${t.pace}">-</span> per km (<span th:text="${t.paceRange}">-</span>)</span>
+                <span class="stat-sub" th:if="${t.has}">op basis van <span th:text="${t.rangeBasis}">-</span>; <span th:text="${t.anchorCount}">0</span> ankers</span>
+                <span class="stat-sub" th:if="${t.criticalSpeed != null}">Tweede methode (kritische snelheid)<th:block th:replace="~{fragments :: help(${g['kritische-snelheid']})}"/>: <strong th:text="${t.criticalSpeed}">-</strong></span>
+                <span class="stat-sub" th:if="${t.goalPace != null}">Tempo van je doel: <strong th:text="${t.goalPace}">-</strong> per km</span>
+                <span class="stat-sub" th:each="n : ${t.notes}" th:text="${n}">-</span>
+                <span class="stat-sub" th:if="${t.why != null}" th:text="${t.why}">-</span>
+            </div>
+        </div>
+        <p class="note-xs mt-2" th:text="${predictionNote}">-</p>
+
+        <h3 class="mt-2">Hoe de voorspelling evolueerde</h3>
+        <p class="lead">Elke maandag opnieuw berekend, met alleen wat er toen al bekend was. Omhoog is sneller. De stippen zijn je gelopen wedstrijden, op hun eigen gemiddelde tempo.</p>
+        <div class="chart-box chart-box--tall"><canvas id="cWeekly" role="img" aria-label="Voorspeld tempo per week voor 5 km, 10 km, halve marathon en marathon met je wedstrijden als stippen"></canvas></div>
+        <p class="legend"><span>Lijnen: voorspeld tempo per afstand</span><span>Stippen: gelopen wedstrijden (klik om te openen)</span><span>Lijn onderbroken: te weinig ankers in die week</span></p>
+
+        <h3 class="mt-2">Hoe goed klopte dit bij jouw wedstrijden?</h3>
+        <p class="lead" th:each="l : ${p.accuracyLines}" th:text="${l}">-</p>
+        <details class="more" th:if="${!p.accuracyRows.isEmpty()}">
+            <summary>Toon je wedstrijden als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Wedstrijd</th><th class="num">Afstand</th><th class="num">Voorspeld</th><th class="num">Gelopen</th><th class="num">Verschil</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${p.accuracyRows}">
+                    <td class="nowrap" th:text="${r.date}">-</td>
+                    <td><a th:href="'/activity/' + ${r.id}" th:text="${r.name}">-</a><div class="note-xs" th:if="${r.note != null}" th:text="${r.note}">-</div></td>
+                    <td class="num" th:text="${r.distance}">-</td>
+                    <td class="num" th:text="${r.predicted}">-</td>
+                    <td class="num" th:text="${r.actual}">-</td>
+                    <td class="num"><span class="pill" th:classappend="${r.css}" th:text="${r.error}">-</span></td>
+                </tr>
+                </tbody>
+            </table></div>
+        </details>
+
+        <details class="more">
+            <summary th:text="'Waarop is dit gebaseerd? (' + ${p.anchorRows.size()} + ' ankers)'">Waarop is dit gebaseerd?</summary>
+            <p class="note-xs" th:text="${p.anchorNote}">-</p>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Activiteit</th><th>Soort</th><th class="num">Afstand</th><th class="num">Tijd</th><th class="num">Tempo</th></tr></thead>
+                <tbody>
+                <tr th:each="a : ${p.anchorRows}">
+                    <td class="nowrap" th:text="${a.date}">-</td>
+                    <td><a th:href="'/activity/' + ${a.id}" th:text="${a.name}">-</a></td>
+                    <td th:text="${a.kind}">-</td>
+                    <td class="num" th:text="${a.distance}">-</td>
+                    <td class="num" th:text="${a.time}">-</td>
+                    <td class="num" th:text="${a.pace}">-</td>
+                </tr>
+                <tr class="table-empty" th:if="${p.anchorRows.isEmpty()}"><td colspan="6">Geen ankers in deze periode.</td></tr>
+                </tbody>
+            </table></div>
+        </details>
+    </section>
+
+    <!--/* 4. Pace and plan */-->
+    <section class="card perf-section" id="schema" aria-labelledby="h-schema">
+        <div class="card-head">
+            <h2 id="h-schema">Tempo en schema <span class="badge badge-est" title="Een plan van de app op basis van je voorspelling of doel.">app-schatting</span></h2>
+        </div>
+        <p class="lead" th:if="${p.planTitle == null}">Voeg een wedstrijddoel toe om een schema met tussentijden te zien. De tempo's per afstand staan al bij 'Voorspelde tijden'.</p>
+        <th:block th:if="${p.planTitle != null}">
+            <p class="lead"><strong th:text="${p.planTitle}">Tempo en schema</strong>. Tempo dat bij je huidige voorspelling past, geen opdracht.</p>
+            <p th:each="l : ${p.planLines}" th:text="${l}">-</p>
+            <div class="chart-box mt-2"><canvas id="cPlan" role="img" aria-label="Tempo per stuk voor het gelijkmatige plan en het plan met rustige start"></canvas></div>
+            <div class="table-wrap mt-2"><table>
+                <thead><tr><th>Stuk</th><th class="num">Gelijkmatig: tussentijd</th><th class="num">tempo</th><th class="num">Rustige start: tussentijd</th><th class="num">tempo</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${p.splitRows}">
+                    <td class="nowrap" th:text="${r.label}">0–1 km</td>
+                    <td class="num" th:text="${r.evenTime}">-</td><td class="num" th:text="${r.evenPace}">-</td>
+                    <td class="num" th:text="${r.calmTime}">-</td><td class="num" th:text="${r.calmPace}">-</td>
+                </tr>
+                </tbody>
+            </table></div>
+            <p class="note-xs" th:text="${courseNote}">-</p>
+        </th:block>
+        <h3 class="mt-2">Hoe liep je vorige wedstrijden? <th:block th:replace="~{fragments :: help(${g['negatieve-split']})}"/></h3>
+        <p th:each="l : ${p.pacingLines}" th:text="${l}">-</p>
+        <details class="explain"><summary>Meer uitleg</summary><div><p th:text="${calmNote}">-</p></div></details>
+    </section>
+
+    <!--/* 5. Race form */-->
+    <section class="card perf-section" id="vorm" aria-labelledby="h-vorm">
+        <div class="card-head">
+            <h2 id="h-vorm">Wedstrijdvorm <span class="badge badge-est" title="Tegensignalen die de app uit je eigen gegevens haalt. Geen advies.">app-schatting</span></h2>
+        </div>
+        <p class="lead">Wat pleit <strong>ervoor</strong> en wat <strong>ertegen</strong> dat je goed voorbereid bent? Fitheid en herstel staan apart: het eerste verandert in weken, het tweede in dagen. Er is geen score en geen 'klaar of niet klaar'.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'trend','specific'} }, 'vorm')}"/>
+        <div class="type-list mt-2">
+            <div class="type-row" th:classappend="${p.fitness.css}">
+                <div class="type-head"><strong th:text="${p.fitness.title}">Fitheid</strong><span class="pill" th:text="${p.fitness.level}">-</span></div>
+                <ul class="type-parts">
+                    <li th:each="part : ${p.fitness.parts}" th:classappend="${part.css}"><span class="part-mark" th:text="${part.stance}">-</span><span><strong th:text="${part.title}">-</strong>: <span th:text="${part.detail}">-</span></span></li>
+                </ul>
+            </div>
+            <div class="type-row" th:if="${p.recovery != null}" th:classappend="${p.recovery.css}">
+                <div class="type-head"><strong th:text="${p.recovery.title}">Herstel</strong><span class="pill" th:text="${p.recovery.level}">-</span></div>
+                <ul class="type-parts">
+                    <li th:each="part : ${p.recovery.parts}" th:classappend="${part.css}"><span class="part-mark" th:text="${part.stance}">-</span><span><strong th:text="${part.title}">-</strong>: <span th:text="${part.detail}">-</span></span></li>
+                </ul>
+            </div>
+            <p class="note" th:if="${p.recovery == null}">Het herstelblok vraagt Garmin-herstelgegevens en een hartslagreferentie. Die ontbreken nu.</p>
+        </div>
+        <p class="note-xs mt-2" th:text="${p.recoveryNote}">-</p>
+    </section>
+
+    <!--/* 6. Race week */-->
+    <section class="card perf-section" id="wedstrijdweek" aria-labelledby="h-week">
+        <div class="card-head"><h2 id="h-week">Wedstrijdweek <span class="badge badge-est">app-schatting</span></h2></div>
+        <p class="note" th:if="${p.weekCheck == null && p.weekHidden != null}" th:text="${p.weekHidden}">-</p>
+        <p class="note" th:if="${p.weekCheck == null && p.weekHidden == null}">De wedstrijdweek verschijnt in de week voor je wedstrijd (standaard 7 dagen ervoor). Voeg eerst een doel toe.</p>
+        <th:block th:if="${p.weekCheck != null}">
+            <p class="lead">Elke herstelwaarde tegenover je eigen norm, met de belasting van de laatste dagen. Kleur zegt hoe ver je van je eigen norm zit, niet of het goed of slecht is.</p>
+            <th:block th:replace="~{fragments :: windowForm(${ {'weekcheck'} }, 'wedstrijdweek')}"/>
+            <p th:each="l : ${p.weekCheck.lines}" th:text="${l}">-</p>
+            <ul class="type-parts mt-2">
+                <li th:each="c : ${p.weekCheck.components}" th:classappend="${c.css}"><span class="part-mark" th:text="${c.stance}">-</span><span><strong th:text="${c.title}">-</strong>: <span th:text="${c.detail}">-</span></span></li>
+            </ul>
+            <div class="chart-box chart-box--sm mt-2"><canvas id="cWeek" role="img" aria-label="Aantal herstelwaarden buiten je norm per dag van de wedstrijdweek"></canvas></div>
+            <p class="note-xs">Een staaf van 0 betekent: alle herstelwaarden die dag binnen je norm.</p>
+            <details class="more"><summary>Toon de dagen als lijst</summary><ul class="plain"><li th:each="d : ${p.weekCheck.days}"><strong th:text="${d.date}">-</strong>: <span th:text="${d.text}">-</span></li></ul></details>
+        </th:block>
+    </section>
+
+    <!--/* 7. Candidates */-->
+    <section class="card perf-section" id="kandidaten" aria-labelledby="h-kand">
+        <div class="card-head"><h2 id="h-kand">Mogelijk niet gemarkeerde wedstrijden</h2></div>
+        <p class="lead">Alleen een run die je op Strava als wedstrijd markeert, telt als wedstrijd. Hier staan runs die er misschien een waren.</p>
+        <details class="more">
+            <summary th:text="'Toon de lijst (' + ${p.candidates.size()} + ')'">Toon de lijst</summary>
+            <p class="note-xs" th:text="${candidateNote}">-</p>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Activiteit</th><th class="num">Afstand</th><th>Waarom</th></tr></thead>
+                <tbody>
+                <tr th:each="c : ${p.candidates}">
+                    <td class="nowrap" th:text="${c.date}">-</td>
+                    <td><a th:href="'/activity/' + ${c.id}" th:text="${c.name}">-</a> <a class="note-xs" th:href="'https://www.strava.com/activities/' + ${c.id}" target="_blank" rel="noopener">Strava</a></td>
+                    <td class="num" th:text="${c.distance}">-</td>
+                    <td th:text="${c.reasons}">-</td>
+                </tr>
+                <tr class="table-empty" th:if="${p.candidates.isEmpty()}"><td colspan="4">Geen kandidaten gevonden.</td></tr>
+                </tbody>
+            </table></div>
+        </details>
+        <form method="post" action="/race/strava-recheck" class="inline-form mt-2" data-loading="Markeringen ophalen...">
+            <button type="submit" class="btn btn-secondary btn-sm">Markeringen opnieuw ophalen</button>
+            <span class="field-hint">Leest alle activiteiten op Strava één keer opnieuw (ongeveer 6 aanroepen). De dagelijkse synchronisatie ziet enkel de laatste 30 dagen.</span>
+        </form>
+    </section>
+
+    <section class="card perf-section" id="data" aria-labelledby="h-data">
+        <div class="card-head"><h2 id="h-data">Welke gegevens tellen mee?</h2></div>
+        <p class="note-xs"><strong>Wordt dit bijgewerkt?</strong> Alles wordt opnieuw berekend elke keer je de pagina opent of herlaadt, met de data van dat moment. Nieuwe runs komen binnen via de dagelijkse synchronisatie (06:00) of je eigen synchronisatie.</p>
+        <ul class="plain"><li th:each="c : ${p.coverage}" th:text="${c}">-</li></ul>
+        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+    </section>
+
+    <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">
+        <h2 id="h-begrippen">Begrippen</h2>
+        <dl class="glossary">
+            <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+        </dl>
+    </section>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var C = /*[[${p.charts}]]*/ {};
+            var MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+            function shortDate(iso) { var d = new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MONTHS[d.getMonth()]; }
+            function tickLabel(labels) { return function (v) { var iso = labels[v]; return iso ? shortDate(iso) : ''; }; }
+            function mmss(s) { s = Math.round(s); var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+            var COLORS = ['#2f6db0', '#0e6655', '#8a5cc2', '#c2410c'];
+
+            var c1 = document.getElementById('cWeekly');
+            if (c1 && C.labels && C.labels.length) {
+                var ds = C.lines.map(function (l, i) {
+                    return { type: 'line', label: l.label, data: l.pace, borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length], borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: false };
+                });
+                var raceData = C.labels.map(function () { return null; });
+                C.races.forEach(function (r) { raceData[r.index] = r.pace; });
+                ds.push({ type: 'line', label: 'Wedstrijden', data: raceData, showLine: false, borderColor: '#15202b', backgroundColor: '#fff', borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 });
+                var raceAt = {};
+                C.races.forEach(function (r) { raceAt[r.index] = r; });
+                new Chart(c1, { data: { labels: C.labels, datasets: ds }, options: { maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false },
+                    onClick: function (e, els) { if (els.length && els[0].datasetIndex === ds.length - 1) { var r = raceAt[els[0].index]; if (r) window.location = '/activity/' + r.id; } },
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(C.labels) } },
+                        y: { reverse: true, title: RC.axisTitle('Tempo per km (omhoog = sneller)', 'tempo'), ticks: { callback: function (v) { return mmss(v); } } } },
+                    plugins: { tooltip: { callbacks: {
+                        title: function (items) { return items.length ? 'Week van ' + RC.fullDate(C.labels[items[0].dataIndex]) : ''; },
+                        label: function (c) {
+                            if (c.raw == null) return null;
+                            if (c.dataset.label === 'Wedstrijden') { var r = raceAt[c.dataIndex]; return r ? r.name + ' (' + r.km.toFixed(1) + ' km, ' + RC.fullDate(r.date) + '): ' + mmss(c.raw) + ' per km' : null; }
+                            return c.dataset.label + ': ' + mmss(c.raw) + ' per km';
+                        } } } } } });
+            }
+
+            var P = C.plan, c2 = document.getElementById('cPlan');
+            if (c2 && P) {
+                new Chart(c2, { type: 'bar', data: { labels: P.labels, datasets: [
+                    { label: 'Gelijkmatig', data: P.even, backgroundColor: '#8aa6a0' },
+                    { label: 'Rustige start', data: P.calm, backgroundColor: '#2f6db0' }] },
+                    options: { maintainAspectRatio: false, scales: { y: { min: Math.floor(Math.min.apply(null, P.even.concat(P.calm)) / 10) * 10 - 10, title: RC.axisTitle('Tempo per km', 'tempo'), ticks: { callback: function (v) { return mmss(v); } } } },
+                        plugins: { tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + mmss(c.raw) + ' per km'; } } } } } });
+            }
+
+            var c3 = document.getElementById('cWeek');
+            if (c3 && C.week && C.week.length) {
+                new Chart(c3, { type: 'bar', data: { labels: C.week.map(function (d) { return d.date; }), datasets: [{ label: 'Herstelwaarden buiten je norm', data: C.week.map(function (d) { return d.withData ? d.deviating : null; }), backgroundColor: '#8aa6a0' }] },
+                    options: { maintainAspectRatio: false, scales: { x: { ticks: { callback: tickLabel(C.week.map(function (d) { return d.date; })) } }, y: { beginAtZero: true, max: 4, ticks: { stepSize: 1 }, title: RC.axisTitle('Waarden buiten je norm (van 4)', 'van 4') } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(C.week[items[0].dataIndex].date) : ''; } } } } } });
+            }
+        })();
+    </script>
+</th:block>
+</html>

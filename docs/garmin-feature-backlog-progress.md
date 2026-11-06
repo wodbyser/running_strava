@@ -4,7 +4,7 @@ Status of every item in `docs/garmin-feature-backlog.md`. Update this file whene
 
 Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md`.
 
-**Last updated:** 2026-10-31 by: thirteenth session (Phase 4 built; its 22 items DONE, phase AWAITING APPROVAL)
+**Last updated:** 2026-11-06 by: sixteenth session (Phase 5 built; items #49 to #56, #58, #59 DONE, phase AWAITING APPROVAL)
 
 Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). The Body Battery 180 s series is stored (owner decision 2026-10-25). Stress durations are already in the daily summary and are not stored twice. No analytics were built, so every item stays NOT STARTED.
 
@@ -75,17 +75,17 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 | 46 | Training consistency | C | High | Phase 3 | DONE | Activity history (existing) (built 2026-10-30, `performance-v1`, offline tests pass; see `docs/garmin-phase-3-design.md` sections 8 and 13; Phase 3 APPROVED 2026-10-30) |
 | 47 | Detraining analysis | C | High | Phase 4 | DONE | Load model, #16 Built (efficiency outcome only, no critical speed). 6 episodes, 1 usable, no summary. Phase AWAITING APPROVAL. |
 | 48 | Training adaptation lag | C | High | Phase 4 | DONE | #17, #36 Built with a block-permutation threshold. On real data a lag of 2 weeks (0.42 against 0.35) is reported with the association note. Phase AWAITING APPROVAL. |
-| 49 | Race performance prediction | D | Very high | Phase 5 | NOT STARTED | Audit race-prediction defect fixed (section 7.1) |
-| 50 | Race readiness | D | Very high | Phase 5 | NOT STARTED | #4, #21, #49 |
-| 51 | Goal feasibility analysis | D | Very high | Phase 5 | NOT STARTED | #49, owner goal input |
-| 52 | Race pace recommendation | D | Very high | Phase 5 | NOT STARTED | #22, #49 |
-| 53 | Pacing strategy generator | D | High | Phase 5 | NOT STARTED | #22, #49 |
-| 54 | Taper optimization | D | Very high | Phase 5 | NOT STARTED | Race history, #36 |
-| 55 | Race day readiness check | D | Very high | Phase 5 | NOT STARTED | #4, #50 |
-| 56 | Performance confidence interval | D | Very high | Phase 5 | NOT STARTED | #49 |
+| 49 | Race performance prediction | D | Very high | Phase 5 | DONE | Audit race-prediction defect fixed (section 7.1). Built 2026-11-06 (`race-v1`, `/race`): Riegel median of the Phase A anchors, window 180 days, critical speed as a second method for 5 km and shorter, weekly evolution chart. Offline tests incl. hand Riegel, monotonic paces, no prediction from one anchor. Phase AWAITING APPROVAL |
+| 50 | Race readiness | D | Very high | Phase 5 | DONE | #4, #21, #49. Built (`/race`): fitness block and the Phase 4 "Wedstrijdtempo" recovery block kept apart, no number. Phase AWAITING APPROVAL |
+| 51 | Goal feasibility analysis | D | Very high | Phase 5 | DONE | #49, owner goal input. Built (`/race`): band against the range, needed change, share of the owner's own periods with that improvement (from 26 weeks of history), minutes at goal pace. No verdict word. Phase AWAITING APPROVAL |
+| 52 | Race pace recommendation | D | Very high | Phase 5 | DONE | #22, #49. Built (`/race`): pace range per distance from the range of #56, goal pace beside it. Phase AWAITING APPROVAL |
+| 53 | Pacing strategy generator | D | High | Phase 5 | DONE | #22, #49. Built (`/race`): even plan and a 2 % calm start with the same total time, own first-half and second-half history (from 3 races). Phase AWAITING APPROVAL |
+| 54 | Taper optimization | D | Very high | Phase 5 | DONE | Race history, #36. Built (`/race/history`): load of the last 7 and 14 days against the average week, list always, rank correlation from 6 races (9 races: rho 0.62, p 0.08, not a clear relationship). Phase AWAITING APPROVAL |
+| 55 | Race day readiness check | D | Very high | Phase 5 | DONE | #4, #50. Built (`/race`): shown 0 to 7 days before a goal race, each recovery value against the own norm plus load and fatigue signals, no number. Phase AWAITING APPROVAL |
+| 56 | Performance confidence interval | D | Very high | Phase 5 | DONE | #49. Built (`/race`): anchor spread always, own-error range from 5 races, baseline comparison. On real data median error -6.7 % (predictions lean slow). Phase AWAITING APPROVAL |
 | 57 | Race simulation | D | High | Later | NOT STARTED | Needs #49 to #56 |
-| 58 | Post-race analysis | D | Very high | Phase 5 | NOT STARTED | #49, race history |
-| 59 | Race preparation retrospective | D | Very high | Phase 5 | NOT STARTED | #58, #36 |
+| 58 | Post-race analysis | D | Very high | Phase 5 | DONE | #49, race history. Built (`/race/history`): predicted against actual per race (walk-forward) and factors listed next to the time, never as causes. Phase AWAITING APPROVAL |
+| 59 | Race preparation retrospective | D | Very high | Phase 5 | DONE | #58, #36. Built (`/race/history`): 8 weeks before each race as small charts; group comparison needs 4 races per group (not reached). Phase AWAITING APPROVAL |
 | 60 | Load spike detection | E | Very high | Later | NOT STARTED | Separate module, no injury claims (section E) |
 | 61 | Impact exposure tracking | E | Very high | Later | NOT STARTED | Separate module |
 | 62 | Recovery deficit detection | E | Very high | Later | NOT STARTED | Separate module, #4 |
@@ -119,6 +119,9 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 
 Newest first.
 
+- **2026-11-06 (sixteenth session):** Phase 5 built (`race-v1`, pages `/race` and `/race/history`). Items 49 to 56, 58, 59 DONE (offline tests pass, checked in a browser on real data); phase AWAITING APPROVAL. #57 stays Later.
+- **2026-11-06:** Phase 5 design APPROVED by the owner (P5-0 to P5-13 answered). Build next.
+- **2026-11-06:** Phase 5 scope confirmed by the owner (full roadmap list; #57 stays Later). Items 49 to 56, 58, 59 IN PROGRESS (design `docs/garmin-phase-5-design.md`, AWAITING APPROVAL, no code).
 - **2026-10-31:** #20 running economy DROPPED by the owner (covered by the efficiency factor #16, #17; no reliable per-second power).
 - **2026-10-31 (thirteenth session):** Phase 4 built (`load-v1`, pages `/load` and `/load/response`). Items 5, 10, 11, 13 to 15, 31, 33 to 39, 41 to 45, 47, 48, 81 DONE (offline tests pass, checked in a browser on real data); notes per item. Phase AWAITING APPROVAL.
 - **2026-10-31:** Phase 4 scope confirmed by the owner (full roadmap list). Items 5, 10, 11, 13 to 15, 31, 33 to 39, 41 to 45, 47, 48, 81 IN PROGRESS (design `docs/garmin-phase-4-design.md`, AWAITING APPROVAL, no code).

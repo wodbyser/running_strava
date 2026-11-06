@@ -17,6 +17,7 @@ data class GarminProperties(
     val recovery: Recovery = Recovery(),
     val performance: Performance = Performance(),
     val load: Load = Load(),
+    val race: Race = Race(),
 ) {
     init {
         require(!timeout.isZero && !timeout.isNegative) { "garmin.timeout must be greater than 0" }
@@ -88,6 +89,25 @@ data class GarminProperties(
             minBlocks = minBlocks, minWeeksFrequency = minWeeksFrequency, minLongRunsGroup = minLongRunsGroup,
             minDetrainingSummary = minDetrainingSummary, minAdaptationWeeks = minAdaptationWeeks,
             modelMinDays = modelMinDays, modelMinPoints = modelMinPoints, modelGain = modelGain,
+        )
+    }
+
+    /** Phase 5 thresholds: PROPOSAL values from the design (section 2.6), UNVERIFIED. Defaults live in [RaceConfig]. */
+    data class Race(
+        val minOwnErrorRaces: Int = 5,
+        val minTaperRaces: Int = 6,
+        val minGroupRaces: Int = 4,
+        val minPacingRaces: Int = 3,
+        val minFeasibilityWeeks: Int = 26,
+        val calmStartPct: Double = 2.0,
+        val specificityMinutes: Int = 20,
+        val longestRunShare: Double = 0.75,
+        /** Fill the per-activity caches in the background right after the app started (same rule as the load pages). */
+        val warmUp: Boolean = true,
+    ) {
+        fun toConfig() = com.running.race.RaceConfig(
+            minOwnErrorRaces = minOwnErrorRaces, minTaperRaces = minTaperRaces, minGroupRaces = minGroupRaces, minPacingRaces = minPacingRaces,
+            minFeasibilityWeeks = minFeasibilityWeeks, calmStartPct = calmStartPct, specificityMinutes = specificityMinutes, longestRunShare = longestRunShare,
         )
     }
 

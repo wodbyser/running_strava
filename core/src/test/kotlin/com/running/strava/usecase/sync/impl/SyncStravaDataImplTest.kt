@@ -98,4 +98,25 @@ class SyncStravaDataImplTest {
         val expectedMax = now.minusDays(SyncStravaDataImpl.RECHECK_DAYS).toEpochSecond()
         assert(api.lastAfter!! <= expectedMax) { "after=${api.lastAfter} should be <= $expectedMax" }
     }
+
+    @Test
+    fun `full recheck lists every page without a date filter and updates a race marking of an old activity with no detail call`() {
+        val repo = Repo(listOf(activity(1), activity(70).copy(startDate = now.minusDays(200)), activity(80).copy(startDate = now.minusDays(400))))
+        val api = Api(listOf(activity(1), activity(70, workoutType = 1).copy(startDate = now.minusDays(200)), activity(80).copy(startDate = now.minusDays(400))))
+        val result = SyncStravaDataImpl(api, tokens, repo).executeFull()
+
+        assertEquals(null, api.lastAfter)
+        assertEquals(0, result.newActivities)
+        assertEquals(1, result.updatedActivities)
+        assertEquals(1, repo.store.getValue(70).workoutType)
+        assertEquals(emptyList<Long>(), api.detailCalls)
+    }
+
+    @Test
+    fun `the normal sync of an old race marking does not see it, the window stays 30 days`() {
+        val repo = Repo(listOf(activity(1), activity(70).copy(startDate = now.minusDays(200))))
+        val api = Api(emptyList())
+        SyncStravaDataImpl(api, tokens, repo).execute()
+        assert(api.lastAfter != null)
+    }
 }

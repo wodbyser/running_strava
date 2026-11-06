@@ -105,7 +105,7 @@ Backlog items: #5, #10, #11, #13, #14, #15, #31, #33 to #39, #41 to #45, #47, #4
 
 Needs Phases 2 and 3 approved (both APPROVED 2026-10-30). The owner must still confirm the Phase 4 scope before the design starts. The load model is new (no existing code).
 
-Status (2026-10-31): scope confirmed by the owner (full list above, unchanged). Design `docs/garmin-phase-4-design.md` written and APPROVED by the owner (2026-10-31). Built the same day (`load-v1`, pages `/load` and `/load/response`), AWAITING APPROVAL. Note: build deviations are in design section 11 (for example critical speed is not part of #43 and #47), the model validation report is section 12, and the first-render speed question is open for the owner.
+Status (2026-10-31): scope confirmed by the owner (full list above, unchanged). Design `docs/garmin-phase-4-design.md` written and APPROVED by the owner (2026-10-31). Built the same day (`load-v1`, pages `/load` and `/load/response`), APPROVED by the owner 2026-10-31 (wording review done). Note: build deviations are in design section 11 (for example critical speed is not part of #43 and #47), the model validation report is section 12, and the first-render speed question is open for the owner.
 
 Work:
 1. Design doc `docs/garmin-phase-4-design.md`. Choose and document the internal load model (HR-based or TRIMP variant, or session RPE). Document the fitness-fatigue model and validate it before use (#37).
@@ -120,6 +120,10 @@ Work:
 Backlog items: #49 to #56, #58, #59. Item #57 (race simulation) is "Later".
 
 Needs Phases 3 and 4 approved and Phase A complete.
+
+Build (2026-11-06): built as designed (`race-v1`, pages `/race` and `/race/history`), AWAITING APPROVAL by the owner. Build decisions, results on real data and open points: `docs/garmin-phase-5-design.md` sections 8 and 11.
+
+Status (2026-11-06): scope confirmed by the owner (full list above, unchanged; #57 stays Later). Design `docs/garmin-phase-5-design.md` written and APPROVED by the owner 2026-11-06 (answers P5-0 to P5-13 in its section 9). Build next. Note: the design proposes one new table (`race_goal`, for the goal form the owner asked for) and a Strava "re-read all summaries" button, because race markings on activities older than 30 days do not reach the app through the daily sync; both were accepted by the owner (P5-5, P5-6); they are not scope changes.
 
 Work:
 1. Design doc `docs/garmin-phase-5-design.md`.

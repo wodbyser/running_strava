@@ -84,16 +84,16 @@
         .brand:hover { color: #fff; }
         .brand-mark { display: inline-block; width: 22px; height: 14px; border-top: 2px solid #fff; border-bottom: 2px solid #fff; position: relative; }
         .brand-mark::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; border-top: 2px dashed #7fc8b8; }
-        .nav { display: flex; align-items: stretch; gap: var(--sp-5); margin-left: auto; }
+        .nav { display: flex; align-items: stretch; gap: var(--sp-4); margin-left: auto; }
         .nav-group { display: flex; align-items: center; gap: var(--sp-1); }
-        .nav-group + .nav-group { padding-left: var(--sp-5); border-left: 1px solid rgba(255,255,255,0.14); }
+        .nav-group + .nav-group { padding-left: var(--sp-4); border-left: 1px solid rgba(255,255,255,0.14); }
         .nav-label {
             font-size: 0.68rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
             color: #9fb0bd; margin-right: var(--sp-1); white-space: nowrap;
         }
         .nav a {
             color: #dbe3e8; text-decoration: none; font-weight: 500; font-size: 0.92rem;
-            padding: var(--sp-2) var(--sp-2); border-radius: var(--radius-sm); white-space: nowrap;
+            padding: var(--sp-2) 0.375rem; border-radius: var(--radius-sm); white-space: nowrap;
             min-height: 40px; display: inline-flex; align-items: center;
         }
         .nav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
@@ -104,7 +104,7 @@
             border: 1px solid rgba(255,255,255,0.3); border-radius: var(--radius-sm);
             font: 600 var(--fs-sm) var(--font-body); padding: 0 var(--sp-4); min-height: 44px; cursor: pointer;
         }
-        @media (max-width: 1080px) {
+        @media (max-width: 1300px) {
             .nav-toggle { display: inline-flex; align-items: center; }
             .topbar-inner { flex-wrap: wrap; padding: 0 var(--sp-4); }
             .nav { display: none; width: 100%; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) 0 var(--sp-4); }
@@ -113,6 +113,11 @@
             .nav-group + .nav-group { padding-left: 0; border-left: none; border-top: 1px solid rgba(255,255,255,0.12); padding-top: var(--sp-3); }
             .nav-label { width: 100%; }
             .nav a { min-height: 44px; }
+        }
+
+        /* The menu has 13 items: on medium wide screens the group labels would push the last items out of view. */
+        @media (min-width: 1301px) and (max-width: 1560px) {
+            .nav-label { display: none; }
         }
 
         /* ---------- Layout ---------- */
@@ -519,6 +524,13 @@
         .lead { color: var(--ink-2); max-width: 80ch; margin-bottom: var(--sp-4); }
         .lead strong { color: var(--ink); font-weight: 600; }
         .sub-head { font: 600 var(--fs-md) var(--font-display); letter-spacing: 0.3px; color: var(--ink); margin: var(--sp-5) 0 var(--sp-2); display: flex; align-items: center; gap: var(--sp-2); }
+        details.race-row { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-4); background: var(--surface); }
+        details.race-row + details.race-row { margin-top: var(--sp-2); }
+        details.race-row > summary { cursor: pointer; display: grid; grid-template-columns: 6.5em minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; min-height: 40px; }
+        details.race-row[open] > summary { margin-bottom: var(--sp-2); }
+        details.race-row .rr-date { color: var(--ink-2); font-size: var(--fs-sm); white-space: nowrap; }
+        details.race-row .rr-meta { color: var(--ink-2); font-size: var(--fs-sm); }
+        @media (max-width: 640px) { details.race-row > summary { grid-template-columns: 1fr; gap: var(--sp-1); } }
         details.more { margin-top: var(--sp-4); }
         details.more > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-sm); color: var(--accent); min-height: 36px; display: inline-flex; align-items: center; }
         details.more[open] > summary { margin-bottom: var(--sp-2); }
@@ -763,6 +775,7 @@
                 <a href="/recovery" data-match="/recovery">Herstel</a>
                 <a href="/performance" data-match="/performance">Prestaties</a>
                 <a href="/load" data-match="/load">Belasting</a>
+                <a href="/race" data-match="/race">Wedstrijd</a>
                 <a href="/compare" data-match="/compare">Vergelijken</a>
             </div>
             <div class="nav-group" role="group" aria-labelledby="nav-ai">

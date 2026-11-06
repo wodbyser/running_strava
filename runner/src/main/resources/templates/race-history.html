@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <div>
+            <h1>Terugblik op wedstrijden</h1>
+            <p th:text="${intro}">-</p>
+        </div>
+        <nav class="actions" aria-label="Pagina kiezen">
+            <a class="btn btn-sm btn-secondary" th:href="${otherPage}">Voorspelling en plan</a>
+            <a class="btn btn-sm btn-primary" href="/race/history" aria-current="page">Terugblik op wedstrijden</a>
+        </nav>
+    </div>
+
+    <nav class="toc" aria-label="Onderdelen van deze pagina">
+        <a href="#voorspeld">Voorspeld tegen gelopen</a>
+        <a href="#taper">Taper</a>
+        <a href="#voorbereiding">Voorbereiding</a>
+        <a href="#begrippen">Begrippen</a>
+    </nav>
+
+    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
+
+    <section class="card hero tone-neutral" aria-labelledby="h-hero">
+        <div class="hero-top">
+            <h2 id="h-hero" class="hero-label" th:text="${p.headline}">9 wedstrijden teruggekeken</h2>
+            <span class="badge badge-est" title="Berekend uit je eigen wedstrijden en trainingen. Verband, geen oorzaak.">app-schatting</span>
+        </div>
+        <p class="hero-sub" th:if="${p.sub != ''}" th:text="${p.sub}">-</p>
+        <div class="hero-conclusion"><p th:each="l : ${p.lines}" th:text="${l}">-</p></div>
+    </section>
+
+    <section class="card perf-section" id="voorspeld" aria-labelledby="h-voorspeld">
+        <div class="card-head">
+            <h2 id="h-voorspeld">Voorspeld tegen gelopen <span class="badge badge-est">app-schatting</span></h2>
+        </div>
+        <p class="lead">Voor elke wedstrijd de voorspelling zoals de app die de dag ervoor zou hebben gegeven (alleen ankers van vóór de wedstrijd). Een stip onder de lijn is sneller gelopen dan voorspeld.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'anchor'} }, 'voorspeld')}"/>
+        <p class="note mt-2" th:if="${!p.hasRaces}">Nog geen wedstrijden gemarkeerd op Strava.</p>
+        <div class="chart-box mt-2" th:if="${p.hasRaces}"><canvas id="cPred" role="img" aria-label="Voorspeld tempo tegen gelopen tempo per wedstrijd"></canvas></div>
+        <p class="legend" th:if="${p.hasRaces}"><span>Groen: sneller dan voorspeld</span><span>Oranje: trager dan voorspeld</span><span>Lijn: voorspeld is gelopen</span></p>
+
+        <div class="cmp-list mt-2">
+            <details class="race-row" th:each="r : ${p.races}">
+                <summary>
+                    <span class="rr-date" th:text="${r.date}">-</span>
+                    <span class="rr-title"><strong th:text="${r.name}">-</strong><span class="rr-meta" th:text="' · ' + ${r.distance}"> · 5 km</span></span>
+                    <span class="rr-meta">gelopen <strong th:text="${r.actual}">-</strong>, voorspeld <span th:text="${r.predicted}">-</span></span>
+                    <span class="pill" th:classappend="${r.css}" th:text="${r.diff}">-</span>
+                </summary>
+                <p class="note-xs" th:if="${r.note != null}" th:text="${r.note}">-</p>
+                <p class="note-xs" th:if="${r.diffPace != '-'}">Verschil per km: <span th:text="${r.diffPace}">-</span> (plus = trager dan voorspeld).</p>
+                <ul class="type-parts">
+                    <li th:each="f : ${r.factors}"><span class="part-mark" th:text="${f.title}">-</span><span th:text="${f.detail}">-</span></li>
+                </ul>
+                <p class="note-xs"><a th:href="'/activity/' + ${r.id}">Open de wedstrijd</a>. Dit zijn gegevens naast je tijd. <span th:text="${association}">Verband, geen oorzaak.</span></p>
+            </details>
+        </div>
+        <h3 class="mt-2">Hoe deelde je de wedstrijden in?</h3>
+        <p th:each="l : ${p.pacingLines}" th:text="${l}">-</p>
+    </section>
+
+    <section class="card perf-section" id="taper" aria-labelledby="h-taper">
+        <div class="card-head">
+            <h2 id="h-taper">Taper <span class="badge badge-calc">berekend</span><th:block th:replace="~{fragments :: help(${g['taper']})}"/></h2>
+        </div>
+        <p class="lead">Hoeveel belasting had je in de dagen voor elke wedstrijd, als percentage van je gemiddelde week daarvoor? 100 % is je gewone week.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'taper7','taper14'} }, 'taper')}"/>
+        <div class="chart-box chart-box--sm mt-2" th:if="${!p.taperRows.isEmpty()}"><canvas id="cTaper" role="img" aria-label="Belasting in de week voor de wedstrijd tegen het verschil met de voorspelling"></canvas></div>
+        <p class="legend" th:if="${!p.taperRows.isEmpty()}"><span>Horizontaal: belasting van de laatste dagen (% van je gewone week)</span><span>Verticaal: gelopen tegenover voorspeld (plus = trager)</span></p>
+        <p class="mt-2" th:text="${p.taperText}">-</p>
+        <details class="more" th:if="${!p.taperRows.isEmpty()}">
+            <summary>Toon als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Wedstrijd</th><th class="num">Korte periode</th><th class="num">Lange periode</th><th class="num">Resultaat</th></tr></thead>
+                <tbody>
+                <tr th:each="t : ${p.taperRows}">
+                    <td class="nowrap" th:text="${t.date}">-</td>
+                    <td><a th:href="'/activity/' + ${t.id}" th:text="${t.name}">-</a></td>
+                    <td class="num" th:text="${t.taper7}">-</td><td class="num" th:text="${t.taper14}">-</td><td class="num" th:text="${t.result}">-</td>
+                </tr>
+                </tbody>
+            </table></div>
+        </details>
+    </section>
+
+    <section class="card perf-section" id="voorbereiding" aria-labelledby="h-prep">
+        <div class="card-head">
+            <h2 id="h-prep">Voorbereiding <span class="badge badge-calc">berekend</span></h2>
+        </div>
+        <p class="lead">Wat deed je in de weken voor elke wedstrijd? Elke staaf is een wedstrijd; groen liep sneller dan voorspeld, oranje trager.</p>
+        <th:block th:replace="~{fragments :: windowForm(${ {'retro'} }, 'voorbereiding')}"/>
+        <p class="note mt-2" th:if="${p.prepRows.isEmpty()}">Nog geen wedstrijden om te tonen.</p>
+        <div class="chart-grid mt-2" th:if="${!p.prepRows.isEmpty()}">
+            <figure class="mini-chart"><figcaption>Kilometers per week</figcaption><div class="chart-box chart-box--sm"><canvas id="pKm"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Belasting per week</figcaption><div class="chart-box chart-box--sm"><canvas id="pLoad"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Lange duurlopen</figcaption><div class="chart-box chart-box--sm"><canvas id="pLong"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Harde sessies</figcaption><div class="chart-box chart-box--sm"><canvas id="pHard"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Langste run (km)</figcaption><div class="chart-box chart-box--sm"><canvas id="pLongest"></canvas></div></figure>
+            <figure class="mini-chart"><figcaption>Taper (% van je gewone week)</figcaption><div class="chart-box chart-box--sm"><canvas id="pTaper"></canvas></div></figure>
+        </div>
+        <p class="mt-2" th:text="${p.prepText}">-</p>
+        <details class="more" th:if="${!p.prepRows.isEmpty()}">
+            <summary>Toon als tabel</summary>
+            <div class="table-wrap"><table>
+                <thead><tr><th>Datum</th><th>Wedstrijd</th><th class="num">Km per week</th><th class="num">Belasting per week</th><th class="num">Lange duurlopen</th><th class="num">Harde sessies</th><th class="num">Langste run (km)</th><th class="num">Taper</th><th class="num">Resultaat</th></tr></thead>
+                <tbody>
+                <tr th:each="t : ${p.prepRows}">
+                    <td class="nowrap" th:text="${t.date}">-</td>
+                    <td><a th:href="'/activity/' + ${t.id}" th:text="${t.name}">-</a></td>
+                    <td class="num" th:text="${t.km}">-</td><td class="num" th:text="${t.load}">-</td><td class="num" th:text="${t.longRuns}">-</td>
+                    <td class="num" th:text="${t.hard}">-</td><td class="num" th:text="${t.longest}">-</td><td class="num" th:text="${t.taper}">-</td><td class="num" th:text="${t.result}">-</td>
+                </tr>
+                </tbody>
+            </table></div>
+        </details>
+        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+    </section>
+
+    <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">
+        <h2 id="h-begrippen">Begrippen</h2>
+        <dl class="glossary">
+            <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+        </dl>
+    </section>
+
+    <script th:inline="javascript">
+        (function () {
+            if (!window.Chart) return;
+            var C = /*[[${p.charts}]]*/ {};
+            var FAST = '#2f8f5b', SLOW = '#d98a1c';
+            function mmss(s) { s = Math.round(s); var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+            function tip(r) { return r.name + ' (' + RC.fullDate(r.date) + ')'; }
+
+            var c1 = document.getElementById('cPred');
+            if (c1 && C.points && C.points.length) {
+                var all = C.points.map(function (p) { return p.x; }).concat(C.points.map(function (p) { return p.y; }));
+                var lo = Math.floor(Math.min.apply(null, all) / 10) * 10 - 10, hi = Math.ceil(Math.max.apply(null, all) / 10) * 10 + 10;
+                new Chart(c1, { type: 'scatter', data: { datasets: [
+                    { type: 'line', label: 'Voorspeld is gelopen', data: [{ x: lo, y: lo }, { x: hi, y: hi }], borderColor: '#8aa6a0', borderDash: [5, 4], borderWidth: 1, pointRadius: 0 },
+                    { label: 'Wedstrijden', data: C.points, pointRadius: 7, pointHoverRadius: 9, backgroundColor: C.points.map(function (p) { return p.fast ? FAST : SLOW; }) }] },
+                    options: { maintainAspectRatio: false,
+                        onClick: function (e, els) { if (els.length && els[0].datasetIndex === 1) window.location = '/activity/' + C.points[els[0].index].id; },
+                        scales: { x: { min: lo, max: hi, title: RC.axisTitle('Voorspeld tempo per km', 'voorspeld'), ticks: { callback: function (v) { return mmss(v); } } },
+                            y: { min: lo, max: hi, title: RC.axisTitle('Gelopen tempo per km', 'gelopen'), ticks: { callback: function (v) { return mmss(v); } } } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { if (c.datasetIndex === 0) return null; var p = C.points[c.dataIndex]; return [tip(p), 'voorspeld ' + mmss(p.x) + ', gelopen ' + mmss(p.y) + ' per km']; } } } } } });
+            }
+
+            var c2 = document.getElementById('cTaper');
+            if (c2 && C.taper && C.taper.length) {
+                new Chart(c2, { type: 'scatter', data: { datasets: [{ label: 'Wedstrijden', data: C.taper, pointRadius: 7, pointHoverRadius: 9, backgroundColor: '#2f6db0' }] },
+                    options: { maintainAspectRatio: false,
+                        onClick: function (e, els) { if (els.length) window.location = '/activity/' + C.taper[els[0].index].id; },
+                        scales: { x: { title: RC.axisTitle('Belasting laatste dagen (% van je gewone week)', 'belasting') }, y: { title: RC.axisTitle('Gelopen tegenover voorspeld (%)', 'verschil') } },
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (c) { var p = C.taper[c.dataIndex]; return [tip(p), 'taper ' + Math.round(p.x) + ' %, resultaat ' + p.y.toFixed(1) + ' %']; } } } } } });
+            }
+
+            var P = C.prep;
+            if (P && P.labels && P.labels.length) {
+                var colors = P.fast.map(function (f) { return f == null ? '#c9d1d8' : (f ? FAST : SLOW); });
+                function bar(id, data, digits) {
+                    var el = document.getElementById(id);
+                    if (!el) return;
+                    new Chart(el, { type: 'bar', data: { labels: P.labels, datasets: [{ data: data, backgroundColor: colors }] },
+                        options: { maintainAspectRatio: false, scales: { x: { ticks: { callback: function (v) { var d = new Date(P.labels[v] + 'T00:00:00'); return d.toLocaleDateString('nl-BE', { month: 'short', year: '2-digit' }); } } }, y: { beginAtZero: true } },
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? P.names[items[0].dataIndex] + ' (' + RC.fullDate(P.labels[items[0].dataIndex]) + ')' : ''; }, label: function (c) { return c.raw == null ? 'niet te berekenen' : c.raw.toFixed(digits); } } } } } });
+                }
+                bar('pKm', P.km, 1); bar('pLoad', P.load, 0); bar('pLong', P.long, 0); bar('pHard', P.hard, 0); bar('pLongest', P.longest, 1); bar('pTaper', P.taper, 0);
+            }
+        })();
+    </script>
+</th:block>
+</html>

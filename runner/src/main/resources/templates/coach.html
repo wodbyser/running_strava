@@ -182,74 +182,11 @@
         </div>
     </section>
 
-    <!-- Race Predictions -->
+    <!-- Race predictions moved to /race: one prediction in the app, not two that can disagree -->
     <section class="card" aria-labelledby="h-pred">
-        <h2 id="h-pred">Wedstrijdvoorspellingen <span class="badge badge-est" title="Model (Riegel) op je eigen inspanningen; geen garantie.">schatting</span></h2>
-        <p class="intro">
-            Riegel-formule (T2 = T1 &middot; (D2/D1)<sup>1,06</sup>) op <strong>doorlopende</strong> inspanningen van de
-            <span th:text="${coachData.windowLabel}">laatste 12 maanden</span>: wedstrijden, je snelste stukken over 1/5/10/21,1/42,2 km binnen een run (uit GPS-streams) en runs met
-            gem. HR &ge; 85% van je geschatte max. Intervalreps tellen niet mee (er zit rust tussen). Getoond: de mediaan van
-            minstens 2 inspanningen binnen 0,4-2,5x de doelafstand, afgerond, met de spreiding. Riegel veronderstelt dat je
-            voor de doelafstand even goed getraind bent; voor de marathon is hij vaak te optimistisch.
-        </p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th scope="col">Afstand</th>
-                        <th scope="col" class="num">Verwachte tijd</th>
-                        <th scope="col" class="num">Tempo</th>
-                        <th scope="col" class="num">Spreiding</th>
-                        <th scope="col">Gebaseerd op</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="p : ${coachData.racePredictions}">
-                        <th scope="row" class="nowrap" th:text="${p.distance}">10 km</th>
-                        <td class="num mono"><strong th:text="${p.predictedTime}">45:00</strong></td>
-                        <td class="num mono" th:text="${p.predictedPace}">4:30</td>
-                        <td class="num mono" th:text="${p.range != null} ? ${p.range} : '-'">-</td>
-                        <td class="note">
-                            <span th:text="${p.basedOn != null} ? ${p.basedOn} : ''"></span>
-                            <em th:if="${p.note != null}" th:text="${p.note}" class="text-warn"></em>
-                        </td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(coachData.racePredictions)}" class="table-empty"><td colspan="5">Onvoldoende doorlopende inspanningen voor een voorspelling.</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- Recent Form Predictions -->
-    <section class="card" aria-labelledby="h-form">
-        <h2 id="h-form">Vormvoorspelling <span class="badge badge-est" title="Zelfde model, alleen de laatste 6 weken.">schatting</span></h2>
-        <p class="intro">Zelfde methode, maar alleen inspanningen van de laatste 6 weken. Snelste stukken binnen gewone trainingen zijn zelden maximaal, dus deze voorspellingen zijn eerder te traag dan te snel (conservatief).</p>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th scope="col">Afstand</th>
-                        <th scope="col" class="num">Verwachte tijd</th>
-                        <th scope="col" class="num">Tempo</th>
-                        <th scope="col" class="num">Spreiding</th>
-                        <th scope="col">Gebaseerd op</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="p : ${coachData.recentFormPredictions}">
-                        <th scope="row" class="nowrap" th:text="${p.distance}">10 km</th>
-                        <td class="num mono"><strong th:text="${p.predictedTime}">45:00</strong></td>
-                        <td class="num mono" th:text="${p.predictedPace}">4:30</td>
-                        <td class="num mono" th:text="${p.range != null} ? ${p.range} : '-'">-</td>
-                        <td class="note">
-                            <span th:text="${p.basedOn != null} ? ${p.basedOn} : ''"></span>
-                            <em th:if="${p.note != null}" th:text="${p.note}" class="text-warn"></em>
-                        </td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(coachData.recentFormPredictions)}" class="table-empty"><td colspan="5">Onvoldoende doorlopende inspanningen in de laatste 6 weken.</td></tr>
-                </tbody>
-            </table>
-        </div>
+        <h2 id="h-pred">Wedstrijdvoorspellingen</h2>
+        <p class="intro">De voorspellingen staan nu op één plek: de pagina <strong>Wedstrijd</strong>, met de ankers erachter, een bandbreedte, een schema en een terugblik op je eigen wedstrijden.</p>
+        <a class="btn btn-primary btn-sm" href="/race">Naar Wedstrijd</a>
     </section>
 
 </div>
