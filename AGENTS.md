@@ -79,6 +79,12 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
 Online/always-on hosting lives in `deploy/` (`DEPLOY.md` is the full runbook, in Dutch; target is a Windows 11
 machine with Docker Desktop + Tailscale Funnel).
 
+- **Linux (Ubuntu/Debian) laptops/servers: `deploy/LINUX.md`**, with `deploy/setup.sh`, `deploy/start.sh`,
+  `deploy/stop.sh`, `deploy/status.sh`, `deploy/migrate.sh` and `deploy/install-systemd.sh` (systemd units for
+  boot + a nightly backup timer). Same compose file, same image, same database; only the host tooling differs.
+  Note: `deploy/docker-compose.yml` uses project `running`, so it shares the volume `running_pgdata` and the
+  container names with the root dev compose — run dev and deploy one at a time.
+
 - **Day-to-day on the server: `deploy/START-STOP.md`** (Dutch, start there): `deploy/start.ps1`,
   `deploy/stop.ps1`, `deploy/status.ps1`. `start` = Docker up + wait for `/login` + Funnel on; `stop` = Funnel
   off + containers stopped (DB volume kept); `status` exits 0 when healthy. Live at

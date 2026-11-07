@@ -26,7 +26,7 @@ The phase mapping for the backlog is in `docs/garmin-feature-backlog-progress.md
 
 ## Rules for every phase
 
-1. **Entry:** the previous phase is approved in `GARMIN_PROGRESS.md` (Approvals table). The owner has not confirmed Phases 3 to 5 yet. Ask before starting them.
+1. **Entry:** the previous phase is approved in `GARMIN_PROGRESS.md` (Approvals table). Phases 3, 4 and 5 were confirmed by the owner (2026-10-30, 2026-10-31 and 2026-11-06) and are approved (Phase 5 on 2026-11-07).
 2. **Design first:** write the phase design doc before code. Each metric lists its formula, assumptions, minimum data, algorithm version, and validation (`GARMIN_API.md` section 8).
 3. **Build:** code and tests, offline only. Strava tests must still pass.
 4. **Exit:** all exit criteria below pass. The agent writes a report and marks the phase "AWAITING APPROVAL". It does not start the next phase.
@@ -121,9 +121,9 @@ Backlog items: #49 to #56, #58, #59. Item #57 (race simulation) is "Later".
 
 Needs Phases 3 and 4 approved and Phase A complete.
 
-Build (2026-11-06): built as designed (`race-v1`, pages `/race` and `/race/history`), AWAITING APPROVAL by the owner. Build decisions, results on real data and open points: `docs/garmin-phase-5-design.md` sections 8 and 11.
+Build (2026-11-06): built as designed (`race-v1`, pages `/race` and `/race/history`), APPROVED by the owner 2026-11-07. Build decisions, results on real data and open points: `docs/garmin-phase-5-design.md` sections 8 and 11.
 
-Status (2026-11-06): scope confirmed by the owner (full list above, unchanged; #57 stays Later). Design `docs/garmin-phase-5-design.md` written and APPROVED by the owner 2026-11-06 (answers P5-0 to P5-13 in its section 9). Build next. Note: the design proposes one new table (`race_goal`, for the goal form the owner asked for) and a Strava "re-read all summaries" button, because race markings on activities older than 30 days do not reach the app through the daily sync; both were accepted by the owner (P5-5, P5-6); they are not scope changes.
+Status (2026-11-07): Phase 5 APPROVED by the owner. Scope was confirmed 2026-11-06 (full list above, unchanged; #57 stays Later). Design `docs/garmin-phase-5-design.md` written and APPROVED 2026-11-06 (answers P5-0 to P5-13 in its section 9). Note: the design proposes one new table (`race_goal`, for the goal form the owner asked for) and a Strava "re-read all summaries" button, because race markings on activities older than 30 days do not reach the app through the daily sync; both were accepted by the owner (P5-5, P5-6); they are not scope changes. No phase is open after Phase 5: every Later item needs its own design doc and the owner's approval.
 
 Work:
 1. Design doc `docs/garmin-phase-5-design.md`.

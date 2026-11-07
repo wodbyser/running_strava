@@ -1,8 +1,8 @@
 # Garmin Phase 5 design: race prediction and readiness
 
 Date: 2026-11-06. Status: DESIGN APPROVED by the owner 2026-11-06 (P5-0 to P5-13 answered in session, section 9; the agent
-set the approval on his written instruction). BUILT 2026-11-06 (sixteenth session), AWAITING APPROVAL of the phase: build notes
-and results in sections 8 and 11. Algorithm version for everything below: `race-v1`.
+set the approval on his written instruction). BUILT 2026-11-06 (sixteenth session), PHASE APPROVED by the owner 2026-11-07:
+build notes and results in sections 8 and 11. Algorithm version for everything below: `race-v1`.
 
 Scope (roadmap Phase 5, confirmed by the owner in session 2026-11-06: "Hele lijst zoals roadmap"): backlog #49 race
 performance prediction, #50 race readiness, #51 goal feasibility, #52 race pace recommendation, #53 pacing strategy,
@@ -403,7 +403,7 @@ go here and in the progress log.
 | Existing tests pass unchanged (or changes listed) | DONE: 528 tests pass (core 382, runner 146), 74 new. No existing test changed. `SyncStravaData` got a second method (`executeFull`), two new tests added to `SyncStravaDataImplTest`, the existing ones untouched. `CoachService` race prediction tests unchanged (the service code stays, only the page tables are replaced by a link card) |
 | Census re-checked on the live data through the app | PARTLY: re-checked on the local copy through the app (535 runs, 9 marked races, 9 with streams, 7 with Garmin recovery on the morning, as in section 1.2). The live database on the Windows host was not reachable from here; the three new markings are not in the copy (P5-6 re-read needed) |
 | Pages checked in a browser on real data | DONE: both pages in headless Chrome on port 8091 with the local copy (with a 5 km goal on 2026-12-05 in 19:00 and a second goal 3 days ahead to see the race week; both goals deleted again), at 1280 px, 1320 to 1700 px (menu) and 420 px |
-| Owner approval of the phase | NOT STARTED: AWAITING APPROVAL |
+| Owner approval of the phase | DONE: APPROVED by the owner 2026-11-07 (seventeenth session; the agent set the Approvals cell on his written instruction) |
 
 ## 9. Questions for the owner: ALL ANSWERED 2026-11-06 in session
 

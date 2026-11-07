@@ -1,0 +1,18 @@
+[Unit]
+Description=Running Coach (Docker-stack + publieke Tailscale Funnel)
+Documentation=file://@REPO_DIR@/deploy/LINUX.md
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=@REPO_DIR@/deploy
+ExecStart=/usr/bin/env bash @REPO_DIR@/deploy/start.sh
+ExecStop=/usr/bin/env bash @REPO_DIR@/deploy/stop.sh
+TimeoutStartSec=900
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target

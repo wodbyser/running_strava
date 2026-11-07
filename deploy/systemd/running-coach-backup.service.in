@@ -1,0 +1,13 @@
+[Unit]
+Description=Running Coach database back-up
+Documentation=file://@REPO_DIR@/deploy/LINUX.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPO_DIR@/deploy
+ExecStart=/usr/bin/env bash @REPO_DIR@/deploy/migrate.sh backup
+# De timer draait als root; de back-ups blijven eigendom van de repo-gebruiker.
+ExecStartPost=/usr/bin/chown -R @OWNER@:@GROUP@ @REPO_DIR@/deploy/backups

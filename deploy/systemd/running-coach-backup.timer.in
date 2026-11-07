@@ -1,0 +1,10 @@
+[Unit]
+Description=Running Coach back-up elke nacht om 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

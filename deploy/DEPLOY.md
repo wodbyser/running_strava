@@ -279,3 +279,6 @@ Wil je de app liever privé houden, laat dan stap 6 weg en gebruik Tailscale op 
 Op Linux of macOS werkt dezelfde compose-file; gebruik `deploy/setup.sh` en `deploy/migrate.sh` in plaats van de
 PowerShell-scripts. De compose-file heeft geen Linux-aannames: geen `network_mode: host`, geen absolute paden,
 geen bind-mounts met vaste uid/gid, één named volume (`pgdata`) en een healthcheck op Postgres.
+
+Voor een volledige Linux-installatie (start/stop/status-scripts, systemd-units, nachtelijke back-up) staat er een
+aparte runbook: [`LINUX.md`](LINUX.md).
