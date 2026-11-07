@@ -14,6 +14,7 @@
 
     <nav class="toc" aria-label="Onderdelen van deze pagina">
         <a href="#voorspeld">Voorspeld tegen gelopen</a>
+        <a href="#vastgelegd">Vooraf vastgelegd</a>
         <a href="#taper">Taper</a>
         <a href="#voorbereiding">Voorbereiding</a>
         <a href="#begrippen">Begrippen</a>
@@ -59,6 +60,30 @@
         </div>
         <h3 class="mt-2">Hoe deelde je de wedstrijden in?</h3>
         <p th:each="l : ${p.pacingLines}" th:text="${l}">-</p>
+    </section>
+
+    <section class="card perf-section" id="vastgelegd" aria-labelledby="h-vastgelegd">
+        <div class="card-head">
+            <h2 id="h-vastgelegd">Vooraf vastgelegd <span class="badge badge-est">app-schatting</span></h2>
+        </div>
+        <p class="lead">Hierboven is herberekend met de regels en gegevens van vandaag. Hier staat wat de app écht zei vóór de wedstrijd: elke dag wordt je voorspelling vastgelegd en daarna nooit meer aangepast. Telt de laatste voorspelling van de twee weken ervoor, omgerekend naar de gemeten afstand.</p>
+        <p class="mt-2" th:text="${p.loggedLine}">-</p>
+        <div class="table-wrap mt-2" th:if="${!p.loggedRows.isEmpty()}"><table>
+            <thead><tr><th>Datum</th><th>Wedstrijd</th><th class="num">Afstand</th><th>Vastgelegd op</th><th class="num">Voorspeld</th><th class="num">Gelopen</th><th class="num">Verschil</th><th>Bandbreedte</th></tr></thead>
+            <tbody>
+            <tr th:each="r : ${p.loggedRows}">
+                <td class="nowrap" th:text="${r.date}">-</td>
+                <td><a th:href="'/activity/' + ${r.id}" th:text="${r.name}">-</a></td>
+                <td class="num" th:text="${r.distance}">-</td>
+                <td class="nowrap"><span th:text="${r.loggedOn}">-</span> <span class="note-xs" th:text="${r.version}">race-v3</span></td>
+                <td class="num" th:text="${r.predicted}">-</td><td class="num" th:text="${r.actual}">-</td>
+                <td class="num"><span class="pill" th:classappend="${r.css}" th:text="${r.error}">-</span></td>
+                <td th:text="${r.range}">-</td>
+            </tr>
+            </tbody>
+        </table></div>
+        <p class="note-xs" th:if="${!p.loggedRows.isEmpty()}">Plus = trager dan voorspeld.</p>
+        <p class="note-xs">Een wedstrijd zonder vastgelegde voorspelling voor een afstand binnen 10 % ervan staat hier niet.</p>
     </section>
 
     <section class="card perf-section" id="taper" aria-labelledby="h-taper">
@@ -115,7 +140,7 @@
                 </tbody>
             </table></div>
         </details>
-        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v3</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
     </section>
 
     <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">

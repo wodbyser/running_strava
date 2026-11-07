@@ -4,7 +4,7 @@ Status of every item in `docs/garmin-feature-backlog.md`. Update this file whene
 
 Plan and phase rules: `GARMIN_ROADMAP.md`. Session progress: `GARMIN_PROGRESS.md`.
 
-**Last updated:** 2026-11-07 by: seventeenth session (Phase 5 APPROVED by the owner 2026-11-07; items #49 to #56, #58, #59 DONE and the phase approved)
+**Last updated:** 2026-11-07 by: nineteenth session (owner declined the `race-v2` build; #49 and #56 stay DONE on `race-v1`)
 
 Gate 3 note: the Phase 1 sync now stores the inputs for #1, #3, #6, #7 (Garmin sleep need only), #8, #9 (HRV, resting HR, sleep, Body Battery, stress, steps, activity references, HR zones). The Body Battery 180 s series is stored (owner decision 2026-10-25). Stress durations are already in the daily summary and are not stored twice. No analytics were built, so every item stays NOT STARTED.
 
@@ -118,6 +118,14 @@ Status values: NOT STARTED, PLANNED (phase assigned), IN PROGRESS, DONE, BLOCKED
 ## Log
 
 Newest first.
+
+- **2026-11-07 (twenty-second session):** `race-v3` at the owner's request. #56: range now from the 10th to 90th percentile of the own errors (always contains the prediction); predictions are frozen daily in `race_prediction_log` and compared with later races on `/race/history`. #49 and #56 stay DONE. 547 offline tests pass.
+
+- **2026-11-07 (twenty-first session):** the owner reversed his earlier decision and asked to build `race-v2` (cap by the most recent road race, design section 12). #49 and #56 stay DONE, now on `race-v2`: 5 km 19:20, 10 km 40:15, half marathon 1:29:00 and marathon 3:06:00 on real data; own-error median -3.2 % (was -6.7 %). 539 offline tests pass (11 new).
+
+- **2026-11-07 (nineteenth session):** the owner declined the `race-v2` build ("Nee, laat het voorlopig zo"). No status change: #49 (race prediction) and #56 (accuracy) stay DONE on `race-v1`, no rule or threshold changed. The option-C design note and walk-forward validation remain on record in `docs/garmin-phase-5-design.md` section 12; nothing built, no test changed.
+
+- **2026-11-07 (eighteenth session):** read-only impact analysis of the race-prediction bias, requested by the owner (#49, #56). No status change: both stay DONE, no rule or threshold changed. Result in `docs/garmin-phase-5-design.md` section 11.1: the bias is real and stable (11 road races, median -6.72 %, 10 faster than predicted), but a global factor over-corrects the longer distances because the bias follows the anchor mix. The owner chose C (cap by the most recent race for shorter targets). Design note and walk-forward validation: section 12 (MAE 7.51 % to 6.11 %, median error -6.72 % to -3.20 %, 5 km 19:20, 10 km 40:15, half marathon and marathon unchanged, no capped prediction faster than actual). No build yet: awaiting the owner's approval of `race-v2`.
 
 - **2026-11-07 (seventeenth session):** Phase 5 APPROVED by the owner in session (written instruction "Phase 5 goedkeuren"); the agent set the cell in `GARMIN_PROGRESS.md` on that instruction. No code changed. Tests re-run with `--rerun-tasks`: 528 pass, 0 fail (core 382, runner 146). Backlog notes of the Phase 5 items updated from AWAITING to APPROVED. No item outside Phase 5 is in scope; the Later items each need their own design doc and owner approval.
 

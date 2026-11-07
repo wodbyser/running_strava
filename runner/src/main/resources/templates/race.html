@@ -93,7 +93,7 @@
         <div class="card-head">
             <h2 id="h-tijden">Voorspelde tijden <span class="badge badge-est" title="Een model van de app, met onzekerheid.">app-schatting</span><th:block th:replace="~{fragments :: help(${g['riegel']})}"/></h2>
         </div>
-        <div class="lead">Wat je nu zou kunnen lopen op een rechte, vlakke wedstrijd, uit je eigen <strong>ankers</strong><th:block th:replace="~{fragments :: help(${g['anker']})}"/>. Onder elke tijd staat de <strong>bandbreedte</strong><th:block th:replace="~{fragments :: help(${g['bandbreedte']})}"/> en waarop die steunt.</div>
+        <div class="lead">Wat je nu zou kunnen lopen op een rechte, vlakke wedstrijd, uit je eigen <strong>ankers</strong><th:block th:replace="~{fragments :: help(${g['anker']})}"/>. Onder elke tijd staat de <strong>bandbreedte</strong><th:block th:replace="~{fragments :: help(${g['bandbreedte']})}"/> en waarop die steunt. Is er een recente wedstrijd op die afstand of langer, dan werkt die als <strong>plafond</strong><th:block th:replace="~{fragments :: help(${g['plafond']})}"/>: de tijd wordt nooit trager dan die wedstrijd laat zien.</div>
         <th:block th:replace="~{fragments :: windowForm(${ {'anchor','chart'} }, 'tijden')}"/>
         <p class="note mt-2" th:if="${p.violationNote != null}" th:text="${p.violationNote}">-</p>
         <p class="note mt-2" th:if="${!p.hasData}">Er zijn nog geen runs in de app.</p>
@@ -256,7 +256,7 @@
         <div class="card-head"><h2 id="h-data">Welke gegevens tellen mee?</h2></div>
         <p class="note-xs"><strong>Wordt dit bijgewerkt?</strong> Alles wordt opnieuw berekend elke keer je de pagina opent of herlaadt, met de data van dat moment. Nieuwe runs komen binnen via de dagelijkse synchronisatie (06:00) of je eigen synchronisatie.</p>
         <ul class="plain"><li th:each="c : ${p.coverage}" th:text="${c}">-</li></ul>
-        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v1</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
+        <p class="note-xs">Algoritmeversie <span th:text="${version}">race-v3</span>. Alle drempels zijn voorstellen van de app (geen externe validatie).</p>
     </section>
 
     <section class="card perf-section" id="begrippen" aria-labelledby="h-begrippen">

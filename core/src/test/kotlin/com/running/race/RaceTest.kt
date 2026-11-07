@@ -212,16 +212,42 @@ class WalkForwardTest {
         RaceOutcome(R.race(1, R.D0, 5000.0, 1200), false, 1000.0, 2, err, 1000.0, base)
 
     @Test
-    fun `four races give no own range, five give the min to max error range`() {
+    fun `four races give no own range, five give the trimmed 10 to 90 percentile range`() {
         val four = Accuracy.summary(listOf(-2.0, -1.0, 0.0, 3.0).map { outcome(it) })
         assertFalse(four.enough)
         assertNull(Accuracy.range(1000.0, four))
         val five = Accuracy.summary(listOf(-2.0, -1.0, 0.0, 3.0, 5.0).map { outcome(it) })
         assertTrue(five.enough)
         assertEquals(0.0, five.medianErrorPct)
+        assertEquals(-2.0, five.minErrorPct)
+        assertEquals(5.0, five.maxErrorPct)
+        // type 7 percentiles: position 0.4 and 3.6 of the sorted errors
+        assertEquals(-1.6, five.rangeLowPct!!, 1e-9)
+        assertEquals(4.2, five.rangeHighPct!!, 1e-9)
         val (lo, hi) = Accuracy.range(1000.0, five)!!
-        assertEquals(980.0, lo, 1e-9)
-        assertEquals(1050.0, hi, 1e-9)
+        assertEquals(984.0, lo, 1e-9)
+        assertEquals(1042.0, hi, 1e-9)
+    }
+
+    @Test
+    fun `one outlier no longer sets the edge of the range, on the owner's eleven race-v2 errors`() {
+        val errors = listOf(-18.4, -2.5, -2.1, 1.5, -10.1, -0.4, -7.8, -1.1, -3.2, -10.6, -9.4)
+        val s = Accuracy.summary(errors.map { outcome(it) })
+        assertEquals(-10.6, s.rangeLowPct!!, 1e-9)
+        assertEquals(-0.4, s.rangeHighPct!!, 1e-9)
+        val (lo, hi) = Accuracy.range(1160.0, s)!!
+        assertEquals(1160.0 * 0.894, lo, 1e-9)
+        assertEquals(1160.0, hi, 1e-9)
+    }
+
+    @Test
+    fun `the range always contains the prediction and trim 0 gives the old min to max range`() {
+        val allFast = Accuracy.summary(listOf(-9.0, -8.0, -7.0, -6.0, -5.0).map { outcome(it) })
+        val (lo, hi) = Accuracy.range(1000.0, allFast)!!
+        assertTrue(lo < 1000.0)
+        assertEquals(1000.0, hi, 1e-9)
+        val untrimmed = Accuracy.summary(listOf(-2.0, -1.0, 0.0, 3.0, 5.0).map { outcome(it) }, RaceConfig(rangeTrimPct = 0.0))
+        assertEquals(980.0 to 1050.0, Accuracy.range(1000.0, untrimmed))
     }
 
     @Test
@@ -457,5 +483,150 @@ class ReadinessTest {
         // 28 days: 7 x 50 + 21 x 100 = 2450, week average 612.5; last 7 = 350
         assertEquals(350.0 / 612.5 * 100, RaceWeek.loadPct(daily, today)!!, 1e-9)
         assertNull(RaceWeek.loadPct(emptyMap(), today))
+    }
+}
+
+class PredictionCapTest {
+    private val asOf = R.D0.plusDays(100)
+
+    private fun anchors(vararg runs: RaceRun) = Anchors.collect(runs.toList(), asOf, 180, 190)
+
+    private fun riegel(seconds: Double, from: Double, to: Double) = seconds * Math.pow(to / from, 1.06)
+
+    // Median of two 10 km road races at 45:00 and 46:00 predicts 45:30 for 10 km, 15 km etc.
+    private val slowBase = arrayOf(R.race(1, R.D0, 10000.0, 2700), R.race(2, R.D0.plusDays(1), 10000.0, 2760))
+
+    @Test
+    fun `no longer race in the set means no cap`() {
+        val p = Prediction.predict(10000.0, anchors(*slowBase))!!
+        assertNull(p.cappedBy)
+        assertEquals(2730.0, p.rawSeconds, 1e-9)
+    }
+
+    @Test
+    fun `a race shorter than the target never caps`() {
+        val p = Prediction.predict(10000.0, anchors(*slowBase, R.race(3, R.D0.plusDays(2), 5000.0, 1500)))!!
+        assertNull(p.cappedBy)
+    }
+
+    @Test
+    fun `a faster race at the same distance caps the median`() {
+        val p = Prediction.predict(10000.0, anchors(R.race(1, R.D0, 10000.0, 2700), R.race(2, R.D0.plusDays(1), 10000.0, 2760), R.race(3, R.D0.plusDays(2), 10000.0, 2400)))!!
+        assertEquals(2400.0, p.rawSeconds, 1e-9)
+        assertEquals(3L, p.cappedBy!!.activityId)
+        assertEquals(2400.0, p.lowSeconds, 1e-9)
+    }
+
+    @Test
+    fun `a longer race caps through Riegel`() {
+        val half = R.race(3, R.D0.plusDays(2), 21097.5, 5400)
+        val p = Prediction.predict(10000.0, anchors(*slowBase, half))!!
+        val cap = riegel(5400.0, 21097.5, 10000.0)
+        assertTrue(cap < 2730.0)
+        assertEquals(cap, p.rawSeconds, 1e-6)
+        assertEquals(3L, p.cappedBy!!.activityId)
+    }
+
+    @Test
+    fun `a cap above the median leaves it unchanged`() {
+        val p = Prediction.predict(10000.0, anchors(*slowBase, R.race(3, R.D0.plusDays(2), 10000.0, 3000)))!!
+        assertNull(p.cappedBy)
+        assertEquals(2760.0, p.rawSeconds, 1e-9)
+    }
+
+    @Test
+    fun `only the most recent race counts`() {
+        val older = R.race(3, R.D0.plusDays(2), 10000.0, 2400)
+        val newer = R.race(4, R.D0.plusDays(20), 10000.0, 3000)
+        val p = Prediction.predict(10000.0, anchors(*slowBase, older, newer))!!
+        assertNull(p.cappedBy)
+        assertEquals(2730.0, p.rawSeconds, 1e-9)
+    }
+
+    @Test
+    fun `a race outside the window does not cap`() {
+        val old = R.race(3, asOf.minusDays(200), 10000.0, 2400)
+        val p = Prediction.predict(10000.0, anchors(*slowBase, old))!!
+        assertNull(p.cappedBy)
+    }
+
+    @Test
+    fun `a trail race is ignored`() {
+        val trail = R.race(3, R.D0.plusDays(2), 10000.0, 2400, elev = 40.0)
+        val p = Prediction.predict(10000.0, anchors(*slowBase, trail))!!
+        assertNull(p.cappedBy)
+    }
+
+    @Test
+    fun `a best effort or hard run is not a cap`() {
+        val effort = R.run(3, R.D0.plusDays(2), 10000.0, 2400, efforts = mapOf(10000.0 to 2400.0))
+        val p = Prediction.predict(10000.0, anchors(*slowBase, effort))!!
+        assertNull(p.cappedBy)
+    }
+
+    @Test
+    fun `display rounding happens after the cap`() {
+        val p = Prediction.predict(10000.0, anchors(*slowBase, R.race(3, R.D0.plusDays(2), 10000.0, 2410)))!!
+        assertEquals(2410.0, p.rawSeconds, 1e-9)
+        assertEquals(2415.0, p.seconds, 1e-9)
+    }
+
+    @Test
+    fun `the capped prediction also feeds the walk-forward accuracy`() {
+        val runs = slowBase.toList() + R.race(3, R.D0.plusDays(2), 21097.5, 5400) + R.race(4, R.D0.plusDays(40), 10000.0, 2500)
+        val outcome = Accuracy.outcomes(runs, 180, 190).first { it.race.id == 4L }
+        assertEquals(riegel(5400.0, 21097.5, 10000.0), outcome.predictedSeconds!!, 1e-6)
+    }
+}
+
+class PredictionLogTest {
+    private fun entry(daysBeforeD0: Long, meters: Double, seconds: Double, low: Double? = null, high: Double? = null) =
+        LoggedPrediction(R.D0.minusDays(daysBeforeD0), meters, seconds, low, high, "race-v3", 3, null)
+
+    @Test
+    fun `the latest row before the race day counts, scaled with Riegel to the measured distance`() {
+        val race = R.race(1, R.D0, 4900.0, 1180)
+        val log = listOf(entry(5, 5000.0, 1300.0), entry(1, 5000.0, 1200.0, 1150.0, 1250.0), entry(1, 10000.0, 2500.0))
+        val o = PredictionLog.outcomes(listOf(race), log).single()
+        val scale = Math.pow(4900.0 / 5000.0, 1.06)
+        assertEquals(1200.0 * scale, o.predictedSeconds, 1e-9)
+        assertEquals((1180 - 1200.0 * scale) / (1200.0 * scale) * 100, o.errorPct, 1e-9)
+        assertEquals(true, o.withinRange)
+        assertEquals(1L, o.daysBefore)
+    }
+
+    @Test
+    fun `a row of the race day itself, a row older than 14 days, another distance and a trail race never count`() {
+        val race = R.race(1, R.D0, 5000.0, 1180)
+        assertTrue(PredictionLog.outcomes(listOf(race), listOf(entry(0, 5000.0, 1200.0))).isEmpty())
+        assertTrue(PredictionLog.outcomes(listOf(race), listOf(entry(15, 5000.0, 1200.0))).isEmpty())
+        assertEquals(1, PredictionLog.outcomes(listOf(race), listOf(entry(14, 5000.0, 1200.0))).size)
+        assertTrue(PredictionLog.outcomes(listOf(race), listOf(entry(1, 10000.0, 2500.0))).isEmpty())
+        val trail = R.race(2, R.D0, 5000.0, 1500, elev = 40.0)
+        assertTrue(PredictionLog.outcomes(listOf(trail), listOf(entry(1, 5000.0, 1200.0))).isEmpty())
+    }
+
+    @Test
+    fun `entries freeze the raw prediction, the shown range, the version and the cap`() {
+        val anchors = Anchors.collect(listOf(R.race(1, R.D0, 21097.5, 5400), R.run(2, R.D0.plusDays(5), 6000.0, 1600, efforts = mapOf(5000.0 to 1300.0)),
+            R.run(3, R.D0.plusDays(6), 11000.0, 2900, efforts = mapOf(10000.0 to 2700.0))), R.D0.plusDays(10), 180, null)
+        val p = Prediction.predict(5000.0, anchors)!!
+        val e = PredictionLog.entries(R.D0.plusDays(10), listOf(Triple(p, 1100.0, 1300.0))).single()
+        assertEquals(p.rawSeconds, e.seconds)
+        assertEquals(1100.0, e.lowSeconds)
+        assertEquals(RaceAlgorithm.VERSION, e.algorithmVersion)
+        assertEquals(p.cappedBy?.activityId, e.cappedByActivityId)
+    }
+
+    @Test
+    fun `the summary counts races, the median and mean absolute error, the hits inside the range and the first log day`() {
+        val races = listOf(R.race(1, R.D0, 5000.0, 1140), R.race(2, R.D0.plusDays(30), 5000.0, 1260))
+        val log = listOf(entry(1, 5000.0, 1200.0, 1100.0, 1250.0), entry(-29, 5000.0, 1200.0, 1100.0, 1250.0))
+        val s = PredictionLog.summary(PredictionLog.outcomes(races, log), log)
+        assertEquals(2, s.n)
+        assertEquals(0.0, s.medianErrorPct!!, 1e-9)
+        assertEquals(5.0, s.maePct!!, 1e-9)
+        assertEquals(1, s.withinRange)
+        assertEquals(R.D0.minusDays(1), s.firstLogDate)
     }
 }

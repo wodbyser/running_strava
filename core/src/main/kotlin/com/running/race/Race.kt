@@ -9,7 +9,7 @@ import com.running.strava.domain.SessionType
 import java.time.LocalDate
 
 object RaceAlgorithm {
-    const val VERSION = "race-v1"
+    const val VERSION = "race-v3"
 }
 
 /** All thresholds are PROPOSALS (design section 2.6), UNVERIFIED, and configurable via `garmin.race.*`. */
@@ -25,6 +25,10 @@ data class RaceConfig(
     val recentAnchorDays: Int = 60,
     val paceTolerancePct: Double = 3.0,
     val goalMatchTolerance: Double = 0.10,
+    /** Share of the own errors left out at each side of the range (race-v3). */
+    val rangeTrimPct: Double = 10.0,
+    /** A logged prediction counts for a race only when it was logged at most this many days before the race. */
+    val logMaxAgeDays: Int = 14,
     val resamples: Int = 2000,
     val seed: Long = 42,
 ) {
@@ -154,6 +158,8 @@ data class RacePrediction(
     val anchors: List<RaceAnchor>,
     val outsideValidRange: Boolean,
     val marathonWarning: Boolean,
+    /** The most recent road race at the target distance or longer when its Riegel time capped the median (race-v2), else null. */
+    val cappedBy: RaceAnchor? = null,
 ) {
     val secondsPerKm: Double get() = seconds / (targetMeters / 1000)
 }
@@ -174,11 +180,27 @@ object Prediction {
             a.distanceMeters > 0 && a.seconds >= RacePredictor.MIN_VALID_SECONDS && a.seconds <= RacePredictor.MAX_VALID_SECONDS &&
                 (targetMeters / a.distanceMeters) in RacePredictor.MIN_RATIO..RacePredictor.MAX_RATIO
         }
+        val capAnchor = capAnchor(targetMeters, anchors)
+        val cap = capAnchor?.let { RacePredictor.riegel(it.seconds, it.distanceMeters, targetMeters) }
+        val capped = cap != null && cap < p.seconds
+        val raw = if (capped) cap!! else p.seconds
+        val low = minOf(p.lowSeconds, raw)
         return RacePrediction(
-            targetMeters, RacePredictor.roundSeconds(p.seconds), p.seconds, RacePredictor.roundSeconds(p.lowSeconds), RacePredictor.roundSeconds(p.highSeconds),
-            used, p.outsideValidRange, targetMeters >= 40_000.0,
+            targetMeters, RacePredictor.roundSeconds(raw), raw, RacePredictor.roundSeconds(low), RacePredictor.roundSeconds(p.highSeconds),
+            used, raw < RacePredictor.MIN_VALID_SECONDS || raw > RacePredictor.MAX_VALID_SECONDS, targetMeters >= 40_000.0,
+            if (capped) capAnchor else null,
         )
     }
+
+    /**
+     * race-v2 (design section 12): the most recent road race in the anchor set whose measured distance is at least the target.
+     * Trail races and the window are already handled by [Anchors.collect]. One-sided: the caller only lets it lower the median.
+     */
+    fun capAnchor(targetMeters: Double, anchors: List<RaceAnchor>): RaceAnchor? =
+        anchors.filter {
+            it.kind == AnchorKind.RACE && it.distanceMeters >= targetMeters &&
+                it.seconds >= RacePredictor.MIN_VALID_SECONDS && it.seconds <= RacePredictor.MAX_VALID_SECONDS
+        }.maxWithOrNull(compareBy<RaceAnchor> { it.date }.thenBy { it.activityId })
 
     /**
      * Second method for 5 km and shorter: critical speed of Phase 3, `t = (D - D') / CS`. Only when the fit passed and the result lies

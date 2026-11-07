@@ -23,6 +23,7 @@ import com.running.strava.spi.ActivityRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.LocalDate
@@ -109,6 +110,8 @@ data class RaceOverview(
     val raceWeek: RaceWeekView?,
     val raceWeekHiddenDays: Long?,
     val candidates: List<Candidate>,
+    val logged: List<LoggedOutcome>,
+    val loggedSummary: LoggedSummary,
 )
 
 data class TaperRow(val outcome: RaceOutcome, val taper: TaperResult)
@@ -125,6 +128,8 @@ data class RaceHistoryReport(
     val prep: List<PrepRow>,
     val groups: PrepGroups?,
     val pacing: PacingView,
+    val logged: List<LoggedOutcome>,
+    val loggedSummary: LoggedSummary,
 )
 
 /**
@@ -140,6 +145,7 @@ class RaceService(
     private val loadService: LoadService,
     private val recoveryService: RecoveryService,
     private val goalRepository: RaceGoalRepository,
+    private val predictionLog: PredictionLogRepository,
     private val properties: GarminProperties,
     private val clock: Clock,
 ) {
@@ -200,18 +206,9 @@ class RaceService(
         val anchors = Anchors.collect(b.runs, today.plusDays(1), w.anchorDays, b.maxHr)
 
         val focusGoal = goals.filter { !it.date.isBefore(today) }.minByOrNull { it.date }
-        val distances = (Prediction.STANDARD + goals.filter { !it.date.isBefore(today) }.map { it.distanceMeters }).distinct().sorted()
-        fun forecast(distance: Double, from: List<RaceAnchor> = anchors): DistanceForecast {
-            val p = Prediction.predict(distance, from)
-            val own = p?.let { Accuracy.range(it.rawSeconds, accuracy) }
-            val low = own?.first ?: p?.lowSeconds
-            val high = own?.second ?: p?.highSeconds
-            return DistanceForecast(
-                distance, distance in Prediction.STANDARD, p, low?.let { RacePredictorRound.round(it) }, high?.let { RacePredictorRound.round(it) },
-                if (own != null) RangeBasis.OWN_ERRORS else RangeBasis.ANCHOR_SPREAD, Prediction.criticalSpeedSeconds(distance, perf.cs.outcome),
-            )
-        }
-        val forecasts = distances.map { forecast(it) }
+        val distances = distances(goals, today)
+        val forecasts = distances.map { forecast(it, anchors, accuracy, perf.cs.outcome) }
+        if (w == RaceWindows.DEFAULT) record(today, forecasts)
         val violations = Prediction.paceViolations(forecasts.mapNotNull { it.prediction }.filter { it.targetMeters in Prediction.STANDARD })
 
         val horizonWeeks = maxOf(w.chartWeeks, 52)
@@ -220,7 +217,7 @@ class RaceService(
 
         val goalViews = goals.map { g ->
             val past = g.date.isBefore(today)
-            val f = if (past) null else forecasts.firstOrNull { it.distanceMeters == g.distanceMeters } ?: forecast(g.distanceMeters)
+            val f = if (past) null else forecasts.firstOrNull { it.distanceMeters == g.distanceMeters } ?: forecast(g.distanceMeters, anchors, accuracy, perf.cs.outcome)
             val weeks = (ChronoUnit.DAYS.between(today, g.date) / 7).toInt()
             val target = g.targetSeconds
             val feas = if (f?.prediction != null && target != null && f.rangeLowSeconds != null && f.rangeHighSeconds != null) {
@@ -268,16 +265,66 @@ class RaceService(
 
         val raceWeek = focus?.let { raceWeek(it, w, snapshot) }
         val hiddenDays = if (focus != null && raceWeek == null) focus.daysToGo else null
+        val logged = logged(b, cfg)
 
         val overview = RaceOverview(
             RaceAlgorithm.VERSION, today, w, b.runs.size, outcomes.size, b.maxHr, anchors, forecasts, violations, outcomes, accuracy, weekly,
             goalViews, focus, plan, pacing, fitness, recovery, specificSeconds, raceWeek, hiddenDays, Candidates.find(b.runs),
+            logged.first, logged.second,
         )
         log.info(
             "Race overview {}: runs={} races={} anchors={} goals={} predictions={} ms={}", RaceAlgorithm.VERSION, b.runs.size, outcomes.size,
             anchors.size, goals.size, forecasts.count { it.prediction != null }, (System.nanoTime() - started) / 1_000_000,
         )
         return overview
+    }
+
+    // ------------------------------------------------------------------ forecasts and the prediction log
+
+    private fun distances(goals: List<RaceGoal>, today: LocalDate): List<Double> =
+        (Prediction.STANDARD + goals.filter { !it.date.isBefore(today) }.map { it.distanceMeters }).distinct().sorted()
+
+    private fun forecast(distance: Double, anchors: List<RaceAnchor>, accuracy: AccuracySummary, cs: CriticalSpeed.Outcome?): DistanceForecast {
+        val p = Prediction.predict(distance, anchors)
+        val own = p?.let { Accuracy.range(it.rawSeconds, accuracy) }
+        val low = own?.first ?: p?.lowSeconds
+        val high = own?.second ?: p?.highSeconds
+        return DistanceForecast(
+            distance, distance in Prediction.STANDARD, p, low?.let { RacePredictorRound.round(it) }, high?.let { RacePredictorRound.round(it) },
+            if (own != null) RangeBasis.OWN_ERRORS else RangeBasis.ANCHOR_SPREAD, Prediction.criticalSpeedSeconds(distance, cs),
+        )
+    }
+
+    /** Freezes today's predictions (default periods only). A storage problem never breaks the page. */
+    private fun record(today: LocalDate, forecasts: List<DistanceForecast>) {
+        val rows = PredictionLog.entries(today, forecasts.mapNotNull { f -> f.prediction?.let { Triple(it, f.rangeLowSeconds, f.rangeHighSeconds) } })
+        if (rows.isEmpty()) return
+        try {
+            predictionLog.record(rows)
+        } catch (e: Exception) {
+            log.warn("Race prediction log not written: {}", e.javaClass.simpleName)
+        }
+    }
+
+    private fun logged(b: Base, cfg: RaceConfig): Pair<List<LoggedOutcome>, LoggedSummary> {
+        val rows = try { predictionLog.findAll() } catch (e: Exception) { log.warn("Race prediction log not read: {}", e.javaClass.simpleName); emptyList() }
+        val outcomes = PredictionLog.outcomes(b.runs, rows, cfg)
+        return outcomes to PredictionLog.summary(outcomes, rows)
+    }
+
+    /** Daily freeze, also when nobody opens the page. Same numbers as `/race` with the default periods. Returns the number of rows written. */
+    @Scheduled(cron = "\${garmin.race.log-cron:0 0 7 * * *}")
+    fun recordToday(): Int {
+        val b = base()
+        val cfg = config
+        val w = RaceWindows.DEFAULT
+        val accuracy = Accuracy.summary(Accuracy.outcomes(b.runs, w.anchorDays, b.maxHr), cfg)
+        val anchors = Anchors.collect(b.runs, b.today.plusDays(1), w.anchorDays, b.maxHr)
+        val forecasts = distances(goalRepository.findAll(), b.today).map { forecast(it, anchors, accuracy, null) }
+        record(b.today, forecasts)
+        val n = forecasts.count { it.prediction != null }
+        log.info("Race prediction log {}: distances={}", RaceAlgorithm.VERSION, n)
+        return n
     }
 
     private fun specific(b: Base, today: LocalDate, weeks: Int, goalSpeedMs: Double, cfg: RaceConfig): Double {
@@ -359,15 +406,18 @@ class RaceService(
             Pacing.summary(racesWithHalves.map { it.race.halves!! }, cfg),
             racesWithHalves.map { PacingRow(it.race.id, it.race.date, it.race.name, it.race.distanceMeters, it.race.halves!!) }.sortedByDescending { it.date },
         )
+        val logged = logged(b, cfg)
         log.info("Race history {}: races={} predicted={} ms={}", RaceAlgorithm.VERSION, outcomes.size, outcomes.count { it.errorPct != null }, (System.nanoTime() - started) / 1_000_000)
-        return RaceHistoryReport(RaceAlgorithm.VERSION, b.today, w, outcomes, accuracy, post, taper, taperSummary, prep, Retrospective.groups(prep, cfg), pacing)
+        return RaceHistoryReport(RaceAlgorithm.VERSION, b.today, w, outcomes, accuracy, post, taper, taperSummary, prep, Retrospective.groups(prep, cfg), pacing, logged.first, logged.second)
     }
 
     /** Fills the per-activity caches right after start-up (best efforts, halves) so the first request is fast. Never fails the app. */
     @EventListener(ApplicationReadyEvent::class)
     fun warmUpInBackground() {
         if (!properties.race.warmUp) return
-        Thread({ warmUp() }, "race-warmup").apply { isDaemon = true; start() }
+        Thread({
+            if (warmUp()) runCatching { recordToday() }.onFailure { log.warn("Race prediction log at start-up failed: {}", it.javaClass.simpleName) }
+        }, "race-warmup").apply { isDaemon = true; start() }
     }
 
     fun warmUp(): Boolean = try {

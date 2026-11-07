@@ -13,6 +13,17 @@ object RaceText {
     const val COURSE_NOTE = "Parcours en wind zitten niet in dit plan."
     const val CALM_NOTE = "De rustige start is een keuze van de app: onderzoek ondersteunt een gelijkmatig tempo of een iets rustigere start bij loopwedstrijden. De 2 % is geen bewezen waarde."
     const val CANDIDATE_NOTE = "Ruwe zoekregel op de naam, een hoge gemiddelde hartslag of een snel tempo. Jij beslist of het een wedstrijd was. Markeer ze op Strava als wedstrijd; markeringen op activiteiten ouder dan 30 dagen komen pas binnen na 'Markeringen opnieuw ophalen'."
+
+    /** One sentence about the predictions frozen before each race (race-v3). */
+    fun loggedLine(s: com.running.race.LoggedSummary): String {
+        val first = s.firstLogDate
+        return when {
+            s.n > 0 -> "Vooraf vastgelegd: bij ${s.n} ${if (s.n == 1) "wedstrijd" else "wedstrijden"} zat de voorspelling van vóór de wedstrijd gemiddeld " +
+                "${RaceFmt.d1(s.maePct)} % ernaast (mediaan ${RaceFmt.pct(s.medianErrorPct)}), ${s.withinRange} keer binnen de bandbreedte. Dit is de eerlijkste meting: niets is achteraf herberekend."
+            first != null -> "Sinds ${PerfDates.day(first)} legt de app elke dag je voorspelling vast. Na je volgende wedstrijd zie je hoe goed de voorspelling van vóór die wedstrijd was."
+            else -> "Vanaf vandaag legt de app elke dag je voorspelling vast. Na je volgende wedstrijd zie je hoe goed de voorspelling van vóór die wedstrijd was."
+        }
+    }
 }
 
 /** Every adjustable period of the race pages, with the default shown as the current value (docs/ui-guidelines.md section 6). */
@@ -76,13 +87,20 @@ object RaceGlossary {
         ),
         Term(
             "bandbreedte", "Bandbreedte",
-            "Het bereik waarbinnen je tijd waarschijnlijk valt. Met genoeg eigen wedstrijden is dat de kleinste en de grootste afwijking van je eerdere voorspellingen. " +
+            "Het bereik waarbinnen je tijd waarschijnlijk valt. Met genoeg eigen wedstrijden komt het uit de afwijkingen van je eerdere voorspellingen, zonder de 10 % meest extreme aan elke kant, " +
+                "zodat één uitschieter het niet bepaalt. De voorspelde tijd valt er altijd binnen. " +
                 "Met te weinig wedstrijden is het enkel de spreiding tussen je ankers, en dat is een zwakkere maat.",
             P,
         ),
         Term(
             "kritische-snelheid", "Kritische snelheid (tweede methode)",
             "Een model uit je snelste inspanningen van 3 tot 30 minuten. De app toont het als tweede getal naast Riegel, alleen voor 5 km en korter, en alleen als het model past. De twee worden nooit gemiddeld.",
+            P,
+        ),
+        Term(
+            "plafond", "Plafond",
+            "Je laatste wedstrijd op dezelfde of een langere afstand, omgerekend naar de gevraagde afstand (Riegel). De voorspelling mag nooit trager zijn dan dat plafond, wel sneller. " +
+                "Zonder wedstrijd van de laatste periode op die afstand of langer is er geen plafond. Het gebruikt echte wedstrijdtijden, terwijl de kritische snelheid uit trainingen komt.",
             P,
         ),
         Term(

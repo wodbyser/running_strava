@@ -24,6 +24,10 @@ data class AccuracySummary(
     val medianErrorPct: Double?,
     val minErrorPct: Double?,
     val maxErrorPct: Double?,
+    /** Trimmed edges of the own errors used for the range: the [trimPct] percentile and its mirror (race-v3). */
+    val rangeLowPct: Double?,
+    val rangeHighPct: Double?,
+    val trimPct: Double,
     /** Mean absolute errors on the races where the one-anchor baseline exists as well. */
     val nCompared: Int,
     val mainMaePct: Double?,
@@ -56,17 +60,24 @@ object Accuracy {
         val main = both.takeIf { it.isNotEmpty() }?.map { abs(it.errorPct!!) }?.average()
         val base = both.takeIf { it.isNotEmpty() }?.map { abs(it.baselineErrorPct!!) }?.average()
         val enough = errors.size >= cfg.minOwnErrorRaces
+        val trim = cfg.rangeTrimPct.coerceIn(0.0, 49.0) / 100
         return AccuracySummary(
             errors.size, enough, cfg.minOwnErrorRaces,
             com.running.load.LoadStats.median(errors), errors.minOrNull(), errors.maxOrNull(),
+            com.running.load.LoadStats.percentile(errors, trim), com.running.load.LoadStats.percentile(errors, 1 - trim), cfg.rangeTrimPct,
             both.size, main, base,
             if (main == null || base == null) null else if (main <= base) "main" else "baseline",
         )
     }
 
-    /** `prediction x (1 + smallest error)` to `prediction x (1 + largest error)`; null below the minimum (design 3.2). */
+    /**
+     * `prediction x (1 + low error)` to `prediction x (1 + high error)`, with the trimmed percentiles of the own errors (race-v3: one outlier no
+     * longer sets an edge). The range always contains the prediction itself. Null below the minimum (design 3.2).
+     */
     fun range(predictionSeconds: Double, summary: AccuracySummary): Pair<Double, Double>? {
-        if (!summary.enough || summary.minErrorPct == null || summary.maxErrorPct == null) return null
-        return predictionSeconds * (1 + summary.minErrorPct / 100) to predictionSeconds * (1 + summary.maxErrorPct / 100)
+        if (!summary.enough || summary.rangeLowPct == null || summary.rangeHighPct == null) return null
+        val low = predictionSeconds * (1 + summary.rangeLowPct / 100)
+        val high = predictionSeconds * (1 + summary.rangeHighPct / 100)
+        return minOf(low, predictionSeconds) to maxOf(high, predictionSeconds)
     }
 }

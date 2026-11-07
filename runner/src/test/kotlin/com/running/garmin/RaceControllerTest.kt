@@ -28,7 +28,7 @@ class RaceControllerTest @Autowired constructor(private val mvc: MockMvc) {
     fun `the race page renders without any data, with the safety line and the abstain texts`() {
         val html = mvc.perform(get("/race")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(html.contains("Geen medische beoordeling."))
-        assertTrue(html.contains("race-v1"))
+        assertTrue(html.contains("race-v3"))
         assertTrue(html.contains("Nog geen voorspelling mogelijk"))
         val order = listOf("id=\"doelen\"", "id=\"tijden\"", "id=\"schema\"", "id=\"vorm\"", "id=\"wedstrijdweek\"", "id=\"kandidaten\"", "id=\"begrippen\"").map { html.indexOf(it) }
         assertTrue(order.all { it > 0 } && order == order.sorted(), order.toString())
@@ -82,8 +82,8 @@ class RaceControllerTest @Autowired constructor(private val mvc: MockMvc) {
     @Test
     fun `json renders and exposes no key, token, coordinates or health values`() {
         val json = mvc.perform(get("/race/data")).andExpect(status().isOk)
-            .andExpect(jsonPath("$.overview.algorithmVersion").value("race-v1"))
-            .andExpect(jsonPath("$.history.algorithmVersion").value("race-v1"))
+            .andExpect(jsonPath("$.overview.algorithmVersion").value("race-v3"))
+            .andExpect(jsonPath("$.history.algorithmVersion").value("race-v3"))
             .andReturn().response.contentAsString
         listOf("apiKey", "api-key", "token", "bearer", "Authorization", "startLat", "latlng").forEach { assertFalse(json.contains(it, ignoreCase = true), it) }
     }

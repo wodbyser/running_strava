@@ -126,6 +126,7 @@ object RacePageBuilder {
         val notes = ArrayList<String>()
         if (p.marathonWarning) notes += Prediction.MARATHON_WARNING
         if (p.outsideValidRange) notes += "Buiten het geldigheidsbereik van Riegel (3,5 tot 230 minuten): extra onzeker."
+        p.cappedBy?.let { notes += "Begrensd door je wedstrijd van ${PerfDates.day(it.date)} (${RaceFmt.distanceLabel(it.distanceMeters)}, ${RaceFmt.time(it.seconds)}): een voorspelling die trager is dan die wedstrijd laat zien, tel je niet mee." }
         val km = f.distanceMeters / 1000
         val goalPace = goal?.target?.let { RaceFmt.pace(it.toDouble() / km) }
         return ForecastTileView(
@@ -170,6 +171,7 @@ object RacePageBuilder {
         val accuracyLines = ArrayList<String>()
         if (acc.enough) {
             accuracyLines += "Op ${acc.n} eigen wedstrijden was de voorspelling gemiddeld ${RaceFmt.pct(acc.medianErrorPct)} af (mediaan; plus = je liep trager dan voorspeld), van ${RaceFmt.pct(acc.minErrorPct)} tot ${RaceFmt.pct(acc.maxErrorPct)}."
+            accuracyLines += "De bandbreedte gebruikt de middelste ${(100 - 2 * acc.trimPct).roundToInt()} % van die afwijkingen (${RaceFmt.pct(acc.rangeLowPct)} tot ${RaceFmt.pct(acc.rangeHighPct)}), zodat één uitschieter haar niet bepaalt. De voorspelde tijd valt er altijd binnen."
         } else {
             accuracyLines += "Nog te weinig wedstrijden om te meten hoe goed deze voorspelling voor jou klopt (n = ${acc.n}, minstens ${acc.needed} nodig). De bandbreedte is alleen de spreiding van je ankers."
         }
@@ -177,6 +179,7 @@ object RacePageBuilder {
             accuracyLines += "Naast elkaar gelegd op ${acc.nCompared} wedstrijden: de gewone methode zat gemiddeld ${RaceFmt.d1(acc.mainMaePct)} % ernaast, " +
                 "'je laatste wedstrijd omgerekend met Riegel' ${RaceFmt.d1(acc.baselineMaePct)} %. Dichterbij was ${if (acc.closer == "main") "de gewone methode" else "de eenvoudige methode met één wedstrijd"}."
         }
+        accuracyLines += RaceText.loggedLine(o.loggedSummary)
         val accuracyRows = o.outcomes.sortedByDescending { it.race.startEpochSeconds }.map { outcomeRow(it) }
 
         val anchorRows = o.anchors.sortedBy { it.distanceMeters }.map {
@@ -338,11 +341,18 @@ data class TaperRowView(val id: Long, val date: String, val name: String, val ta
 
 data class PrepRowView(val id: Long, val date: String, val name: String, val km: String, val load: String, val longRuns: String, val hard: String, val longest: String, val taper: String, val result: String)
 
+data class LoggedRowView(
+    val id: Long, val date: String, val name: String, val distance: String, val loggedOn: String, val predicted: String, val actual: String,
+    val error: String, val css: String, val range: String, val version: String,
+)
+
 data class HistoryPage(
     val headline: String,
     val sub: String,
     val lines: List<String>,
     val races: List<HistoryRaceView>,
+    val loggedLine: String,
+    val loggedRows: List<LoggedRowView>,
     val taperRows: List<TaperRowView>,
     val taperText: String,
     val prepRows: List<PrepRowView>,
@@ -417,7 +427,16 @@ object HistoryPageBuilder {
                 "longest" to prep.map { it.longestRunKm }, "taper" to prep.map { it.taper7Pct },
             ),
         )
-        return HistoryPage(headline, if (n == 0) "" else RaceText.PREDICTION_NOTE, lines, races, taperRows, taperText, prepRows, prepText, pacingLines, charts, n > 0)
+        val loggedRows = r.logged.sortedByDescending { it.race.startEpochSeconds }.map { o ->
+            LoggedRowView(
+                o.race.id, PerfDates.day(o.race.date), o.race.name, RaceFmt.km(o.race.distanceMeters),
+                PerfDates.day(o.entry.date) + if (o.daysBefore == 1L) " (de dag ervoor)" else " (${o.daysBefore} dagen ervoor)",
+                RaceFmt.time(RacePredictorRound.round(o.predictedSeconds)), RaceFmt.time(o.actualSeconds), RaceFmt.pct(o.errorPct),
+                if (o.errorPct < 0) "tone-good" else "tone-uncertain",
+                when (o.withinRange) { true -> "binnen"; false -> "buiten"; null -> "-" }, o.entry.algorithmVersion,
+            )
+        }
+        return HistoryPage(headline, if (n == 0) "" else RaceText.PREDICTION_NOTE, lines, races, RaceText.loggedLine(r.loggedSummary), loggedRows, taperRows, taperText, prepRows, prepText, pacingLines, charts, n > 0)
     }
 
     private fun patternLine(r: RaceHistoryReport): String {

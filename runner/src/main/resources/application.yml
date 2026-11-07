@@ -85,6 +85,9 @@ garmin:
     calm-start-pct: 2.0
     specificity-minutes: 20
     longest-run-share: 0.75
+    range-trim-pct: 10.0
+    log-max-age-days: 14
+    log-cron: 0 0 7 * * *
     warm-up: true
 
 logging:

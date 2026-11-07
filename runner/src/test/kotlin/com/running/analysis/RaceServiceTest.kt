@@ -10,6 +10,8 @@ import com.running.garmin.domain.GarminSource
 import com.running.garmin.spi.GarminRepository
 import com.running.race.RaceGoal
 import com.running.race.RaceGoalRepository
+import com.running.race.LoggedPrediction
+import com.running.race.PredictionLogRepository
 import com.running.race.RaceWindows
 import com.running.strava.db.StravaTokenRepositoryImpl
 import com.running.strava.domain.Activity
@@ -43,6 +45,14 @@ class RaceServiceTest {
         override fun delete(id: Long) { goals.removeIf { it.id == id } }
     }
 
+    private class MemoryLog : PredictionLogRepository {
+        val rows = mutableListOf<LoggedPrediction>()
+        override fun record(entries: List<LoggedPrediction>) {
+            entries.forEach { e -> rows.removeIf { it.date == e.date && it.distanceMeters == e.distanceMeters }; rows += e }
+        }
+        override fun findAll() = rows.sortedBy { it.date }
+    }
+
     private fun start(daysAgo: Long) = ZonedDateTime.parse("2026-10-30T09:00:00Z").minusDays(daysAgo)
     private fun race(id: Long, daysAgo: Long, meters: Double, seconds: Int, elevation: Float = 0f): Activity =
         Fixtures.run(id, start(daysAgo), meters, seconds, hr = 150.0, workoutType = 1).copy(totalElevationGain = elevation)
@@ -54,14 +64,14 @@ class RaceServiceTest {
         return m
     }
 
-    private fun service(activities: List<Activity>, goals: MemoryGoals = MemoryGoals(), streams: Map<Long, ActivityStream> = emptyMap()): RaceService {
+    private fun service(activities: List<Activity>, goals: MemoryGoals = MemoryGoals(), streams: Map<Long, ActivityStream> = emptyMap(), log: MemoryLog = MemoryLog()): RaceService {
         val repo = FakeActivityRepository(activities, streams = streams)
         val garmin = GarminStub()
         val props = GarminProperties()
         val perf = PerformanceService(repo, garmin, props, clock)
         val recovery = RecoveryService(garmin, tokens(), props, clock)
         val load = LoadService(repo, garmin, perf, recovery, tokens(), props, clock)
-        return RaceService(repo, garmin, BestEffortService(repo), perf, load, recovery, goals, props, clock)
+        return RaceService(repo, garmin, BestEffortService(repo), perf, load, recovery, goals, log, props, clock)
     }
 
     private val races = listOf(
@@ -74,7 +84,7 @@ class RaceServiceTest {
     @Test
     fun `the overview predicts from the marked races and lists every race with a walk forward outcome`() {
         val o = service(races + (0 until 20).map { easy(100L + it, 1L + it * 3) }).overview()
-        assertEquals("race-v1", o.algorithmVersion)
+        assertEquals("race-v3", o.algorithmVersion)
         assertEquals(4, o.raceCount)
         val p5 = o.forecasts.first { it.distanceMeters == 5000.0 }.prediction!!
         assertTrue(p5.anchors.size >= 2)
@@ -207,7 +217,40 @@ class RaceServiceTest {
             logger.level = old
         }
         val text = appender.list.joinToString("\n") { it.formattedMessage }
-        assertTrue(text.contains("race-v1"))
+        assertTrue(text.contains("race-v3"))
         listOf("run 1", "Kerstloop", "1150", "1200", "2520").forEach { assertFalse(text.contains(it), it) }
+    }
+
+    @Test
+    fun `the default overview freezes today's predictions, custom periods do not, and a later race is compared with the frozen row`() {
+        val log = MemoryLog()
+        val s = service(races, log = log)
+        s.overview(RaceWindows.DEFAULT.copy(anchorDays = 90))
+        assertTrue(log.rows.isEmpty())
+        val o = s.overview()
+        assertTrue(log.rows.isNotEmpty())
+        assertTrue(log.rows.all { it.date == today && it.algorithmVersion == "race-v3" })
+        val p5 = o.forecasts.first { it.distanceMeters == 5000.0 }.prediction!!
+        assertEquals(p5.rawSeconds, log.rows.first { it.distanceMeters == 5000.0 }.seconds, 1e-9)
+        assertEquals(0, o.loggedSummary.n)
+        assertEquals(today, o.loggedSummary.firstLogDate)
+
+        // a frozen row from 3 days before an older race (that race is 30 days ago)
+        log.rows += LoggedPrediction(today.minusDays(33), 10000.0, 2600.0, 2500.0, 2700.0, "race-v2", 3, null)
+        val h = s.history()
+        val row = h.logged.single()
+        assertEquals(4L, row.race.id)
+        assertEquals(3L, row.daysBefore)
+        assertEquals((2480 - 2600.0) / 2600.0 * 100, row.errorPct, 1e-9)
+        assertEquals(false, row.withinRange)
+        assertEquals(1, h.loggedSummary.n)
+    }
+
+    @Test
+    fun `recordToday writes the same rows as the default overview`() {
+        val a = MemoryLog().also { service(races, log = it).recordToday() }
+        val b = MemoryLog().also { service(races, log = it).overview() }
+        assertEquals(b.rows.map { it.distanceMeters to it.seconds }, a.rows.map { it.distanceMeters to it.seconds })
+        assertEquals(b.rows.map { it.lowSeconds to it.highSeconds }, a.rows.map { it.lowSeconds to it.highSeconds })
     }
 }

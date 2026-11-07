@@ -488,3 +488,195 @@ Findings on the owner's real data (for the owner, not a rule change):
 - Open points for the owner (none blocks approval): (1) a bias correction (the median error is large and stable enough to apply, but it changes
   results and was not asked for); (2) whether hilly runs that are not races should stop counting as anchors; (3) the three new race markings
   (two half marathons, one trail race) show up after the "Markeringen opnieuw ophalen" button has been pressed once after deploying.
+
+### 11.1 Impact analysis: bias correction of the race predictions (2026-11-07, owner request)
+
+Read-only analysis on the local database copy through a second instance on port 8091 (`/race/data`, crons off, no Garmin or Strava call, no
+code changed). Data: 541 runs, 12 marked races (11 road races with a prediction, 1 trail), latest activity 2026-11-06. No goal rows exist in
+`race_goal`, so the goal sentences below are what the page would say once the owner enters 5 km on 2026-12-05 in 19:00.
+
+**The bias is real.** Per race, walk-forward (anchors dated before the race only):
+
+| Race date | Measured distance | Actual | Predicted | Error | Anchors |
+|---|---|---|---|---|---|
+| 2024-10-06 | 22.28 km | 1:39:51 | 2:02:26 | -18.4 % | 2 |
+| 2024-12-01 | 9.92 km | 41:19 | 43:22 | -4.7 % | 5 |
+| 2024-12-29 | 8.56 km | 34:34 | 37:03 | -6.7 % | 5 |
+| 2025-06-20 | 21.18 km | 1:43:53 | 1:42:20 | +1.5 % | 3 |
+| 2025-10-11 | 4.82 km | 19:26 | 21:46 | -10.7 % | 2 |
+| 2025-10-19 | 9.45 km | 43:59 | 44:16 | -0.7 % | 5 |
+| 2025-11-11 | 21.05 km | 1:34:57 | 1:42:58 | -7.8 % | 4 |
+| 2025-12-07 | 9.79 km | 41:43 | 44:07 | -5.5 % | 7 |
+| 2025-12-12 | 4.90 km | 19:23 | 20:44 | -6.5 % | 5 |
+| 2026-03-29 | 21.22 km | 1:30:40 | 1:41:24 | -10.6 % | 6 |
+| 2026-10-11 | 21.28 km | 1:29:55 | 1:39:17 | -9.4 % | 2 |
+
+Median error -6.72 %, range -18.45 % to +1.51 %. Ten of eleven races were faster than predicted (two-sided sign test p = 0.012). Bootstrap
+95 % CI of the median: -10.6 % to -4.7 %. The bias is stable: short races -8.6 % (n = 2), 10 km -5.1 % (n = 4), half marathon -9.4 % (n = 5);
+first five races -6.7 %, last six -7.2 %; without the 2024 outlier -6.6 %. Mean absolute error 7.51 % overall; on the 8 races where the naive
+baseline exists, the main method is 5.35 % against 5.42 %.
+
+**But it is not a constant of the method.** Today's predictions rest on the one race in the 180-day window (2026-10-11) plus training
+segments: 1 race anchor, 4 best-effort anchors, 0 hard runs. For the 5 km the half marathon is excluded by the 0.4 ratio (5000/21285 = 0.235),
+so only two training segments remain (a 5 km tempo segment and the half marathon's 10 km split). At the time of the 2026-10-11 race the
+window contained no race at all (the previous race was 196 days earlier), so that prediction leaned on training segments and came out 9.4 %
+too slow. Today that same race anchors the half marathon prediction at 1:29:00 against an actual 1:29:55 (+1 %). The bias therefore follows
+the anchor mix, not a fixed offset.
+
+**A global factor over-corrects.** Factor 1 + median = 0.9328:
+
+- Walk-forward (factor from at least 5 earlier races, 6 races): MAE 6.74 % to 2.98 %, median error -1.34 %. Good in backtest.
+- But on today's anchors it gives 5 km 19:05, 10 km 38:30, half marathon 1:23:00, marathon 2:53:00. Against the owner's best measured
+  equivalents (5 km 19:48 from 4.897 km in 19:23; 10 km 41:40 from 9.923 km in 41:19; half marathon 1:29:04 from 21.285 km in 1:29:55; no
+  marathon) that is 3.6 %, 7.5 % and 6.8 % faster than anything he ran. Rejected.
+
+**Options for the owner** (all change results, so none is built without his approval):
+
+| Option | 5 km | 10 km | Half | Marathon | Goal 19:00 | Own history |
+|---|---|---|---|---|---|---|
+| A. No change (status quo) | 20:30 | 41:15 | 1:29:00 | 3:06:00 | needs -6.9 % | 0 of 49 four-week windows |
+| B. Global factor -6.7 % | 19:05 | 38:30 | 1:23:00 | 2:53:00 | needs -0.2 % | 17 of 49 |
+| C. Cap by the most recent race for shorter targets | 19:20 | 40:15 | 1:29:00 | 3:06:00 | needs -1.9 % | 7 of 49 |
+| D. Anchor window 365 days (already possible in the form) | 20:15 | 42:00 | 1:33:00 | 3:08:00 | needs -6.5 % | 0 of 49 |
+| D2. Anchor window 730 days | 20:00 | 41:45 | 1:33:00 | 3:13:00 | needs -5.4 % | 0 of 49 |
+
+- A is defensible: the range (16:40 to 20:45) already contains his race times and the page states the median error.
+- B is rejected for the reason above.
+- C means: for a target at or below the distance of a road race in the anchor window, the prediction may not be slower than the Riegel
+  equivalent of the most recent such race (one rule, no fitted factor). It fixes the 5 km without touching the half marathon or marathon.
+  Section 12 has the rule and the walk-forward validation.
+- D/D2 are possible today with the period form; they make the half marathon and marathon slower, so they do not fix the 5 km goal.
+
+No code, threshold or test changed. Decision needed from the owner: A, C, or a new design for a different rule.
+
+**Update (same session):** the owner chose C. The rule, edge cases, consequences, build plan and walk-forward validation are in section 12.
+
+## 12. Change proposal: cap the prediction by the most recent race (option C, 2026-11-07)
+
+Owner chose C in session on 2026-11-07 after section 11.1. This section is the design note the choice asked for, with the walk-forward
+validation. **Nothing is built: the owner declined the build in the same session on 2026-11-07 ("Nee, laat het voorlopig zo"), so
+`race-v1` stays.** The proposal is kept on record for whenever he changes his mind.
+
+### 12.1 Rule
+
+For a target distance `D`, after the existing median prediction `M` (unchanged):
+
+1. Find the most recent **road race** in the anchor window (`anchor` days, default 180) whose **measured** distance is at least `D`.
+   Trail races are excluded, as everywhere in Phase 5.
+2. If there is none, the prediction stays `M`.
+3. Otherwise `cap = Riegel(race time, race distance, D)` and the prediction becomes `min(M, cap)`.
+
+The cap is **one-sided**: it can only make a prediction faster, never slower. It is not a fitted factor, adds no parameter, and cannot
+overrule a median that is already faster than the race evidence. The raw value is capped before the existing rounding. The anchor set, the
+median, the Riegel exponent (1.06), the 0.4 to 2.5 ratio, the own-error range and the critical-speed second method stay as they are.
+Algorithm version: `race-v2` (results change; the page shows the version).
+
+Why: the median mixes maximal race efforts with training segments that are rarely maximal. A recent longer race is direct evidence and a
+slower prediction for a shorter distance cannot be justified against it. This is exactly the 5 km case: no 5 km race in the window, the
+half marathon excluded by the 0.4 ratio, so only two training segments remained.
+
+### 12.2 Walk-forward validation on the owner's 11 road races
+
+Replayed with the race times that were available before each race (same rule, no future data):
+
+| Race date | Race distance | Median | Cap | New | Error before | Error after |
+|---|---|---|---|---|---|---|
+| 2024-10-06 | 22.28 km | 2:02:26 | - | 2:02:26 | -18.4 % | -18.4 % |
+| 2024-12-01 | 9.92 km | 43:22 | 42:22 | 42:22 | -4.7 % | -2.5 % |
+| 2024-12-29 | 8.56 km | 37:03 | 35:18 | 35:18 | -6.7 % | -2.1 % |
+| 2025-06-20 | 21.18 km | 1:42:20 | - | 1:42:20 | +1.5 % | +1.5 % |
+| 2025-10-11 | 4.82 km | 21:46 | 21:38 | 21:38 | -10.7 % | -10.1 % |
+| 2025-10-19 | 9.45 km | 44:16 | 44:10 | 44:10 | -0.7 % | -0.4 % |
+| 2025-11-11 | 21.05 km | 1:42:58 | 1:43:11 | 1:42:58 | -7.8 % | -7.8 % |
+| 2025-12-07 | 9.79 km | 44:07 | 42:10 | 42:10 | -5.5 % | -1.1 % |
+| 2025-12-12 | 4.90 km | 20:44 | 20:01 | 20:01 | -6.5 % | -3.2 % |
+| 2026-03-29 | 21.22 km | 1:41:24 | - | 1:41:24 | -10.6 % | -10.6 % |
+| 2026-10-11 | 21.28 km | 1:39:17 | - | 1:39:17 | -9.4 % | -9.4 % |
+
+- MAE 7.51 % to **6.11 %**; median error -6.72 % to **-3.20 %**; races within 3 % 2 to **5** of 11; within 5 % 3 to **6** of 11.
+- Six races were capped. **No capped prediction became faster than the actual time** (all remain negative), so the rule did not introduce
+  over-optimism on this history.
+- The half marathons are untouched: either there was no longer road race in the window, or (2025-11-11) the cap came out above the median.
+  Their bias is the "no recent race at that distance" case, which the normal anchor mechanism already fixes once such a race exists
+  (today's half marathon prediction is within 1 % of the 2026-10-11 race). The cap is not meant to fix that case.
+
+### 12.3 Effect on today's page
+
+- 5 km 20:30 to **19:20**, 10 km 41:15 to **40:15**; half marathon 1:29:00 and marathon 3:06:00 unchanged.
+- Goal 5 km on 2026-12-05 in 19:00: needed improvement -6.9 % to **-1.9 %**, own history **7 of 49** four-week windows instead of 0 of 49.
+  (No goal row exists yet; the owner enters it on `/race`.)
+- The own-error range (#56) is recomputed from the capped predictions: median -3.20 %, min -18.4 %, max +1.5 %. The 5 km range becomes
+  about 15:46 to 19:38 around 19:20, narrower at the slow end than today's 16:40 to 20:45.
+
+### 12.4 Consequences and open points
+
+1. **Second method.** The critical speed stays 20:39 for 5 km, so the gap with Riegel grows from about 1 % to about 6 %. The page already
+   shows the two separately and never averages them; it needs one sentence saying the cap uses a real race while critical speed is fitted on
+   training data. No change to the critical-speed fit.
+2. **Race needed in the window.** Without a race at the same or a longer distance in the last 180 days, the cap does nothing. That is
+   intended: no evidence, no cap.
+3. **One-sided.** The cap cannot make a prediction slower, so it cannot hide a bad race; it only removes part of the known slow bias.
+4. **Not a bias correction.** The global factor (option B) stays rejected. The median error after the cap is still -3.2 %, so the page keeps
+   reporting it as it does today.
+
+### 12.5 Build plan (after approval)
+
+- Core: a small pure function in `com.running.race` (candidate name `PredictionCap`) plus a call in `Prediction.predict`; the cap takes the
+  race list, the target and the window, so it is testable without Spring. Version `race-v2`. The weekly series and the accuracy report use the
+  same capped prediction, so the chart and the own-error range stay consistent with the numbers.
+- Tests: no race in the window; race shorter than the target; race equal; race longer; race outside the window; trail race ignored; cap
+  higher than the median (unchanged); cap lower (applied); rounding; accuracy summary and range recomputed; a walk-forward golden set with
+  synthetic races. No real identifiers or raw responses.
+- UI: one lead sentence and one glossary entry ("plafond"), no layout change; check `/race` and `/race/history` in a browser on real data.
+- No schema change, no new endpoint, no AI prompt change, no Garmin or Strava call.
+
+**Status: BUILT 2026-11-07 (`race-v2`).** The owner declined the build earlier the same day, then asked for it ("Race-v2 alsnog bouwen") in the
+twenty-first session. Build notes:
+
+- `Prediction.predict` applies the cap using the RACE anchors it is given (trail races and the window are already handled by `Anchors.collect`),
+  most recent by date then activity id, measured distance at least the target, valid time range 3.5 to 230 min. The cap has no 0.4 to 2.5 ratio
+  limit (it is one-sided). The median still needs two anchors within the ratio; without a median there is no prediction and no cap.
+- `RacePrediction.cappedBy` carries the race that capped it. `lowSeconds` is lowered to the capped value when needed; `outsideValidRange` is
+  evaluated on the capped value. The weekly series, the accuracy report and the own-error range use the same capped value.
+- UI: one lead sentence, glossary entry "plafond", and a note on each capped tile. No layout change; `/race` checked in headless Chrome on real
+  data (local copy, port 8091).
+- Real data check: 5 km 19:20, 10 km 40:15 (both capped by the 2026-10-11 half marathon), half marathon 1:29:00 and marathon 3:06:00
+  unchanged; own-error median -3.20 %, min -18.4 %, max +1.5 % over 11 races. All as predicted in 12.2 and 12.3.
+- Tests: `PredictionCapTest` (11 new): no longer race, shorter race, same distance, longer race via Riegel, cap above median, only the most
+  recent race, outside window, trail ignored, best effort is no cap, rounding after the cap, walk-forward accuracy. Existing tests changed only
+  for the version string (`race-v1` to `race-v2`).
+- No schema change, no new endpoint, no AI prompt change, no Garmin or Strava call.
+
+## 13. race-v3: trimmed range and the prediction log (2026-11-07, owner request)
+
+Owner request in session after a review of `race-v2` ("Fix ook issue 3 en 5"). The point prediction is unchanged; the range (#56) changes, so the
+version is `race-v3`.
+
+### 13.1 Trimmed own-error range (#56)
+
+- Was: `prediction x (1 + smallest error)` to `prediction x (1 + largest error)`. On real data the fast edge was one 2024 half marathon
+  predicted from 2 anchors (-18.4 %), so the 5 km range was 15:46 to 19:38.
+- Now: the 10th and 90th percentile of the own errors (linear interpolation, `garmin.race.range-trim-pct`, default 10; 0 gives the old rule).
+  The range always contains the prediction itself. Minimum of 5 races unchanged.
+- Real data (11 races, errors -18.4 % to +1.5 %): edges -10.6 % and -0.4 %. 5 km 17:20 to 19:20, 10 km 36:00 to 40:15, half marathon 1:20:00 to
+  1:29:00, marathon 2:46:00 to 3:06:00. The slow edge equals the prediction because 10 of 11 races were faster than predicted.
+- Open point (not built): the errors come from mixed situations. Most large misses were predictions without a recent race; today's half marathon
+  rests on a race one month old, so its 1:20:00 fast edge is too wide. A range per kind of prediction (with or without a recent race) needs more races.
+
+### 13.2 Prediction log (frozen predictions)
+
+- Table `race_prediction_log` (additive, `ddl-auto: update`): one row per day and distance (unique `log_date`, `distance_m`) with the raw
+  prediction, the shown range, the version, the anchor count and the capping race. Only today's row is ever written; a later write the same day
+  replaces it, earlier days never change.
+- Written by `/race` with the default periods (custom periods never write), at start-up after the warm-up, and daily at 07:00
+  (`garmin.race.log-cron`, after the Strava and Garmin syncs; "-" switches it off). Distances: the four standard distances plus future goal distances.
+- Comparison: for each road race, the latest row dated strictly before the race day and at most 14 days old (`garmin.race.log-max-age-days`) for a
+  distance within 10 % of the measured race distance, converted with Riegel to the measured distance. Trail races are left out.
+- UI: section "Vooraf vastgelegd" on `/race/history` (table: race, logged on, predicted, run, difference, inside the range, version) and one line
+  under "Hoe goed klopte dit" on `/race`. The walk-forward table stays as it is (recomputed with today's rules).
+- Real data: no race since the log started (first row 2026-11-07), so the section says so.
+
+Tests: 547 pass (core 399, runner 148); new: trimmed range (hand-computed, the owner's eleven errors, trim 0, range always contains the
+prediction), log selection (latest row, race day excluded, 14-day limit, other distance, trail), entries and summary, service freeze with default
+and custom periods, scheduled freeze equals the page. `/race` and `/race/history` checked in headless Chrome on the local copy (port 8091).
+No Garmin or Strava call.

@@ -102,12 +102,17 @@ data class GarminProperties(
         val calmStartPct: Double = 2.0,
         val specificityMinutes: Int = 20,
         val longestRunShare: Double = 0.75,
+        val rangeTrimPct: Double = 10.0,
+        val logMaxAgeDays: Int = 14,
+        /** Daily freeze of the predictions (read by `@Scheduled`, "-" switches it off). */
+        val logCron: String = "0 0 7 * * *",
         /** Fill the per-activity caches in the background right after the app started (same rule as the load pages). */
         val warmUp: Boolean = true,
     ) {
         fun toConfig() = com.running.race.RaceConfig(
             minOwnErrorRaces = minOwnErrorRaces, minTaperRaces = minTaperRaces, minGroupRaces = minGroupRaces, minPacingRaces = minPacingRaces,
             minFeasibilityWeeks = minFeasibilityWeeks, calmStartPct = calmStartPct, specificityMinutes = specificityMinutes, longestRunShare = longestRunShare,
+            rangeTrimPct = rangeTrimPct, logMaxAgeDays = logMaxAgeDays,
         )
     }
 
