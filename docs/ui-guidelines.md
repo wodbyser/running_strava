@@ -90,3 +90,11 @@ For every section ask: "Can the owner see in 5 seconds what this means and how i
   and ask for permission. Example: the hilly auto-lap rule for interval detection.
 - Explain proposals in short, concrete, plain language. If the owner writes Dutch, answer in Dutch.
 - Do not over-explain in the UI and do not add features the owner did not ask for; do polish what you touch.
+
+## 9. Navigation
+
+- The topbar holds **four** items: Dashboard, Trainingen, Analyse, Coach. A new page goes into the dropdown where it
+  belongs, not as an extra item in the bar.
+- Every dropdown row shows the page name plus one short line in plain Dutch saying what you see there.
+- The current section is visible: underlined item in the bar, highlighted row in the dropdown (and the dropdown opens
+  on the current section when the mobile menu is opened).

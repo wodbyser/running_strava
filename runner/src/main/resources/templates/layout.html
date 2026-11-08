@@ -84,40 +84,87 @@
         .brand:hover { color: #fff; }
         .brand-mark { display: inline-block; width: 22px; height: 14px; border-top: 2px solid #fff; border-bottom: 2px solid #fff; position: relative; }
         .brand-mark::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; border-top: 2px dashed #7fc8b8; }
-        .nav { display: flex; align-items: stretch; gap: var(--sp-4); margin-left: auto; }
-        .nav-group { display: flex; align-items: center; gap: var(--sp-1); }
-        .nav-group + .nav-group { padding-left: var(--sp-4); border-left: 1px solid rgba(255,255,255,0.14); }
-        .nav-label {
-            font-size: 0.68rem; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
-            color: #9fb0bd; margin-right: var(--sp-1); white-space: nowrap;
-        }
-        .nav a {
+        /* Four top-level entries; the pages live in grouped dropdowns, so the bar stays calm. */
+        .nav { display: flex; align-items: stretch; gap: 2px; margin-left: auto; }
+        .nav > a,
+        .nav-menu > summary {
             color: #dbe3e8; text-decoration: none; font-weight: 500; font-size: 0.92rem;
-            padding: var(--sp-2) 0.375rem; border-radius: var(--radius-sm); white-space: nowrap;
-            min-height: 40px; display: inline-flex; align-items: center;
+            padding: var(--sp-2) 0.85rem; min-height: 60px; border-radius: 0;
+            display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;
+            transition: background-color .12s ease, color .12s ease, box-shadow .12s ease;
         }
-        .nav a:hover { color: #fff; background: rgba(255,255,255,0.08); }
-        .nav a[aria-current="page"] { color: #fff; box-shadow: inset 0 -2px 0 #7fc8b8; border-radius: 0; }
-        .nav a:focus-visible { outline-color: #7fc8b8; }
+        .nav > a:hover, .nav-menu > summary:hover { color: #fff; background: rgba(255,255,255,0.06); }
+        .nav > a[aria-current="page"],
+        .nav-menu.is-current > summary {
+            color: #fff; font-weight: 600;
+            box-shadow: inset 0 -3px 0 #7fc8b8;
+        }
+        .nav > a:focus-visible, .nav-menu > summary:focus-visible { outline-color: #7fc8b8; }
+
+        .nav-menu { position: relative; }
+        .nav-menu > summary { list-style: none; }
+        .nav-menu > summary::-webkit-details-marker { display: none; }
+        .nav-menu > summary::after {
+            content: ""; width: 5px; height: 5px; margin-top: -3px; opacity: 0.55;
+            border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+            transform: rotate(45deg);
+            transition: transform .16s ease, margin-top .16s ease, opacity .16s ease;
+        }
+        .nav-menu > summary:hover::after { opacity: 0.85; }
+        .nav-menu[open] > summary { color: #fff; background: rgba(255,255,255,0.07); }
+        .nav-menu[open] > summary::after { opacity: 1; transform: rotate(225deg); margin-top: 3px; }
+
+        .nav-panel {
+            position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            min-width: 17.5rem; padding: var(--sp-2);
+            background: var(--surface); border-radius: 12px;
+            box-shadow: 0 18px 44px rgba(10,18,26,0.24), 0 2px 8px rgba(10,18,26,0.08), 0 0 0 1px var(--line);
+            display: flex; flex-direction: column; gap: 1px;
+            animation: navPanelIn .16s cubic-bezier(0.2, 0.7, 0.3, 1);
+        }
+        /* Keep the last dropdown inside the viewport. */
+        .nav-menu:last-of-type .nav-panel { left: auto; right: 0; transform: none; }
+        @keyframes navPanelIn { from { opacity: 0; translate: 0 -6px; } to { opacity: 1; translate: 0 0; } }
+        .nav-panel a {
+            display: flex; flex-direction: column; gap: 1px; padding: 0.5rem 0.65rem;
+            border-radius: 8px; color: var(--ink); text-decoration: none; min-height: 0; white-space: normal;
+        }
+        .nav-panel a:hover { background: var(--surface-2); color: var(--ink); }
+        .nav-panel a:focus-visible { outline-offset: -2px; }
+        .nav-panel .nav-item-title { font-weight: 600; font-size: 0.92rem; line-height: 1.3; }
+        .nav-panel .nav-item-desc { font-size: var(--fs-xs); color: var(--muted); line-height: 1.35; }
+        .nav-panel a[aria-current="page"] { background: var(--accent-soft); box-shadow: none; border-radius: 8px; }
+        .nav-panel a[aria-current="page"] .nav-item-title { color: var(--accent-hover); }
+        .nav-panel a[aria-current="page"] .nav-item-desc { color: #0a5043; }
+
         .nav-toggle {
             display: none; margin-left: auto; background: transparent; color: #fff;
             border: 1px solid rgba(255,255,255,0.3); border-radius: var(--radius-sm);
             font: 600 var(--fs-sm) var(--font-body); padding: 0 var(--sp-4); min-height: 44px; cursor: pointer;
         }
-        @media (max-width: 1300px) {
+        @media (max-width: 780px) {
             .nav-toggle { display: inline-flex; align-items: center; }
             .topbar-inner { flex-wrap: wrap; padding: 0 var(--sp-4); }
-            .nav { display: none; width: 100%; flex-direction: column; gap: var(--sp-3); padding: var(--sp-2) 0 var(--sp-4); }
+            .nav { display: none; width: 100%; flex-direction: column; align-items: stretch; gap: 2px; padding: var(--sp-2) 0 var(--sp-4); }
             .nav.open { display: flex; }
-            .nav-group { flex-wrap: wrap; }
-            .nav-group + .nav-group { padding-left: 0; border-left: none; border-top: 1px solid rgba(255,255,255,0.12); padding-top: var(--sp-3); }
-            .nav-label { width: 100%; }
-            .nav a { min-height: 44px; }
-        }
-
-        /* The menu has 13 items: on medium wide screens the group labels would push the last items out of view. */
-        @media (min-width: 1301px) and (max-width: 1560px) {
-            .nav-label { display: none; }
+            .nav > a, .nav-menu > summary { min-height: 44px; width: 100%; padding-left: var(--sp-3); border-radius: 6px; }
+            .nav-menu { width: 100%; }
+            .nav-menu > summary { justify-content: space-between; }
+            .nav-menu > summary::after { margin-left: auto; }
+            /* In a vertical list a left accent bar reads better than the bottom underline. */
+            .nav > a[aria-current="page"],
+            .nav-menu.is-current > summary { box-shadow: inset 3px 0 0 #7fc8b8; background: rgba(255,255,255,0.05); }
+            .nav-panel {
+                position: static; transform: none; min-width: 0; width: 100%;
+                background: rgba(255,255,255,0.05); box-shadow: none; border-radius: 8px;
+                padding: var(--sp-2); margin: 2px 0 var(--sp-2); animation: none;
+            }
+            .nav-panel a { color: #dbe3e8; }
+            .nav-panel a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+            .nav-panel .nav-item-desc { color: #9fb0bd; }
+            .nav-panel a[aria-current="page"] { background: rgba(127,200,184,0.16); }
+            .nav-panel a[aria-current="page"] .nav-item-title,
+            .nav-panel a[aria-current="page"] .nav-item-desc { color: #fff; }
         }
 
         /* ---------- Layout ---------- */
@@ -763,27 +810,66 @@
         <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"></span>Running Coach</a>
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mainNav">Menu</button>
         <nav class="nav" id="mainNav" aria-label="Hoofdnavigatie">
-            <div class="nav-group" role="group" aria-labelledby="nav-data">
-                <span class="nav-label" id="nav-data">Data</span>
-                <a href="/" data-match="exact">Dashboard</a>
-                <a href="/activities" data-match="/activities /activity/">Trainingen</a>
-                <a href="/pbs">Records</a>
-            </div>
-            <div class="nav-group" role="group" aria-labelledby="nav-analyse">
-                <span class="nav-label" id="nav-analyse">Analyse</span>
-                <a href="/coach">Coach</a>
-                <a href="/recovery" data-match="/recovery">Herstel</a>
-                <a href="/performance" data-match="/performance">Prestaties</a>
-                <a href="/load" data-match="/load">Belasting</a>
-                <a href="/race" data-match="/race">Wedstrijd</a>
-                <a href="/compare" data-match="/compare">Vergelijken</a>
-            </div>
-            <div class="nav-group" role="group" aria-labelledby="nav-ai">
-                <span class="nav-label" id="nav-ai">AI</span>
-                <a href="/ai" data-match="/ai">Analyse</a>
-                <a href="/next-training">Volgende training</a>
-                <a href="/rate-training">Beoordelen</a>
-            </div>
+            <a href="/" data-match="exact">Dashboard</a>
+            <details class="nav-menu">
+                <summary>Trainingen</summary>
+                <div class="nav-panel">
+                    <a href="/activities" data-match="/activities /activity/">
+                        <span class="nav-item-title">Alle trainingen</span>
+                        <span class="nav-item-desc">Elke run met rondetijden en details</span>
+                    </a>
+                    <a href="/pbs" data-match="/pbs">
+                        <span class="nav-item-title">Persoonlijke records</span>
+                        <span class="nav-item-desc">Je snelste tijden per afstand</span>
+                    </a>
+                </div>
+            </details>
+            <details class="nav-menu">
+                <summary>Analyse</summary>
+                <div class="nav-panel">
+                    <a href="/recovery" data-match="/recovery">
+                        <span class="nav-item-title">Herstel</span>
+                        <span class="nav-item-desc">Slaap, HRV en hoe uitgerust je bent</span>
+                    </a>
+                    <a href="/performance" data-match="/performance">
+                        <span class="nav-item-title">Prestaties</span>
+                        <span class="nav-item-desc">Conditie, tempo en efficiëntie over tijd</span>
+                    </a>
+                    <a href="/load" data-match="/load">
+                        <span class="nav-item-title">Belasting</span>
+                        <span class="nav-item-desc">Hoe zwaar je traint en of dat opbouwt</span>
+                    </a>
+                    <a href="/race" data-match="/race">
+                        <span class="nav-item-title">Wedstrijd</span>
+                        <span class="nav-item-desc">Voorspelling, doeltijd en pacing</span>
+                    </a>
+                    <a href="/compare" data-match="/compare">
+                        <span class="nav-item-title">Periodes vergelijken</span>
+                        <span class="nav-item-desc">Twee periodes naast elkaar</span>
+                    </a>
+                </div>
+            </details>
+            <details class="nav-menu">
+                <summary>Coach</summary>
+                <div class="nav-panel">
+                    <a href="/coach" data-match="/coach">
+                        <span class="nav-item-title">Coach</span>
+                        <span class="nav-item-desc">Hartslagzones, profiel en voorspellingen</span>
+                    </a>
+                    <a href="/next-training" data-match="/next-training">
+                        <span class="nav-item-title">Volgende training</span>
+                        <span class="nav-item-desc">Advies voor je geplande training</span>
+                    </a>
+                    <a href="/rate-training" data-match="/rate-training">
+                        <span class="nav-item-title">Training beoordelen</span>
+                        <span class="nav-item-desc">Hoe ging deze training?</span>
+                    </a>
+                    <a href="/ai" data-match="/ai">
+                        <span class="nav-item-title">AI-analyse</span>
+                        <span class="nav-item-desc">Prompt over je hele historiek</span>
+                    </a>
+                </div>
+            </details>
         </nav>
     </div>
 </header>
@@ -815,13 +901,46 @@
         // Mobile navigation toggle
         var toggle = document.querySelector('.nav-toggle');
         var nav = document.getElementById('mainNav');
+        var menus = Array.prototype.slice.call(nav.querySelectorAll('details.nav-menu'));
         toggle.addEventListener('click', function () {
             var open = nav.classList.toggle('open');
             toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             toggle.textContent = open ? 'Sluiten' : 'Menu';
+            // On phones the menu starts on the section you are in.
+            if (open) {
+                menus.forEach(function (menu) { if (menu.classList.contains('is-current') && !menu.open) menu.open = true; });
+            }
+        });
+        // Dropdown menus: one open at a time, and closed when clicking outside them.
+        // A panel that would cross the viewport edge is pulled back against its trigger.
+        function placePanel(menu) {
+            var panel = menu.querySelector('.nav-panel');
+            panel.style.left = ''; panel.style.right = ''; panel.style.transform = '';
+            if (window.matchMedia('(max-width: 780px)').matches) return;
+            var r = panel.getBoundingClientRect();
+            var pad = 8;
+            if (r.right > document.documentElement.clientWidth - pad || r.left < pad) {
+                panel.style.left = 'auto'; panel.style.right = '0'; panel.style.transform = 'none';
+            }
+        }
+        menus.forEach(function (menu) {
+            menu.addEventListener('toggle', function () {
+                if (!menu.open) return;
+                menus.forEach(function (other) { if (other !== menu) other.open = false; });
+                placePanel(menu);
+            });
+        });
+        window.addEventListener('resize', function () {
+            menus.forEach(function (menu) { if (menu.open) placePanel(menu); });
+        });
+        document.addEventListener('click', function (e) {
+            if (toggle.contains(e.target)) return;
+            menus.forEach(function (menu) { if (menu.open && !menu.contains(e.target)) menu.open = false; });
         });
         document.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
+            var openMenu = menus.filter(function (m) { return m.open; })[0];
+            if (openMenu) { openMenu.open = false; openMenu.querySelector('summary').focus(); return; }
             if (nav.classList.contains('open')) { toggle.click(); toggle.focus(); }
             document.querySelectorAll('details.sync-more[open]').forEach(function (d) { d.open = false; d.querySelector('summary').focus(); });
         });
@@ -938,6 +1057,10 @@
             var match = a.getAttribute('data-match') || a.getAttribute('href');
             var active = match === 'exact' ? path === '/' : match.split(' ').some(function (m) { return path.indexOf(m) === 0; });
             if (active) a.setAttribute('aria-current', 'page');
+        });
+        // A dropdown holding the current page is marked as the current section too.
+        menus.forEach(function (menu) {
+            if (menu.querySelector('a[aria-current="page"]')) menu.classList.add('is-current');
         });
 
         // Loading feedback for long-running sync/fetch requests
