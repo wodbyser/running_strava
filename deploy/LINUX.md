@@ -138,6 +138,16 @@ sudo tailscale funnel --bg 8080
 sudo tailscale funnel status      # toont je https-adres
 ```
 
+`start.sh` draait dat commando zelf en vraagt daarbij om je sudo-wachtwoord (dat blijft onzichtbaar
+tijdens het typen; de prompt blijft staan tot je Tailscale in de console toestaat). Wil je die
+vraag helemaal weg, maak je gebruiker dan eenmalig Tailscale-operator:
+
+```bash
+sudo tailscale set --operator="$USER"
+```
+
+Vanaf dan werken `start.sh` en `stop.sh` zonder sudo-prompt.
+
 Test het van buiten (gsm op 4G): je hoort de loginpagina van Running Coach te zien.
 
 ### 6. Strava koppelen aan de nieuwe link
@@ -349,6 +359,7 @@ die de baas is en houd de andere lokaal, of kies bewust één van de twee als al
 | Publieke link geeft 502 | De app luistert niet op 8080. `bash deploy/status.sh`, daarna `docker compose -f deploy/docker-compose.yml logs --tail 50 app`. |
 | Publieke link onbereikbaar, lokaal wel goed | Funnel staat uit of is niet toegestaan. `sudo tailscale funnel status`, dan `bash deploy/start.sh`. |
 | Funnel: `not enabled on your tailnet` | Stap 5: HTTPS-certificaten en het `funnel`-attribuut aanzetten. |
+| `start.sh` vraagt om een sudo-wachtwoord en blijft daarna hangen | Opgelost in `deploy/common.sh` (`timeout --foreground`, nodig zodat sudo bij de terminal kan). Op een oudere checkout: Ctrl-C, script bijwerken, opnieuw draaien. Tijdens het typen blijft het wachtwoord onzichtbaar. |
 | `running-app` herstart steeds | Database niet bereikbaar of verkeerd wachtwoord. `logs postgres` / `logs app`, controleer `DB_PASSWORD` in `deploy/.env`. |
 | App stopt met `Could not resolve placeholder 'APP_PASSWORD'` | `APP_PASSWORD` ontbreekt in `deploy/.env`. |
 | Je wordt steeds uitgelogd | `APP_REMEMBER_ME_KEY` wijzigt; zet er één vaste waarde in. |

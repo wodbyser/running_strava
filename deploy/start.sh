@@ -77,6 +77,9 @@ if [ "$funnel" = 1 ]; then
         # drie minuten de tijd, zonder terminal stoppen we snel (bijv. bij het opstarten).
         if [ -t 0 ]; then
             printf '    Staat Funnel nog niet aan? Open de link die Tailscale hieronder toont.\n'
+            if [ -n "$SUDO" ] && ! $SUDO -n true 2>/dev/null; then
+                printf '    Tailscale heeft root nodig: zo meteen je sudo-wachtwoord (blijft onzichtbaar tijdens het typen).\n'
+            fi
             limit=180
         else
             limit=15

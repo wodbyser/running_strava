@@ -67,6 +67,16 @@ ts_ro() {
     fi
 }
 
+# timeout met --foreground: zonder die optie zet GNU timeout het commando in een
+# eigen procesgroep, en dan kan sudo niet bij de terminal. Gevolg: de vraag om het
+# wachtwoord blijft hangen, terwijl je typt en je wachtwoord gewoon in beeld komt
+# (sudo krijgt SIGTTIN/SIGTTOU en stopt). Valt terug op gewone timeout (busybox).
+if timeout --foreground 0 true >/dev/null 2>&1; then
+    TMO=(timeout --foreground)
+else
+    TMO=(timeout)
+fi
+
 # ts_timeout SECONDEN ... : als ts, maar met een tijdslimiet. Nodig omdat
 # `tailscale funnel --bg` blijft wachten zolang Funnel niet op de tailnet is
 # toegestaan; zonder limiet hangt het script dan voor altijd.
@@ -76,16 +86,16 @@ ts_timeout() {
     shift
     [ "$limit" -lt "$quick" ] && quick="$limit"
     # Eerste poging kort houden: hangt alleen als Funnel nog niet is toegestaan.
-    if timeout "$quick" tailscale "$@" 2>/dev/null; then
+    if "${TMO[@]}" "$quick" tailscale "$@" 2>/dev/null; then
         return 0
     fi
     if [ -z "$SUDO" ]; then
         return 1
     fi
     if [ -t 0 ]; then
-        timeout "$limit" $SUDO tailscale "$@"
+        "${TMO[@]}" "$limit" $SUDO tailscale "$@"
     else
-        timeout "$limit" $SUDO -n tailscale "$@"
+        "${TMO[@]}" "$limit" $SUDO -n tailscale "$@"
     fi
 }
 
