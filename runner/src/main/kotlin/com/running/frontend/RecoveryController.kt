@@ -34,7 +34,7 @@ class RecoveryController(
     private val statusRepository: GarminSyncStatusRepository,
 ) {
     private fun syncLine(): String {
-        if (!properties.enabled) return "Garmin-synchronisatie staat uit (garmin.enabled=false)."
+        if (!properties.enabled) return "Garmin-synchronisatie staat uit in de instellingen."
         if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         val st = statusRepository.get()
         if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
@@ -111,7 +111,7 @@ class RecoveryController(
         val (msg, type) = when (coordinator.startSync()) {
             GarminStartOutcome.STARTED -> "Garmin-synchronisatie gestart op de achtergrond. Ververs de pagina over een minuut." to "success"
             GarminStartOutcome.BUSY -> "Er loopt al een synchronisatie. Er is geen nieuwe gestart." to "warning"
-            GarminStartOutcome.DISABLED -> "Garmin-synchronisatie staat uit (garmin.enabled=false)." to "warning"
+            GarminStartOutcome.DISABLED -> "Garmin-synchronisatie staat uit in de instellingen." to "warning"
             GarminStartOutcome.NOT_CONFIGURED -> "Geen Garmin-sleutel ingesteld: er is niets gestart." to "error"
         }
         ra.addFlashAttribute("flashMessage", msg)

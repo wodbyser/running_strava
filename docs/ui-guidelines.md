@@ -5,7 +5,8 @@ correct in their numbers but hard to read: long tables, internal jargon, ISO dat
 difficult terms. The owner had to ask for a full redesign. Build new pages like this from the start.
 
 Reference implementations: `templates/performance.html`, `templates/recovery.html`, `templates/performance-run.html`,
-shared pieces in `templates/fragments.html` and the CSS in `templates/layout.html`.
+shared pieces in `templates/fragments.html` and the single stylesheet `static/css/app.css` (design tokens, components and
+responsive rules; there is no inline CSS in the templates any more).
 
 ## 1. The core rule
 
@@ -98,3 +99,17 @@ For every section ask: "Can the owner see in 5 seconds what this means and how i
 - Every dropdown row shows the page name plus one short line in plain Dutch saying what you see there.
 - The current section is visible: underlined item in the bar, highlighted row in the dropdown (and the dropdown opens
   on the current section when the mobile menu is opened).
+
+## 10. Styling
+
+- One stylesheet: `runner/src/main/resources/static/css/app.css`. Templates never carry a `<style>` block.
+- Use the tokens at the top of that file (`--ink`, `--muted`, `--accent`, `--sp-*`, `--radius`, ...) instead of hard-coded
+  values, so the palette and spacing stay consistent.
+- Solid = measured or computed, dashed = app estimate. That rule lives in the components (`.badge-est`, `.stat.is-est`,
+  dashed borders on uncertain results) — do not invent a second visual language.
+- Actions: `.btn-primary` for the one thing you want the user to do, `.btn-secondary` for alternatives, `.btn-ghost` for
+  quiet links. Never two primary buttons next to each other.
+- Switching between views of the same page (`Dag`/`Week`/`Maand`, `Belasting`/`Reactie op training`, zone method) is a
+  `.seg` segmented control with `aria-current="page"` on the active option — not a row of buttons.
+- Long pages: `.toc` is one scrolling row of jump links, sticky under the topbar, and `layout.html` marks the section you
+  are reading. Do not turn it back into a wall of pills.

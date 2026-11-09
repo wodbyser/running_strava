@@ -18,8 +18,9 @@
 
     <div class="filter-bar">
         <div class="filter-row">
-            <nav class="actions" aria-label="Weergave">
-                <a class="btn btn-sm" th:each="vu : ${viewUrls}" th:classappend="${viewMode == vu.first} ? 'btn-primary' : 'btn-secondary'" th:href="${vu.third}" th:text="${vu.second}">Dag</a>
+            <nav class="seg" aria-label="Weergave">
+                <a th:each="vu : ${viewUrls}" th:href="${vu.third}" th:text="${vu.second}"
+                   th:attr="aria-current=${viewMode == vu.first} ? 'page' : null">Dag</a>
             </nav>
             <form method="get" class="inline-form" aria-label="Dag kiezen">
                 <input type="hidden" name="view" th:value="${viewMode}">

@@ -42,7 +42,7 @@ class SecurityConfig {
             return http.build()
         }
         http.authorizeHttpRequests {
-            it.requestMatchers("/login", "/favicon.ico", "/error").permitAll()
+            it.requestMatchers("/login", "/favicon.ico", "/error", "/css/**", "/js/**", "/img/**").permitAll()
             it.anyRequest().authenticated()
         }
         http.formLogin { it.loginPage("/login").defaultSuccessUrl("/", false).permitAll() }

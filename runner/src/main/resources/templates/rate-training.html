@@ -42,8 +42,8 @@
                         <td class="num" data-label="HR gem" th:text="${a.avgHr}">-</td>
                         <td class="num" data-label="Duur" th:text="${a.duration}">-</td>
                         <td class="num stack-action">
-                            <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="btn btn-secondary btn-sm"
-                               th:attr="aria-label='Beoordeel ' + ${a.name} + ' van ' + ${a.date}">Beoordeel</a>
+                            <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="row-action"
+                               th:attr="aria-label='Beoordeel ' + ${a.name} + ' van ' + ${a.date}">Beoordelen &rarr;</a>
                         </td>
                     </tr>
                 </tbody>

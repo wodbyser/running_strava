@@ -6,10 +6,13 @@
             <h1>Prestaties</h1>
             <p th:text="${intro}">-</p>
         </div>
-        <nav class="actions" aria-label="Hartslagzones kiezen">
-            <span class="note">Zones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></span>
-            <a class="btn btn-sm" th:each="z : ${zoneUrls}" th:classappend="${zonesParam == z.first} ? 'btn-primary' : 'btn-secondary'" th:href="${z.third}" th:text="${z.second}">Standaard</a>
-        </nav>
+        <div class="page-actions">
+            <span class="field-label">Zones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></span>
+            <nav class="seg" aria-label="Hartslagzones kiezen">
+                <a th:each="z : ${zoneUrls}" th:href="${z.third}" th:text="${z.second}"
+                   th:attr="aria-current=${zonesParam == z.first} ? 'page' : null">Standaard</a>
+            </nav>
+        </div>
     </div>
 
     <nav class="toc" aria-label="Onderdelen van deze pagina">

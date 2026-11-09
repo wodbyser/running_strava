@@ -18,7 +18,7 @@ class GarminSyncView(
     val possible: Boolean get() = properties.enabled && properties.configured && !coordinator.isRunning
 
     fun line(): String {
-        if (!properties.enabled) return "Garmin-synchronisatie staat uit (garmin.enabled=false)."
+        if (!properties.enabled) return "Garmin-synchronisatie staat uit in de instellingen."
         if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
         val st = statusRepository.get()
