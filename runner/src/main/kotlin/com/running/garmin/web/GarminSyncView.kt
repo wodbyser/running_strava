@@ -22,7 +22,7 @@ class GarminSyncView(
         if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
         val st = statusRepository.get()
-        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.format(DateTimeFormatter.ofPattern("d/MM/yyyy HH:mm"))
+        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
         val err = st.lastErrorCategory?.let { " Laatste fout: $it." } ?: ""
         return (ok?.let { "Laatste geslaagde synchronisatie: $it." } ?: "Nog niet gesynchroniseerd.") + err
     }

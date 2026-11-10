@@ -273,7 +273,7 @@
             <div class="chart-box"><canvas id="weekChart" role="img" th:aria-label="'Kilometer en aantal runs per week, laatste ' + ${p.consistency.longWeeks} + ' weken'"></canvas></div>
             <p class="note-xs mt-2">Balkjes = kilometer per week, lijn = aantal runs. Een week zonder balkje is een week zonder run.</p>
             <div class="table-wrap mt-2"><table class="compare-table">
-                <thead><tr><th></th><th class="num" th:text="'Laatste ' + ${p.consistency.shortWeeks} + ' weken'">Laatste 12 weken</th><th class="num" th:text="'Laatste ' + ${p.consistency.longWeeks} + ' weken'">Laatste 52 weken</th></tr></thead>
+                <thead><tr><th scope="col"><span class="sr-only">Onderdeel</span></th><th class="num" th:text="'Laatste ' + ${p.consistency.shortWeeks} + ' weken'">Laatste 12 weken</th><th class="num" th:text="'Laatste ' + ${p.consistency.longWeeks} + ' weken'">Laatste 52 weken</th></tr></thead>
                 <tbody>
                 <tr th:each="row : ${p.consistency.rows}">
                     <th scope="row"><span th:text="${row.label}">-</span> <th:block th:replace="~{fragments :: help(${row.tip == null ? null : g[row.tip]})}"/></th>
@@ -436,7 +436,7 @@
         <th:block th:replace="~{fragments :: windowForm(${ {'power'} }, 'power')}"/>
         <p class="note" th:text="${p.powerNote}">-</p>
         <div class="stat-grid mt-2" th:if="${!p.power.isEmpty()}">
-            <div class="stat" th:each="t : ${p.power}" th:classappend="${t.tone.css}">
+            <div class="stat stat-text" th:each="t : ${p.power}" th:classappend="${t.tone.css}">
                 <span class="label" th:text="${t.label}">-</span>
                 <span class="value" th:text="${t.value}">-</span>
                 <span class="stat-sub" th:text="${t.sub}">-</span>
