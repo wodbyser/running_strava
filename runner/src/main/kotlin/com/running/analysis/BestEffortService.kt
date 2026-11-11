@@ -7,7 +7,6 @@ import com.running.strava.analysis.isRun
 import com.running.strava.domain.Activity
 import com.running.strava.spi.ActivityRepository
 import org.springframework.stereotype.Service
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
@@ -87,7 +86,6 @@ class BestEffortService(
         val eligible = runs.filter { eligible(it) }
         val withStreams = eligible.count { hasUsableStreams(it.id) }
         val stravaOnly = eligible.count { !hasUsableStreams(it.id) && !it.bestEfforts.isNullOrEmpty() }
-        val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
         val records = BestEffortFinder.STANDARD_DISTANCES.map { (label, meters) ->
             val best = eligible.mapNotNull { effort(it, meters) }.minByOrNull { it.seconds }
@@ -101,7 +99,7 @@ class BestEffortService(
                     label = label,
                     time = Format.duration(best.seconds),
                     pace = Format.paceFromSeconds(best.seconds / (meters / 1000)),
-                    date = ActivityTime.local(best.activity).format(fmt),
+                    date = PerfDates.day(ActivityTime.localDate(best.activity)),
                     name = best.activity.name,
                     activityId = best.activity.id,
                     source = if (best.source == Source.STREAM) "berekend uit GPS-stream" else "Strava best effort",

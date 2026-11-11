@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.ResponseBody
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /** Read only views, plus one POST that starts a Garmin sync (same coordinator and lock as `POST /garmin/sync`). */
 @Controller
@@ -38,9 +37,9 @@ class RecoveryController(
         if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         val st = statusRepository.get()
         if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
-        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.toLocalDateTime()?.let { PerfDates.dayTime(it) }
         val err = st.lastErrorCategory?.let { " Laatste fout: $it." } ?: ""
-        return (ok?.let { "Laatste geslaagde synchronisatie: $it." } ?: "Nog niet gesynchroniseerd.") + err
+        return (ok?.let { "Laatste Garmin-sync: $it." } ?: "Nog niet gesynchroniseerd.") + err
     }
 
     @GetMapping("/recovery")

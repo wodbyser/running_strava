@@ -1,11 +1,11 @@
 package com.running.garmin.web
 
+import com.running.analysis.PerfDates
 import com.running.analysis.RecoveryService
 import com.running.config.GarminProperties
 import com.running.garmin.adapter.GarminSyncCoordinator
 import com.running.garmin.spi.GarminSyncStatusRepository
 import org.springframework.stereotype.Component
-import java.time.format.DateTimeFormatter
 
 /** Texts and state for the "Garmin synchroniseren" button, shared by the pages that show it. */
 @Component
@@ -22,8 +22,8 @@ class GarminSyncView(
         if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
         val st = statusRepository.get()
-        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.toLocalDateTime()?.let { PerfDates.dayTime(it) }
         val err = st.lastErrorCategory?.let { " Laatste fout: $it." } ?: ""
-        return (ok?.let { "Laatste geslaagde synchronisatie: $it." } ?: "Nog niet gesynchroniseerd.") + err
+        return (ok?.let { "Laatste Garmin-sync: $it." } ?: "Nog niet gesynchroniseerd.") + err
     }
 }

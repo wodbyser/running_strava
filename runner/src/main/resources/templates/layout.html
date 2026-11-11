@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${title} + ' - Running Coach'">Running Coach</title>
+    <title th:text="${title} != null ? ${title} + ' - Running Coach' : 'Running Coach'">Running Coach</title>
     <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
     <meta name="theme-color" content="#101b24">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -209,6 +209,20 @@
             b.addEventListener('click', function () { b.closest('.flash-wrap').remove(); });
         });
 
+        // A table wider than the screen scrolls sideways. Say so instead of leaving columns silently cut off,
+        // and keep the swipe inside the table so it cannot trigger the browser's back gesture.
+        document.querySelectorAll('.table-wrap').forEach(function (wrap) {
+            var hint = document.createElement('p');
+            hint.className = 'scroll-hint';
+            hint.textContent = 'Veeg opzij om alle kolommen te zien.';
+            wrap.insertAdjacentElement('afterend', hint);
+            function sync() {
+                wrap.classList.toggle('is-scrollable', wrap.scrollWidth > wrap.clientWidth + 4);
+            }
+            sync();
+            window.addEventListener('resize', sync);
+        });
+
         // Help popovers ("?"): one open at a time, panel placed next to its button and kept inside the viewport.
         function closeHelps(except) {
             document.querySelectorAll('details.help[open]').forEach(function (d) { if (d !== except) d.open = false; });
@@ -266,7 +280,7 @@
             btn.type = 'button';
             btn.className = 'date-pick';
             btn.setAttribute('aria-label', 'Kies datum in kalender');
-            btn.innerHTML = '&#128197;';
+            btn.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><rect x="2.75" y="4.25" width="14.5" height="13" rx="2.25"/><path d="M2.75 8h14.5"/><path d="M6.75 2.5v3.5"/><path d="M13.25 2.5v3.5"/></svg>';
             iso.parentNode.insertBefore(wrap, iso);
             wrap.appendChild(text);
             wrap.appendChild(btn);

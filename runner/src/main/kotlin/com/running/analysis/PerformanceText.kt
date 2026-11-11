@@ -5,7 +5,9 @@ import com.running.strava.analysis.Format
 import com.running.strava.analysis.performance.*
 import com.running.strava.domain.SessionType
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
@@ -40,8 +42,10 @@ object PerfDates {
     private val MONTHS = listOf("jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec")
     private val LONG_MONTHS = listOf("januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december")
     private val DAYS = listOf("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
+    private val TIME = DateTimeFormatter.ofPattern("H:mm", Locale.ROOT)
 
     fun day(d: LocalDate) = "${d.dayOfMonth} ${MONTHS[d.monthValue - 1]} ${d.year}"
+    fun dayTime(dt: LocalDateTime) = "${day(dt.toLocalDate())} ${dt.toLocalTime().format(TIME)}"
     fun dayShort(d: LocalDate) = "${d.dayOfMonth} ${MONTHS[d.monthValue - 1]}"
     fun dayLong(d: LocalDate) = "${DAYS[d.dayOfWeek.value - 1]} ${d.dayOfMonth} ${LONG_MONTHS[d.monthValue - 1]} ${d.year}"
     fun month(ym: YearMonth) = "${MONTHS[ym.monthValue - 1]} ${ym.year}"

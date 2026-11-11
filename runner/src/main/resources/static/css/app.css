@@ -103,7 +103,7 @@ body {
 a { color: var(--accent); text-underline-offset: 2px; }
 a:hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
-h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; color: var(--ink); }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; line-height: 1.2; color: var(--ink); text-wrap: balance; }
 h1 { font-size: clamp(1.75rem, 1.45rem + 1vw, 2.15rem); letter-spacing: -0.005em; }
 h2 { font-size: var(--fs-lg); }
 h3 { font-size: 1.05rem; }
@@ -307,7 +307,11 @@ a.stat:hover { background: var(--surface-2); border-left-color: var(--accent); }
 .stat-empty .value { color: var(--muted); }
 
 /* ---------- Tables ---------- */
-.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 calc(-1 * var(--sp-2)); }
+/* position: relative keeps absolutely positioned cell content (.sr-only) inside the scroll container,
+   so a wide table can never widen the page itself. */
+.table-wrap { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 calc(-1 * var(--sp-2)); }
+/* Wide tables explain themselves on a phone (see layout.html); the hint follows the wrapper. */
+.scroll-hint { display: none; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 10px var(--sp-2); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); vertical-align: top; }
 th {
@@ -491,7 +495,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
     display: inline-flex; align-items: center; justify-content: center; color: var(--muted);
 }
 .date-field .date-pick:hover { color: var(--accent); background: var(--surface-2); }
-.date-field .date-pick svg { width: 16px; height: 16px; }
+.date-field .date-pick svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .date-field .date-pick:focus-visible { outline: none; box-shadow: var(--focus); }
 .date-field .date-native {
     position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0;
@@ -687,7 +691,7 @@ ul.plain li + li { margin-top: var(--sp-1); }
     text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
 }
 .help-panel strong { display: block; color: var(--ink); font-weight: 600; margin-bottom: var(--sp-1); }
-.help-panel a { display: inline-block; margin-top: var(--sp-2); font-size: var(--fs-xs); font-weight: 600; }
+.help-panel a { display: inline-flex; align-items: center; min-height: 32px; margin-top: var(--sp-1); font-size: var(--fs-xs); font-weight: 600; }
 
 /* ---------- Tones: favourable / unfavourable / neutral / uncertain / no data ---------- */
 .tone-good { --tone: var(--ok); --tone-soft: var(--ok-soft); --tone-line: var(--ok-line); }
@@ -755,7 +759,7 @@ details.more[open] > summary { margin-bottom: var(--sp-2); }
 .trend-hero { border-left: 6px solid var(--tone-line); }
 .trend-hero.tone-none { border-left-style: dashed; }
 .trend-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2) var(--sp-4); margin-bottom: var(--sp-2); }
-.trend-headline { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; line-height: 1.15; color: var(--tone); }
+.trend-headline { font-family: var(--font-display); font-size: var(--fs-xl); font-weight: 700; line-height: 1.15; color: var(--tone); text-wrap: balance; }
 .trend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: var(--sp-3); margin-top: var(--sp-4); }
 .trend-card {
     display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); align-items: center;
@@ -932,7 +936,7 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
 
 /* ---------- Login ---------- */
 .auth {
-    min-height: 100vh; display: grid; place-items: center; padding: var(--sp-5);
+    min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: var(--sp-5);
     background: radial-gradient(1100px 560px at 50% -12%, #e6efed 0%, var(--bg) 58%);
 }
 .auth-card {
@@ -973,7 +977,8 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
     .filter-row > .custom-dates { flex: 1 1 100%; }
     .custom-dates .filter-group, .filter-group > .inline > input, .filter-group > .inline > .date-field { flex: 1 1 0; min-width: 0; }
     .filter-group select, .custom-dates input, .custom-dates .date-field { width: 100%; }
-    .date-field input[type="text"] { width: 100%; }
+    .date-field input[type="text"] { width: 100%; padding-right: 3.2em; }
+    .date-field .date-pick { width: 44px; }
     .filter-group input[type="number"] { width: auto; }
     .card-head .filter-row { width: 100%; margin-left: 0; }
     .chart-box { height: 300px; }
@@ -989,6 +994,27 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
     .row-action, .sort-link, details.more > summary, .nav-toggle { min-height: 44px; }
     /* Row titles are the tap target on a stacked table; 40px reads as comfortable without stretching the row. */
     .table-stack td.stack-title .row-link { display: inline-flex; align-items: center; min-height: 40px; }
+    /* Links inside a table cell are the tap target for that cell, so give them the cell's height.
+       Buttons, row actions and row titles keep their full target. */
+    .table-wrap td a:not(.row-action):not(.row-link):not(.btn), .table-stack td a:not(.row-action):not(.row-link):not(.btn) { display: inline-flex; align-items: center; min-height: 36px; }
+    /* Remaining small controls: full 44px targets on touch. */
+    .back-link, details.explain > summary, details.race-row > summary, .help-panel a, .check, .ext-links a, .flash-close { min-height: 44px; }
+    .flash-close { min-width: 44px; }
+    /* Inline links in running text are an exception to the 44px rule; give them a little more room than the text box. */
+    .note-xs a, a.note-xs, .page-meta a { display: inline-flex; align-items: center; min-height: 36px; }
+    /* Secondary facts are short enough to read in two columns instead of one long stack. */
+    .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+    /* Meta text (badges, pills, table labels) at arm's length: 11px is too small on a phone. */
+    :root { --fs-2xs: 0.75rem; }
+    /* Only a table that really is wider than the phone shows the swipe hint. */
+    .table-wrap { overscroll-behavior-x: contain; }
+    .table-wrap.is-scrollable + .scroll-hint {
+        display: block; margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--muted);
+    }
+    /* Dates and labels in the first column of a scrolling table must not break over four lines. */
+    .table-wrap:not(.table-stack) tbody td:first-child { white-space: nowrap; }
+    /* Cards with one tall and one short stat: stack so the short one does not sit next to a wall of text. */
+    .stat-grid--stack-sm { grid-template-columns: 1fr; }
     .footer { padding: var(--sp-4) var(--sp-4) var(--sp-6); }
 }
 

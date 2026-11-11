@@ -5,6 +5,7 @@ import com.running.analysis.AiAnalysisService
 import java.util.Locale
 import com.running.analysis.BestEffortService
 import com.running.analysis.NextTrainingParams
+import com.running.analysis.PerfDates
 import com.running.analysis.PeriodComparisonService
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
@@ -84,7 +85,7 @@ class FrontendController(
         val recentActivities = sorted.take(10).map { toActivityRow(it) }
         val pbs = bestEffortService.personalRecords(runs)
         val lastSync = syncStatus.lastSyncAt?.withZoneSameInstant(ZoneId.systemDefault())
-            ?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) ?: "nooit"
+            ?.let { PerfDates.dayTime(it.toLocalDateTime()) } ?: "nooit"
 
         val today = LocalDate.now()
         val allRuns = allActivities.filter { it.type in runTypes }
@@ -204,7 +205,7 @@ class FrontendController(
         val detail = mutableMapOf<String, Any>()
         detail["id"] = a.id
         detail["name"] = a.name
-        detail["date"] = ActivityTime.local(a).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) + " (lokale tijd)"
+        detail["date"] = PerfDates.dayTime(ActivityTime.local(a).toLocalDateTime()) + " (lokale tijd)"
         detail["type"] = a.type
         detail["typeClass"] = typeClass(a.type)
         detail["distance"] = "%.2f km".format(Locale.ROOT, a.distance / 1000)
@@ -706,7 +707,11 @@ class FrontendController(
             .body(bytes)
     }
 
-    private fun periodLabel(name: String, r: DateRange) = "Periode $name (${Format.date(r.from)} t/m ${Format.date(r.till)})"
+    private fun periodLabel(name: String, r: DateRange): String {
+        val from = r.from ?: return "Periode $name"
+        val till = r.till ?: return "Periode $name (vanaf ${PerfDates.day(from)})"
+        return "Periode $name (${PerfDates.range(from, till)})"
+    }
 
     /** Both bounds inclusive local dates ("t/m"). Defaults: A = 8 to 6 months ago, B = last 2 months. */
     private fun resolveComparisonRanges(fromA: String?, tillA: String?, fromB: String?, tillB: String?): Pair<DateRange, DateRange> {
@@ -785,7 +790,7 @@ class FrontendController(
     private fun toActivityRow(a: Activity) = ActivityRow(
         id = a.id,
         name = a.name,
-        date = ActivityTime.local(a).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+        date = PerfDates.day(ActivityTime.localDate(a)),
         type = displayType(a.type),
         typeClass = typeClass(a.type),
         distance = "%.2f km".format(Locale.ROOT, a.distance / 1000),

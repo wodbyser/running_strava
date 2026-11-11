@@ -23,7 +23,7 @@
     <div class="page-head">
         <div>
             <h1>Coach</h1>
-            <p>Hartslagzones, profiel en wedstrijdvoorspellingen. Onderdelen met een <span class="badge badge-est">schatting</span>-label zijn door de app afgeleid, niet gemeten.</p>
+            <p>Hartslagzones, profiel en wedstrijdvoorspellingen. Waar je het label <span class="badge badge-est">schatting</span> ziet, heeft de app de waarde afgeleid: niet gemeten.</p>
         </div>
         <form method="post" action="/coach/sync" id="syncForm" data-loading="Nieuwe trainingen syncen...">
             <button type="submit" class="btn btn-secondary btn-sm" title="Haalt de nieuwste activiteiten van Strava op en herberekent alle coach-analyses.">Nieuwe trainingen syncen</button>
@@ -33,7 +33,7 @@
     <!-- HR Zones -->
     <section class="card" aria-labelledby="h-zones">
         <h2 id="h-zones">Hartslagzones</h2>
-        <div class="stat-grid mb-2">
+        <div class="stat-grid stat-grid--stack-sm mb-2">
             <div class="stat is-est" th:if="${coachData.maxHr != null}">
                 <div class="label">Maximale hartslag <span class="badge badge-est" title="Geschat uit je hoogste gemeten hartslagen, geen maximaaltest.">schatting</span></div>
                 <div class="value" th:text="${coachData.maxHr} + ' bpm'">180 bpm</div>

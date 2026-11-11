@@ -17,7 +17,6 @@ import com.running.strava.spi.ActivityRepository
 import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 @Service
 class CoachService(
@@ -248,8 +247,7 @@ class CoachService(
      * Interval reps are never anchors: they are run with rest in between.
      */
     private fun anchors(runs: List<Activity>, lapsByActivity: Map<Long, List<Lap>>, maxHr: Int?): List<RacePredictor.Anchor> {
-        val fmt = DateTimeFormatter.ofPattern("dd/MM/yyyy")
-        val date = { a: Activity -> ActivityTime.local(a).format(fmt) }
+        val date = { a: Activity -> PerfDates.day(ActivityTime.localDate(a)) }
         val result = mutableListOf<RacePredictor.Anchor>()
 
         runs.filter { it.workoutType == 1 && it.distance > 0 && it.movingTime > 0 }.forEach { a ->
