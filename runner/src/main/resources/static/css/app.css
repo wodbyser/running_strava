@@ -999,7 +999,8 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
     /* Row titles are the tap target on a stacked table; 40px reads as comfortable without stretching the row. */
     .table-stack td.stack-title .row-link { display: inline-flex; align-items: center; min-height: 40px; }
     /* Links inside a table cell are the tap target for that cell, so give them the cell's height.
-       Buttons, row actions and row titles keep their full target. */
+       Buttons, row actions and row titles keep their full target. A stacked table is always also a
+       .table-wrap, so this one rule covers both. */
     .table-wrap td a:not(.row-action):not(.row-link):not(.btn) { display: inline-flex; align-items: center; min-height: 36px; }
     /* Remaining small controls: full 44px targets on touch. */
     .back-link, details.explain > summary, details.race-row > summary, .help-panel a, .check, .ext-links a, .flash-close { min-height: 44px; }

@@ -201,7 +201,7 @@
         <p th:each="l : ${p.detraining.lines}" class="mt-2" th:text="${l}">-</p>
         <div class="table-wrap mt-2" th:if="${!p.detraining.table.rows.isEmpty()}"><table>
             <thead><tr><th th:each="h : ${p.detraining.table.head}" th:text="${h}">-</th></tr></thead>
-            <tbody><tr th:each="r : ${p.detraining.table.rows}"><td th:each="c : ${r.cells}" th:text="${c}">-</td></tr></tbody>
+            <tbody><tr th:each="r : ${p.detraining.table.rows}"><td th:each="c, s : ${r.cells}" th:classappend="${s.index == 0} ? 'nowrap' : ''" th:text="${c}">-</td></tr></tbody>
         </table></div>
         <p class="note-xs mt-2" th:text="${p.detraining.note}">-</p>
     </section>

@@ -149,7 +149,7 @@
                 <summary>Toon als tabel</summary>
                 <div class="table-wrap"><table>
                     <thead><tr><th>Week</th><th class="num">Runs</th><th class="num">Minuten</th><th class="num">Z1</th><th class="num">Z2</th><th class="num">Z3</th><th class="num">Z4</th><th class="num">Z5</th></tr></thead>
-                    <tbody><tr th:each="row : ${p.zones.rows}"><td th:text="${row[0]}">-</td><td class="num" th:each="c, s : ${row}" th:if="${s.index > 0}" th:text="${c}">-</td></tr></tbody>
+                    <tbody><tr th:each="row : ${p.zones.rows}"><td class="nowrap" th:text="${row[0]}">-</td><td class="num" th:each="c, s : ${row}" th:if="${s.index > 0}" th:text="${c}">-</td></tr></tbody>
                 </table></div>
             </details>
             <details class="explain">
