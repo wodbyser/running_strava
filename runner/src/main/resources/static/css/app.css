@@ -98,7 +98,11 @@ body {
     font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Short pages (a 404, an empty dashboard) keep the footer at the bottom instead of halfway up. */
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
 }
+main.container { flex: 1 0 auto; width: 100%; }
 ::selection { background: var(--accent-soft); color: var(--accent-hover); }
 a { color: var(--accent); text-underline-offset: 2px; }
 a:hover { color: var(--accent-hover); }
@@ -926,7 +930,7 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
 
 /* ---------- Footer ---------- */
 .footer {
-    max-width: 1180px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6);
+    width: 100%; max-width: 1180px; margin: 0 auto; padding: var(--sp-4) var(--sp-5) var(--sp-6);
     display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2) var(--sp-4); flex-wrap: wrap;
     font-size: var(--fs-xs); color: var(--muted);
 }
@@ -996,14 +1000,16 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
     .table-stack td.stack-title .row-link { display: inline-flex; align-items: center; min-height: 40px; }
     /* Links inside a table cell are the tap target for that cell, so give them the cell's height.
        Buttons, row actions and row titles keep their full target. */
-    .table-wrap td a:not(.row-action):not(.row-link):not(.btn), .table-stack td a:not(.row-action):not(.row-link):not(.btn) { display: inline-flex; align-items: center; min-height: 36px; }
+    .table-wrap td a:not(.row-action):not(.row-link):not(.btn) { display: inline-flex; align-items: center; min-height: 36px; }
     /* Remaining small controls: full 44px targets on touch. */
     .back-link, details.explain > summary, details.race-row > summary, .help-panel a, .check, .ext-links a, .flash-close { min-height: 44px; }
     .flash-close { min-width: 44px; }
     /* Inline links in running text are an exception to the 44px rule; give them a little more room than the text box. */
     .note-xs a, a.note-xs, .page-meta a { display: inline-flex; align-items: center; min-height: 36px; }
-    /* Secondary facts are short enough to read in two columns instead of one long stack. */
-    .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+    /* Secondary facts (short values only) read better in two columns than in one long stack. */
+    .facts:not(.facts-sm) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+    /* Labels wrap to different heights; keep the values of one row on one line. */
+    .facts dd { margin-top: auto; }
     /* Meta text (badges, pills, table labels) at arm's length: 11px is too small on a phone. */
     :root { --fs-2xs: 0.75rem; }
     /* Only a table that really is wider than the phone shows the swipe hint. */
@@ -1011,8 +1017,6 @@ details.explain.card > summary { font-family: var(--font-display); font-size: va
     .table-wrap.is-scrollable + .scroll-hint {
         display: block; margin-top: var(--sp-2); font-size: var(--fs-xs); color: var(--muted);
     }
-    /* Dates and labels in the first column of a scrolling table must not break over four lines. */
-    .table-wrap:not(.table-stack) tbody td:first-child { white-space: nowrap; }
     /* Cards with one tall and one short stat: stack so the short one does not sit next to a wall of text. */
     .stat-grid--stack-sm { grid-template-columns: 1fr; }
     .footer { padding: var(--sp-4) var(--sp-4) var(--sp-6); }

@@ -113,3 +113,19 @@ For every section ask: "Can the owner see in 5 seconds what this means and how i
   `.seg` segmented control with `aria-current="page"` on the active option — not a row of buttons.
 - Long pages: `.toc` is one scrolling row of jump links, sticky under the topbar, and `layout.html` marks the section you
   are reading. Do not turn it back into a wall of pills.
+
+## 11. On a phone (≤ 640px)
+
+The owner also reads the pages on a phone, so these rules are as binding as the ones above; they live in the
+`@media (max-width: 640px)` block of `app.css`.
+
+- **Tap targets**: 44px for buttons, `.back-link`, `summary`, `.check`, `.flash-close` and links in a table cell.
+  Running text is the exception: links inside `.note-xs`/`.page-meta` get 36px, not 44px, so paragraphs stay readable.
+- **Meta text is never 11px on a phone**: `--fs-2xs` is 12px there (badges, `th`, stacked-table labels).
+- **Secondary facts** (`.facts`) sit in two columns, because the values are short; `.facts-sm` keeps its own layout.
+- **Wide tables** scroll sideways inside `.table-wrap`; `layout.html` adds the "Veeg opzij om alle kolommen te zien."
+  hint, but only when the table really is wider than the screen. Dates and labels in a first column get
+  `class="nowrap"` in the template — there is no blanket rule, because user text (a goal title) must still wrap.
+- Short pages keep the footer at the bottom (`body` is a flex column, `main.container` grows).
+- Never fix a small screen by shrinking text: adjust the layout instead (stack the tile, fold the table, shorten the
+  label).

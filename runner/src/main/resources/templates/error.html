@@ -6,7 +6,8 @@
         <p class="page-meta" th:if="${status != null}" th:text="'Foutcode ' + ${status}">Foutcode 500</p>
     </div>
 
-    <section class="card">
+    <section class="card" aria-labelledby="h-error">
+        <h2 id="h-error">Wat nu?</h2>
         <p th:if="${status} == 404">De link klopt niet meer of de pagina is verplaatst. Ga terug naar het dashboard en kies daar wat je zoekt.</p>
         <p th:unless="${status} == 404">De app kon deze pagina niet tonen. Probeer het opnieuw. Blijft het misgaan, kijk dan in de logboeken van de app.</p>
         <div class="actions">

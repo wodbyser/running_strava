@@ -708,9 +708,14 @@ class FrontendController(
     }
 
     private fun periodLabel(name: String, r: DateRange): String {
-        val from = r.from ?: return "Periode $name"
-        val till = r.till ?: return "Periode $name (vanaf ${PerfDates.day(from)})"
-        return "Periode $name (${PerfDates.range(from, till)})"
+        val from = r.from
+        val till = r.till
+        return when {
+            from != null && till != null -> "Periode $name (${PerfDates.range(from, till)})"
+            from != null -> "Periode $name (vanaf ${PerfDates.day(from)})"
+            till != null -> "Periode $name (t/m ${PerfDates.day(till)})"
+            else -> "Periode $name"
+        }
     }
 
     /** Both bounds inclusive local dates ("t/m"). Defaults: A = 8 to 6 months ago, B = last 2 months. */

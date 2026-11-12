@@ -52,7 +52,12 @@ object PerfDates {
     fun month(iso: String) = runCatching { month(YearMonth.parse(iso)) }.getOrDefault(iso)
     fun weekOf(iso: String) = runCatching { "week van " + day(LocalDate.parse(iso)) }.getOrDefault(iso)
     fun shortIso(iso: String) = runCatching { dayShort(LocalDate.parse(iso)) }.getOrDefault(iso)
-    fun range(from: LocalDate, to: LocalDate) = if (from.year == to.year) "${dayShort(from)} – ${day(to)}" else "${day(from)} – ${day(to)}"
+    /** Range as "3 okt – 30 okt 2026"; one day stays one day, and the shared year is only written once. */
+    fun range(from: LocalDate, to: LocalDate) = when {
+        from == to -> day(from)
+        from.year == to.year -> "${dayShort(from)} – ${day(to)}"
+        else -> "${day(from)} – ${day(to)}"
+    }
 }
 
 object PerformanceText {

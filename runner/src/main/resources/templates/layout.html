@@ -211,6 +211,8 @@
 
         // A table wider than the screen scrolls sideways. Say so instead of leaving columns silently cut off,
         // and keep the swipe inside the table so it cannot trigger the browser's back gesture.
+        // Wide tables usually sit folded away in a <details>, so watch the wrapper instead of the window:
+        // a ResizeObserver also fires the moment a folded table gets a size.
         document.querySelectorAll('.table-wrap').forEach(function (wrap) {
             var hint = document.createElement('p');
             hint.className = 'scroll-hint';
@@ -220,7 +222,13 @@
                 wrap.classList.toggle('is-scrollable', wrap.scrollWidth > wrap.clientWidth + 4);
             }
             sync();
-            window.addEventListener('resize', sync);
+            if (window.ResizeObserver) {
+                new ResizeObserver(sync).observe(wrap);
+            } else {
+                var folded = wrap.closest('details');
+                if (folded) folded.addEventListener('toggle', sync);
+                window.addEventListener('resize', sync);
+            }
         });
 
         // Help popovers ("?"): one open at a time, panel placed next to its button and kept inside the viewport.

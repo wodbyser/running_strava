@@ -12,7 +12,7 @@ import com.running.garmin.adapter.GarminStartOutcome
 import com.running.garmin.adapter.GarminSyncCoordinator
 import com.running.garmin.recovery.PeriodKind
 import com.running.garmin.recovery.RecoveryReport
-import com.running.garmin.spi.GarminSyncStatusRepository
+import com.running.garmin.web.GarminSyncView
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
@@ -30,17 +30,8 @@ class RecoveryController(
     private val recoveryService: RecoveryService,
     private val properties: GarminProperties,
     private val coordinator: GarminSyncCoordinator,
-    private val statusRepository: GarminSyncStatusRepository,
+    private val garminSync: GarminSyncView,
 ) {
-    private fun syncLine(): String {
-        if (!properties.enabled) return "Garmin-synchronisatie staat uit in de instellingen."
-        if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
-        val st = statusRepository.get()
-        if (coordinator.isRunning) return "Synchronisatie bezig. Ververs de pagina over een minuut."
-        val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.toLocalDateTime()?.let { PerfDates.dayTime(it) }
-        val err = st.lastErrorCategory?.let { " Laatste fout: $it." } ?: ""
-        return (ok?.let { "Laatste Garmin-sync: $it." } ?: "Nog niet gesynchroniseerd.") + err
-    }
 
     @GetMapping("/recovery")
     fun recovery(
@@ -73,9 +64,9 @@ class RecoveryController(
         model.addAttribute("windowsChanged", changed.isNotEmpty())
         model.addAttribute("resetUrl", url(viewMode, day.toString(), emptyMap()))
         model.addAttribute("rw", w)
-        model.addAttribute("syncLine", syncLine())
-        model.addAttribute("syncRunning", coordinator.isRunning)
-        model.addAttribute("syncPossible", properties.enabled && properties.configured && !coordinator.isRunning)
+        model.addAttribute("syncLine", garminSync.line())
+        model.addAttribute("syncRunning", garminSync.running)
+        model.addAttribute("syncPossible", garminSync.possible)
         model.addAttribute("fellBackNote", if (date == null && fellBack) "Voor vandaag zijn er nog geen Garmin-gegevens (de synchronisatie liep nog niet). Je ziet de laatste dag met data: ${PerfDates.dayLong(day)}." else null)
         model.addAttribute("legend", RecoveryText.ESTIMATE_LEGEND)
         model.addAttribute("safety", RecoveryText.SAFETY)
