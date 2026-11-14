@@ -71,6 +71,7 @@ class FrontendController(
         @RequestParam(name = "evolution") evolutionPeriod: String? = null,
         @RequestParam(name = "evolutionFrom") evolutionFrom: String? = null,
         @RequestParam(name = "evolutionTill") evolutionTill: String? = null,
+        @RequestParam(name = "garminSync", required = false) garminSyncState: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
         val filtered = filterActivities(allActivities, period, from, till, null)
@@ -119,6 +120,12 @@ class FrontendController(
         model.addAttribute("hasToken", hasToken)
         model.addAttribute("garminSyncLine", garminSync.line())
         model.addAttribute("garminSyncPossible", garminSync.possible)
+        model.addAttribute("garminSyncRunning", garminSync.running)
+        if (garminSyncState == "done") {
+            val (msg, type) = garminSync.finishedMessage()
+            model.addAttribute("flashMessage", msg)
+            model.addAttribute("flashType", type)
+        }
         model.addAttribute("hasData", runs.isNotEmpty())
         model.addAttribute("stats", mapOf<String, Any>(
             "totalRuns" to runs.size,

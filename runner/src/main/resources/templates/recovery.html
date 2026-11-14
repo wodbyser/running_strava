@@ -7,14 +7,12 @@
             <p>Hoe staat je lichaam er vandaag voor, vergeleken met wat normaal is voor jou? HRV, rusthartslag, slaap, Body Battery en stress uit je Garmin-data, zonder oordeel.</p>
         </div>
         <div class="sync-bar">
-            <form method="post" action="/recovery/garmin-update">
+            <form method="post" action="/recovery/garmin-update" data-loading="Garmin-synchronisatie starten...">
                 <button type="submit" class="btn btn-primary btn-sm" th:disabled="${!syncPossible}">Garmin synchroniseren</button>
             </form>
             <span class="note" th:text="${syncLine}">-</span>
         </div>
     </div>
-
-    <script th:if="${syncRunning}">setTimeout(function () { window.location.reload(); }, 4000);</script>
 
     <div class="filter-bar">
         <div class="filter-row">

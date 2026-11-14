@@ -112,6 +112,16 @@ class GarminControllerTest {
     }
 
     @Test
+    fun `progress follows the background run without matching activities`() {
+        val h = Harness(configured)
+        h.mvc.perform(get("/garmin/progress")).andExpect(status().isOk).andExpect(jsonPath("$.running").value(false))
+        h.mvc.perform(post("/garmin/sync")).andExpect(status().isAccepted)
+        h.mvc.perform(get("/garmin/progress")).andExpect(jsonPath("$.running").value(true)).andExpect(jsonPath("$.state").value("RUNNING"))
+        h.queued.single().run()
+        h.mvc.perform(get("/garmin/progress")).andExpect(jsonPath("$.running").value(false))
+    }
+
+    @Test
     fun `status shows records and null counts and never the key`() {
         val st = GarminSyncStatus.EMPTY.copy(
             lastRunKind = GarminRunKind.SYNC, lastRunFinishedAt = Instant.EPOCH, lastSuccessAt = Instant.EPOCH,

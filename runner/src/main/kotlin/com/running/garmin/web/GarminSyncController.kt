@@ -44,6 +44,13 @@ data class GarminStatusView(
     val reviewMatchCount: Int?,
 )
 
+/** Lightweight answer for the page spinner: no matching, no health values. */
+data class GarminProgressView(
+    val running: Boolean,
+    val state: GarminState,
+    val lastRunFinishedAt: Instant?,
+)
+
 data class GarminReviewCandidateView(
     val stravaActivityId: Long,
     val startDiffSeconds: Long,
@@ -101,6 +108,13 @@ class GarminSyncController(
             state, status.lastRunKind, status.lastRunStartedAt, status.lastRunFinishedAt, status.lastSuccessAt, status.lastSuccessDate,
             status.recordsPerEndpoint, status.nullFieldsPerEndpoint, status.failedCalls, status.lastErrorCategory, status.lastErrorDetail, review,
         )
+    }
+
+    /** Read-only and cheap enough to poll while a sync is running; unlike /status it does not match activities. */
+    @GetMapping("/progress")
+    fun progress(): GarminProgressView {
+        val status = statusRepository.get()
+        return GarminProgressView(coordinator.isRunning, state(status), status.lastRunFinishedAt)
     }
 
     /** Read-only. Nothing is stored or linked in Phase 1. */

@@ -43,7 +43,7 @@
         }
     </script>
 </head>
-<body>
+<body th:attr="data-garmin-sync=${garminSyncRunning == true ? 'running' : null}">
 <a class="skip-link" href="#main">Naar inhoud</a>
 <header class="topbar">
     <div class="topbar-inner">
@@ -137,7 +137,7 @@
     <div class="spinner" aria-hidden="true"></div>
     <div class="spinner-text" id="loadingText">Bezig met synchroniseren...</div>
     <div class="spinner-elapsed" id="loadingElapsed" aria-hidden="true">0:00</div>
-    <div class="spinner-sub">Strava-data ophalen kan enkele minuten duren. Laat dit tabblad open; de pagina ververst vanzelf zodra het klaar is.</div>
+    <div class="spinner-sub" id="loadingSub">Strava-data ophalen kan enkele minuten duren. Laat dit tabblad open; de pagina ververst vanzelf zodra het klaar is.</div>
 </div>
 <main class="container" id="main">
     <th:block th:insert="~{${view} :: content}" />
@@ -366,8 +366,9 @@
         // Loading feedback for long-running sync/fetch requests
         var overlay = document.getElementById('loadingSpinner');
         var timer = null;
-        function showLoading(text) {
+        function showLoading(text, sub) {
             document.getElementById('loadingText').textContent = text || 'Bezig met synchroniseren...';
+            if (sub) document.getElementById('loadingSub').textContent = sub;
             overlay.classList.add('active');
             overlay.setAttribute('aria-hidden', 'false');
             var start = Date.now();
@@ -380,9 +381,35 @@
         }
         // Hide overlay when returning via back/forward cache
         window.addEventListener('pageshow', function (e) {
-            if (e.persisted) { overlay.classList.remove('active'); overlay.setAttribute('aria-hidden', 'true'); clearInterval(timer); }
+            if (e.persisted) { overlay.classList.remove('active'); overlay.setAttribute('aria-hidden', 'true'); clearInterval(timer); clearInterval(garminPoll); }
         });
-        var sel = '[action*="sync"], [action*="fetch-all"], [action*="fetch-remaining"], [action*="backfill-laps"], [action*="backfill-streams"]';
+        // The Garmin sync runs in the background: show the same spinner as a Strava sync, poll a cheap endpoint
+        // until the run stops, then reload once with a confirmation.
+        var garminPoll = null;
+        var garminRunning = document.body.getAttribute('data-garmin-sync') === 'running';
+        var here = new URL(window.location.href);
+        if (here.searchParams.get('garminSync') === 'done') {
+            here.searchParams.delete('garminSync');
+            window.history.replaceState({}, '', here.toString());
+        }
+        if (garminRunning) {
+            showLoading('Garmin-gegevens ophalen...', 'Garmin-data ophalen kan enkele minuten duren. Laat dit tabblad open; de pagina ververst vanzelf zodra het klaar is.');
+            var checkGarmin = function () {
+                fetch('/garmin/progress', { headers: { 'Accept': 'application/json' } })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (state) {
+                        if (!state || state.running) return;
+                        clearInterval(garminPoll);
+                        var done = new URL(window.location.href);
+                        done.searchParams.set('garminSync', 'done');
+                        window.location.replace(done.toString());
+                    })
+                    .catch(function () {});
+            };
+            garminPoll = setInterval(checkGarmin, 3000);
+            checkGarmin();
+        }
+        var sel = '[action*="sync"], [action*="fetch-all"], [action*="fetch-remaining"], [action*="backfill-laps"], [action*="backfill-streams"], [action*="garmin-update"]';
         document.querySelectorAll('form' + sel.split(', ').join(', form')).forEach(function (form) {
             form.addEventListener('submit', function () {
                 var btn = form.querySelector('button[type="submit"]');

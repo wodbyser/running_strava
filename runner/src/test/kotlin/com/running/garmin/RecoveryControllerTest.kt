@@ -100,7 +100,7 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
         // day = Thursday 15 Jan 2026: the window is 9 to 15 January, not Monday 12 to Sunday 18 January.
         assertTrue(week.contains("Laatste 7 dagen: 9 jan – 15 jan 2026"))
         assertTrue(week.contains("Vorige 7 dagen"))
-        assertTrue(week.contains("Vergeleken met de 7 dagen daarvoor (2 jan – 8 jan 2026)."))
+        assertTrue(week.contains("Mediaan per dag, vergeleken met de 7 dagen daarvoor (2 jan – 8 jan 2026)."))
         assertTrue(week.contains("Hoe komt deze conclusie tot stand?"))
         assertTrue(week.contains("id=\"cHrv\""))
         assertTrue(week.contains("Per dag"))
@@ -109,6 +109,17 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
         val month = mvc.perform(get("/recovery?view=month&date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(month.contains("Laatste 30 dagen: 17 dec 2025 – 15 jan 2026"), "always 30 days, also mid month")
         assertTrue(month.contains("Vorige 30 dagen"))
+    }
+
+    @Test
+    fun `garmin sync reports progress and confirms when the background run is done`() {
+        mvc.perform(get("/garmin/progress"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.running").value(false))
+        val idle = mvc.perform(get("/recovery?date=2020-01-01")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertFalse(idle.contains("data-garmin-sync=\"running\""))
+        val done = mvc.perform(get("/recovery?date=2020-01-01&garminSync=done")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(done.contains("Garmin-synchronisatie klaar"))
     }
 
     @Test

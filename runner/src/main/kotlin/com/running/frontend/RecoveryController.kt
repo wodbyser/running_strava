@@ -39,8 +39,14 @@ class RecoveryController(
         model: Model,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) date: LocalDate?,
         @RequestParam(required = false, defaultValue = "day") view: String,
+        @RequestParam(name = "garminSync", required = false) garminSyncState: String?,
         @RequestParam params: Map<String, String>,
     ): String {
+        if (garminSyncState == "done") {
+            val (msg, type) = garminSync.finishedMessage()
+            model.addAttribute("flashMessage", msg)
+            model.addAttribute("flashType", type)
+        }
         val w = RecoveryWindowSettings.from(params)
         val changed = RecoveryWindowSettings.changed(w).mapValues { it.value.toString() }
         val (defaultDay, fellBack) = recoveryService.defaultDate()
@@ -66,7 +72,7 @@ class RecoveryController(
         model.addAttribute("resetUrl", url(viewMode, day.toString(), emptyMap()))
         model.addAttribute("rw", w)
         model.addAttribute("syncLine", garminSync.line())
-        model.addAttribute("syncRunning", garminSync.running)
+        model.addAttribute("garminSyncRunning", garminSync.running)
         model.addAttribute("syncPossible", garminSync.possible)
         model.addAttribute("fellBackNote", if (date == null && fellBack) "Voor vandaag zijn er nog geen Garmin-gegevens (de synchronisatie liep nog niet). Je ziet de laatste dag met data: ${PerfDates.dayLong(day)}." else null)
         model.addAttribute("legend", RecoveryText.ESTIMATE_LEGEND)
@@ -102,7 +108,7 @@ class RecoveryController(
     @PostMapping("/recovery/garmin-update")
     fun update(ra: RedirectAttributes, @RequestParam(required = false) back: String?): String {
         val (msg, type) = when (coordinator.startSync()) {
-            GarminStartOutcome.STARTED -> "Garmin-synchronisatie gestart op de achtergrond. Ververs de pagina over een minuut." to "success"
+            GarminStartOutcome.STARTED -> "Garmin-synchronisatie gestart. De pagina ververst vanzelf als het klaar is." to "success"
             GarminStartOutcome.BUSY -> "Er loopt al een synchronisatie. Er is geen nieuwe gestart." to "warning"
             GarminStartOutcome.DISABLED -> "Garmin-synchronisatie staat uit in de instellingen." to "warning"
             GarminStartOutcome.NOT_CONFIGURED -> "Geen Garmin-sleutel ingesteld: er is niets gestart." to "error"

@@ -27,7 +27,7 @@
             </div>
             <div class="sync-bar">
                 <div class="actions">
-                    <form method="post" action="/recovery/garmin-update"><input type="hidden" name="back" value="dashboard"><button type="submit" class="btn btn-secondary btn-sm" th:disabled="${!garminSyncPossible}">Garmin synchroniseren</button></form>
+                    <form method="post" action="/recovery/garmin-update" data-loading="Garmin-synchronisatie starten..."><input type="hidden" name="back" value="dashboard"><button type="submit" class="btn btn-secondary btn-sm" th:disabled="${!garminSyncPossible}">Garmin synchroniseren</button></form>
                     <th:block th:if="${hasToken}">
                     <form method="post" action="/sync" data-loading="Nieuwe trainingen syncen..."><button type="submit" class="btn btn-primary btn-sm">Nieuwe trainingen syncen</button></form>
                     <details class="sync-more">
