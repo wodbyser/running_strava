@@ -6,7 +6,6 @@ import com.running.garmin.recovery.BaselineStatus
 import com.running.garmin.recovery.BodyBatteryResult
 import com.running.garmin.recovery.DeviationBand
 import com.running.garmin.recovery.MetricAnalysis
-import com.running.garmin.recovery.PeriodKind
 import com.running.garmin.recovery.PeriodMetricKind
 import com.running.garmin.recovery.PeriodReport
 import com.running.garmin.recovery.Readiness
@@ -428,27 +427,26 @@ object RecoveryText {
     }
 
     fun periodPage(r: PeriodReport, sleepTargetMinutes: Int): PeriodPage {
-        val dutch = if (r.kind == PeriodKind.WEEK) "Week" else "Maand"
         val sleep = { v: Double -> hm(v) }
         val rows = r.metrics.map { m ->
             val fmt: (Double) -> String = if (m.kind == PeriodMetricKind.SLEEP_DURATION) sleep else { v -> f(v) }
             val tag = RecoveryTag.COMPUTED
             val delta = m.difference
             if (m.status == BaselineStatus.INSUFFICIENT) {
-                RecoveryRow(periodLabel(m.kind), "onbeschikbaar", "onvoldoende data (n=${m.n} van ${r.elapsedDays} dagen, minimaal ${m.needed})", "-", RecoveryTag.NA)
+                RecoveryRow(periodLabel(m.kind), "onbeschikbaar", "onvoldoende data (n=${m.n} van ${r.windowDays} dagen, minimaal ${m.needed})", "-", RecoveryTag.NA)
             } else {
                 val diff = when {
                     delta == null -> "vorige periode: onvoldoende data (n=${m.previousN})"
                     m.kind == PeriodMetricKind.SLEEP_DURATION -> "vorige periode ${fmt(m.previousMedian!!)}, verschil ${if (delta < 0) "-" else "+"}${hm(abs(delta))}"
                     else -> "vorige periode ${fmt(m.previousMedian!!)}, verschil ${signed(delta)}"
                 }
-                RecoveryRow(periodLabel(m.kind), "mediaan ${fmt(m.median!!)}", "bereik ${fmt(m.min!!)} tot ${fmt(m.max!!)}, n=${m.n} van ${r.elapsedDays} dagen", diff, tag)
+                RecoveryRow(periodLabel(m.kind), "mediaan ${fmt(m.median!!)}", "bereik ${fmt(m.min!!)} tot ${fmt(m.max!!)}, n=${m.n} van ${r.windowDays} dagen", diff, tag)
             }
         }.toMutableList()
         val d = r.sleepDebt
         rows += if (d.status == BaselineStatus.OK)
             RecoveryRow("Geschat slaaptekort", hmSeconds(d.shortfallSeconds!!), "doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsWithData} nachten met data", "${d.nightsBelowTarget} nacht(en) onder het doel; netto saldo ${if (d.netBalanceSeconds!! < 0) "-" else "+"}${hmSeconds(abs(d.netBalanceSeconds!!))}", RecoveryTag.COMPUTED)
-        else na("Geschat slaaptekort", "onvoldoende data (n=${d.nightsWithData} van ${r.elapsedDays} nachten, minimaal ${d.needed})")
+        else na("Geschat slaaptekort", "onvoldoende data (n=${d.nightsWithData} van ${r.windowDays} nachten, minimaal ${d.needed})")
         val dash = { v: Int? -> v?.toString() ?: "-" }
         val dayRows = r.days.map { listOf(it.date.toString(), dash(it.hrv), dash(it.restingHr), it.sleepMinutes?.let { m -> hm(m.toDouble()) } ?: "-", dash(it.bodyBatteryWake), dash(it.stressAvg)) }
         val unit = { k: ReadinessKind ->
@@ -469,13 +467,13 @@ object RecoveryText {
             listOf("Periode" to PerfDates.range(r.from, r.to), "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van de ${r.windows.normDays} dagen vóór de periode"),
             emptyList(), periodDebtLine,
             "Elke component vergelijkt de mediaan van de dagen met data in deze periode met de mediaan van de ${r.windows.normDays} dagen vóór de periode. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
-            "Algoritme ${r.algorithmVersion}." + if (r.partial) " Lopende periode: ${r.elapsedDays} dagen." else "",
+            "Algoritme ${r.algorithmVersion}.",
             "te weinig dagen met data in deze periode",
         )
         return PeriodPage(
             hero,
-            "$dutch ${r.from} tot ${r.to}",
-            (if (r.partial) "Lopende periode: ${r.elapsedDays} dagen tot en met ${r.to}. " else "") + "Vergeleken met ${r.previousFrom} tot ${r.previousTo}.",
+            "Laatste ${r.windowDays} dagen: ${PerfDates.range(r.from, r.to)}",
+            "Vergeleken met de ${r.windowDays} dagen daarvoor (${PerfDates.range(r.previousFrom, r.previousTo)}).",
             rows, listOf("Dag", "HRV (ms)", "Rusthartslag (bpm)", "Slaap", "Body Battery ontwaken", "Stress gem."), dayRows,
             listOf("Mediaan van de dagen met data. Het verschil met de vorige periode is een berekend verschil, geen oordeel: hoger of lager zegt op zich niets over herstel.",
                 "Een rusthartslag telt enkel als Garmin-waarde. Stress van vandaag telt niet mee (dag is niet af)."),

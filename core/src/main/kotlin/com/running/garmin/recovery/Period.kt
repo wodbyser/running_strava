@@ -1,9 +1,6 @@
 package com.running.garmin.recovery
 
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAdjusters
 
 enum class PeriodKind { WEEK, MONTH }
 
@@ -41,9 +38,8 @@ data class PeriodReport(
     val kind: PeriodKind,
     val from: LocalDate,
     val to: LocalDate,
-    val fullPeriodEnd: LocalDate,
-    val elapsedDays: Int,
-    val partial: Boolean,
+    /** Fixed length of the window: 7 days for a week view, 30 days for a month view. */
+    val windowDays: Int,
     val previousFrom: LocalDate,
     val previousTo: LocalDate,
     val metrics: List<PeriodMetric>,
@@ -55,19 +51,24 @@ data class PeriodReport(
     val windows: RecoveryWindows = RecoveryWindows.DEFAULT,
 )
 
-/** Week view (Monday to Sunday) and month view (calendar month) over the stored rows. Computed on demand. */
+/**
+ * Week view = the last 7 days up to and including the chosen day, month view = the last 30 days. Never a calendar week
+ * or calendar month: the window always holds the same number of days, whatever weekday or day of the month it ends on.
+ */
 object PeriodAnalysis {
     const val HISTORY_DAYS_BACK = 62
 
-    fun bounds(kind: PeriodKind, date: LocalDate): Pair<LocalDate, LocalDate> = when (kind) {
-        PeriodKind.WEEK -> date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).let { it to it.plusDays(6) }
-        PeriodKind.MONTH -> date.withDayOfMonth(1).let { it to it.with(TemporalAdjusters.lastDayOfMonth()) }
+    /** Length of the window in days: 7 for a week view, 30 for a month view. */
+    fun windowDays(kind: PeriodKind): Int = when (kind) {
+        PeriodKind.WEEK -> 7
+        PeriodKind.MONTH -> 30
     }
 
-    fun previousStart(kind: PeriodKind, from: LocalDate): LocalDate = when (kind) {
-        PeriodKind.WEEK -> from.minusWeeks(1)
-        PeriodKind.MONTH -> from.minusMonths(1)
-    }
+    /** Inclusive bounds of the window that ends on [date]. */
+    fun bounds(kind: PeriodKind, date: LocalDate): Pair<LocalDate, LocalDate> = date.minusDays(windowDays(kind) - 1L) to date
+
+    /** Start of the window of the same length that ends the day before [from]. */
+    fun previousStart(kind: PeriodKind, from: LocalDate): LocalDate = from.minusDays(windowDays(kind).toLong())
 
     fun analyze(
         inputs: RecoveryInputs,
@@ -77,11 +78,10 @@ object PeriodAnalysis {
         sleepTargetMinutes: Int,
         w: RecoveryWindows = RecoveryWindows.DEFAULT,
     ): PeriodReport {
-        val (from, fullEnd) = bounds(kind, date)
-        val to = minOf(fullEnd, today)
-        val elapsed = (ChronoUnit.DAYS.between(from, to) + 1).toInt().coerceAtLeast(1)
+        val (from, to) = bounds(kind, minOf(date, today))
+        val span = windowDays(kind)
         val prevFrom = previousStart(kind, from)
-        val prevTo = prevFrom.plusDays(elapsed - 1L)
+        val prevTo = from.minusDays(1)
 
         val hrv = inputs.hrv.toSeries { it.lastNightAvg }
         val rhr = inputs.restingHr.toSeries { it.restingHr }
@@ -92,7 +92,7 @@ object PeriodAnalysis {
         fun values(series: Map<LocalDate, Double>, a: LocalDate, b: LocalDate) =
             generateSequence(a) { it.plusDays(1) }.takeWhile { !it.isAfter(b) }.mapNotNull { series[it] }.toList()
 
-        val needed = Baseline.minimumCount(elapsed)
+        val needed = Baseline.minimumCount(span)
         fun metric(k: PeriodMetricKind, series: Map<LocalDate, Double>): PeriodMetric {
             val cur = values(series, from, to)
             val prev = values(series, prevFrom, prevTo)
@@ -144,7 +144,7 @@ object PeriodAnalysis {
         )
 
         return PeriodReport(
-            RecoveryAlgorithm.VERSION, kind, from, to, fullEnd, elapsed, to.isBefore(fullEnd), prevFrom, prevTo, metrics, debt, readiness, days,
+            RecoveryAlgorithm.VERSION, kind, from, to, span, prevFrom, prevTo, metrics, debt, readiness, days,
             DailyNorms.series(inputs, from, to, today, w.normDays),
             w,
         )

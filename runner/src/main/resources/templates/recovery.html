@@ -26,14 +26,14 @@
                 <input type="hidden" name="view" th:value="${viewMode}">
                 <input type="hidden" th:each="e : ${windowKeep}" th:name="${e.key}" th:value="${e.value}">
                 <span class="filter-group">
-                    <label for="date">Dag</label>
+                    <label for="date" th:text="${viewMode == 'day'} ? 'Dag' : 'Tot en met'">Dag</label>
                     <input type="date" id="date" name="date" th:value="${dateValue}">
                 </span>
                 <button type="submit" class="btn btn-secondary btn-sm">Toon</button>
             </form>
             <span class="actions">
-                <a class="btn btn-ghost btn-sm" th:href="${prevUrl}" th:text="${viewMode == 'day'} ? '← Vorige dag' : (${viewMode == 'week'} ? '← Vorige week' : '← Vorige maand')">&larr; Vorige</a>
-                <a class="btn btn-ghost btn-sm" th:if="${nextUrl != null}" th:href="${nextUrl}" th:text="${viewMode == 'day'} ? 'Volgende dag →' : (${viewMode == 'week'} ? 'Volgende week →' : 'Volgende maand →')">Volgende &rarr;</a>
+                <a class="btn btn-ghost btn-sm" th:href="${prevUrl}" th:text="${viewMode == 'day'} ? '← Vorige dag' : (${viewMode == 'week'} ? '← Vorige 7 dagen' : '← Vorige 30 dagen')">&larr; Vorige</a>
+                <a class="btn btn-ghost btn-sm" th:if="${nextUrl != null}" th:href="${nextUrl}" th:text="${viewMode == 'day'} ? 'Volgende dag →' : (${viewMode == 'week'} ? 'Volgende 7 dagen →' : 'Volgende 30 dagen →')">Volgende &rarr;</a>
             </span>
         </div>
         <div class="filter-row filter-row--norm">

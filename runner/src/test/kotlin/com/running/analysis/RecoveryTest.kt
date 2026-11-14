@@ -236,19 +236,19 @@ class RecoveryTest {
 
     @Test
     fun `week hero compares the period median with the 28 days before`() {
-        val monday = LocalDate.of(2026, 1, 12)
-        fun series(f: (Int) -> Int?) = (-28..6).mapNotNull { off -> f(off)?.let { monday.plusDays(off.toLong()) to it } }
-        val hrv = series { if (it < 0) 59 + (it % 2 + 2) % 2 * 2 else 70 }.map { (d, v) -> GarminHrvDay(d, v, v, null, null, null, null, null, null, null, src) }
+        val end = LocalDate.of(2026, 1, 14) // a Wednesday: the window is not a calendar week
+        fun series(f: (Int) -> Int?) = (-35..0).mapNotNull { off -> f(off)?.let { end.plusDays(off.toLong()) to it } }
+        val hrv = series { if (it >= -6) 70 else 59 + (it % 2 + 2) % 2 * 2 }.map { (d, v) -> GarminHrvDay(d, v, v, null, null, null, null, null, null, null, src) }
         val rhr = series { 50 }.map { (d, v) -> GarminRestingHrDay(d, v, null, null, src) }
         val sleep = series { 27000 }.map { (d, v) -> GarminSleepDay(d, v, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, src) }
         val rep = com.running.garmin.recovery.PeriodAnalysis.analyze(RecoveryInputs(hrv, sleep, rhr, emptyList(), emptyList(), emptyList(), null),
-            com.running.garmin.recovery.PeriodKind.WEEK, monday, monday.plusDays(10), 450)
+            com.running.garmin.recovery.PeriodKind.WEEK, end, end.plusDays(10), 450)
         val page = RecoveryText.periodPage(rep, 450)
         assertEquals(HeroLevel.CLEAR, page.hero.level) // HRV 70 against a norm of 60, 3 components with data
         assertTrue(page.hero.conclusion.any { "HRV hoger dan jouw eigen norm" in it })
         assertTrue(page.hero.components.any { it.label == "Slaaptekort (doel 7:30 u)" && it.css == "hero-ok" })
         val onlyHrv = com.running.garmin.recovery.PeriodAnalysis.analyze(RecoveryInputs(hrv, emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), null),
-            com.running.garmin.recovery.PeriodKind.WEEK, monday, monday.plusDays(10), 450)
+            com.running.garmin.recovery.PeriodKind.WEEK, end, end.plusDays(10), 450)
         assertEquals(HeroLevel.INSUFFICIENT, RecoveryText.periodPage(onlyHrv, 450).hero.level)
     }
 }

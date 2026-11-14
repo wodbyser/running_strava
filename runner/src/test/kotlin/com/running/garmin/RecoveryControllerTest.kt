@@ -94,18 +94,21 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
     }
 
     @Test
-    fun `week and month views render`() {
+    fun `week and month views render fixed trailing windows`() {
         repo.upsertHrv((0..40).map { GarminHrvDay(day.minusDays(it.toLong()), 50 + it % 3, 50 + it % 3, null, 40, 45, 60, null, "BALANCED", null, src) }, Instant.EPOCH)
         val week = mvc.perform(get("/recovery?view=week&date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
-        assertTrue(week.contains("Week van 12 jan – 18 jan 2026"))
-        assertTrue(week.contains("te weinig dagen met data (4 van 5)"), "only 4 days with data in that week")
+        // day = Thursday 15 Jan 2026: the window is 9 to 15 January, not Monday 12 to Sunday 18 January.
+        assertTrue(week.contains("Laatste 7 dagen: 9 jan – 15 jan 2026"))
+        assertTrue(week.contains("Vorige 7 dagen"))
+        assertTrue(week.contains("Vergeleken met de 7 dagen daarvoor (2 jan – 8 jan 2026)."))
         assertTrue(week.contains("Hoe komt deze conclusie tot stand?"))
         assertTrue(week.contains("id=\"cHrv\""))
         assertTrue(week.contains("Per dag"))
         assertTrue(week.contains("class=\"spectrum"))
         assertTrue(week.contains("Geen medische beoordeling."))
         val month = mvc.perform(get("/recovery?view=month&date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
-        assertTrue(month.contains("Maand: 1 jan – 31 jan 2026"))
+        assertTrue(month.contains("Laatste 30 dagen: 17 dec 2025 – 15 jan 2026"), "always 30 days, also mid month")
+        assertTrue(month.contains("Vorige 30 dagen"))
     }
 
     @Test

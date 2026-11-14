@@ -5,7 +5,6 @@ import com.running.garmin.recovery.DailySeries
 import com.running.garmin.recovery.DeviationBand
 import com.running.garmin.recovery.MetricAnalysis
 import com.running.garmin.recovery.NormPoint
-import com.running.garmin.recovery.PeriodKind
 import com.running.garmin.recovery.PeriodMetricKind
 import com.running.garmin.recovery.PeriodReport
 import com.running.garmin.recovery.RecoveryReport
@@ -320,7 +319,6 @@ object RecoveryViewBuilder {
     // ---------------------------------------------------------------- week and month
 
     fun period(r: PeriodReport, sleepTargetMinutes: Int): RecoveryView {
-        val word = if (r.kind == PeriodKind.WEEK) "week" else "maand"
         fun fmt(k: PeriodMetricKind): (Double) -> String = when (k) {
             PeriodMetricKind.HRV -> { v -> "${num(v)} ms" }
             PeriodMetricKind.RESTING_HR -> { v -> "${num(v)} bpm" }
@@ -347,9 +345,9 @@ object RecoveryViewBuilder {
             } else {
                 val diff = m.difference
                 val change = when {
-                    diff == null -> "vorige $word: te weinig data"
-                    m.kind == PeriodMetricKind.SLEEP_DURATION -> "${if (diff < 0) "-" else "+"}${hm(abs(diff))} tegenover vorige $word (${f(m.previousMedian!!)})"
-                    else -> "${signed(diff)} tegenover vorige $word (${f(m.previousMedian!!)})"
+                    diff == null -> "vorige periode: te weinig data"
+                    m.kind == PeriodMetricKind.SLEEP_DURATION -> "${if (diff < 0) "-" else "+"}${hm(abs(diff))} tegenover de vorige ${r.windowDays} dagen (${f(m.previousMedian!!)})"
+                    else -> "${signed(diff)} tegenover de vorige ${r.windowDays} dagen (${f(m.previousMedian!!)})"
                 }
                 val arrow = when {
                     diff == null || abs(diff) < 0.5 -> "→"
@@ -367,9 +365,8 @@ object RecoveryViewBuilder {
         ) else PeriodTile("Slaaptekort", "slaaptekort", "-", "te weinig nachten met data (${d.nightsWithData} van ${d.needed})", "", "", false)
 
         val (headers, rows) = dayTable(r.daily, null)
-        val title = (if (r.kind == PeriodKind.WEEK) "Week van " else "Maand: ") + PerfDates.range(r.from, r.fullPeriodEnd)
-        val sub = (if (r.partial) "Lopende $word: ${r.elapsedDays} dagen tot en met ${PerfDates.day(r.to)}. " else "") +
-            "Mediaan per dag, vergeleken met dezelfde dagen van de vorige $word (${PerfDates.range(r.previousFrom, r.previousTo)})."
+        val title = "Laatste ${r.windowDays} dagen: ${PerfDates.range(r.from, r.to)}"
+        val sub = "Mediaan per dag, vergeleken met de ${r.windowDays} dagen daarvoor (${PerfDates.range(r.previousFrom, r.previousTo)})."
         return RecoveryView(emptyList(), headers, rows, charts(r.daily, sleepTargetMinutes, highlightLast = false), tiles, title, sub)
     }
 }

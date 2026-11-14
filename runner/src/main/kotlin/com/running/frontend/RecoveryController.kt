@@ -10,6 +10,7 @@ import org.springframework.web.util.UriComponentsBuilder
 import com.running.config.GarminProperties
 import com.running.garmin.adapter.GarminStartOutcome
 import com.running.garmin.adapter.GarminSyncCoordinator
+import com.running.garmin.recovery.PeriodAnalysis
 import com.running.garmin.recovery.PeriodKind
 import com.running.garmin.recovery.RecoveryReport
 import com.running.garmin.web.GarminSyncView
@@ -77,9 +78,11 @@ class RecoveryController(
             val period = recoveryService.periodReport(kind, day, w)
             model.addAttribute("period", RecoveryText.periodPage(period, properties.recovery.sleepTargetMinutes))
             model.addAttribute("v", RecoveryViewBuilder.period(period, properties.recovery.sleepTargetMinutes))
-            val step = if (kind == PeriodKind.WEEK) period.from.minusWeeks(1) else period.from.minusMonths(1)
-            model.addAttribute("prevUrl", url(viewMode, step.toString()))
-            model.addAttribute("nextUrl", period.fullPeriodEnd.plusDays(1).takeIf { !it.isAfter(recoveryService.today()) }?.let { url(viewMode, it.toString()) })
+            // A week view is a window of 7 days, a month view of 30: step one whole window, also at the edges of the month.
+            val step = PeriodAnalysis.windowDays(kind).toLong()
+            model.addAttribute("prevUrl", url(viewMode, period.from.minusDays(1).toString()))
+            val next = period.to.plusDays(step).coerceAtMost(recoveryService.today())
+            model.addAttribute("nextUrl", next.takeIf { it.isAfter(period.to) }?.let { url(viewMode, it.toString()) })
             return "recovery"
         }
 
