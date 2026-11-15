@@ -40,6 +40,9 @@ extras, and only then the explanation of the data and the glossary. Jump links f
 - **Belasting**: conclusion · Welke training past vandaag? · Belasting over tijd · Opbouw per week · Afwisseling ·
   Belasting en herstel · Vermoeidheidssignalen · Herstelverwachting · Fitheid-vermoeidheidsmodel · Welke activiteiten
   tellen mee? · Begrippen. The model card (with its validation table) is deliberately last of the content cards.
+  The card "Welke training past vandaag?" (`fragments :: todayFit`) deliberately appears twice: also at the top of
+  **Volgende training**, above the planning form, because that is where the owner looks before choosing a session.
+  Change it in the fragment, never in one page only.
 - **Wedstrijd**: conclusion · Doelen · Voorspelde tijden · Tempo en schema · Wedstrijdvorm · Wedstrijdweek ·
   Niet gemarkeerde wedstrijden · Welke gegevens tellen mee? · Begrippen. Goals stay right under the conclusion because
   they drive the rest of the page.

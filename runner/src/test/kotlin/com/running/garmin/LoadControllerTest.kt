@@ -83,4 +83,16 @@ class LoadControllerTest @Autowired constructor(private val mvc: MockMvc) {
         val rec = mvc.perform(get("/recovery")).andReturn().response.contentAsString
         assertTrue(rec.contains("href=\"/load#vandaag\""))
     }
+
+    @Test
+    fun `volgende training shows the same which-training-fits-today card above the form`() {
+        val html = mvc.perform(get("/next-training")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("Welke training past vandaag?"))
+        assertTrue(html.contains("id=\"vandaag\""))
+        assertTrue(html.contains("Nog onvoldoende data om dit te tonen."))
+        assertTrue(html.contains("href=\"/load#vandaag\""))
+        // The card comes first: before the planning form and before the prompt button.
+        assertTrue(html.indexOf("id=\"vandaag\"") < html.indexOf("id=\"distanceKm\""))
+        assertTrue(html.indexOf("id=\"vandaag\"") < html.indexOf("Prompt genereren"))
+    }
 }

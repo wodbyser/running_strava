@@ -159,6 +159,12 @@ object LoadPageBuilder {
         TypeRow(t.type.label, t.level.text, levelCss(t.level), t.parts.map { PartRow(it.title, it.stance.text, stanceCss(it.stance), it.detail) })
     }
 
+    /** The note under the "which training fits today" card. Public because Volgende training shows the same card. */
+    fun readinessNote(o: LoadOverview): String? = o.readiness?.let { r ->
+        "Gebaseerd op je herstel van ${PerfDates.dayLong(r.date)}${if (r.fellBack) " (de laatste dag met Garmin-data)" else ""}, je laatste trainingen en je vermoeidheidssignalen. " +
+            "Geen advies: pijn en klachten wegen zwaarder."
+    }
+
     private fun weekRows(o: LoadOverview): List<WeekTableRow> = o.weeks.reversed().map { r ->
         val w = r.week
         val p = r.progression
@@ -358,10 +364,7 @@ object LoadPageBuilder {
         )
         return LoadPage(
             hero = hero(o), tiles = tiles, types = types(o),
-            readinessNote = o.readiness?.let { r ->
-                "Gebaseerd op je herstel van ${PerfDates.dayLong(r.date)}${if (r.fellBack) " (de laatste dag met Garmin-data)" else ""}, je laatste trainingen en je vermoeidheidssignalen. " +
-                    "Geen advies: pijn en klachten wegen zwaarder."
-            },
+            readinessNote = readinessNote(o),
             weekRows = weekRows(o), showKj = o.weeks.any { it.week.kilojoules != null }, weekTiles = weekTiles,
             signalSummary = o.signals?.let { s -> "${s.set.active} van ${s.set.signals.size} signalen actief (${s.set.withData} met data)" } ?: "Geen signalen beschikbaar",
             signalMeaning = signalMeaning(o),

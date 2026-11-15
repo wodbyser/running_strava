@@ -6,6 +6,9 @@ import java.util.Locale
 import com.running.analysis.BestEffortService
 import com.running.analysis.CompareGlossary
 import com.running.analysis.ComparisonPage
+import com.running.analysis.LoadGlossary
+import com.running.analysis.LoadPageBuilder
+import com.running.analysis.LoadService
 import com.running.analysis.NextTrainingParams
 import com.running.analysis.PerfDates
 import com.running.analysis.PeriodComparisonService
@@ -58,6 +61,7 @@ class FrontendController(
     private val aiAnalysisService: AiAnalysisService,
     private val periodComparisonService: PeriodComparisonService,
     private val bestEffortService: BestEffortService,
+    private val loadService: LoadService,
     private val garminSync: com.running.garmin.web.GarminSyncView,
 ) {
 
@@ -534,6 +538,11 @@ class FrontendController(
         model.addAttribute("goalTime", goalTime ?: "")
         model.addAttribute("trainingDate", trainingDate ?: "")
         model.addAttribute("notes", notes ?: "")
+        // The same card as on Belasting: what pleads for and against each kind of session today.
+        val o = loadService.overview()
+        model.addAttribute("todayTypes", LoadPageBuilder.types(o))
+        model.addAttribute("todayNote", LoadPageBuilder.readinessNote(o))
+        model.addAttribute("g", LoadGlossary.terms)
         return "next-training"
     }
 

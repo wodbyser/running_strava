@@ -47,28 +47,8 @@
         </details>
     </section>
 
-    <!--/* 2. Which session fits today */-->
-    <section class="card perf-section" id="vandaag" aria-labelledby="h-vandaag">
-        <div class="card-head">
-            <h2 id="h-vandaag">Welke training past vandaag?</h2>
-            <span class="badge badge-est" title="Tegensignalen die de app uit je eigen gegevens haalt. Geen advies.">app-schatting</span>
-            <th:block th:replace="~{fragments :: help(${g['tegensignaal']})}"/>
-        </div>
-        <p class="lead">Per soort training zie je wat <strong>ervoor</strong> en wat <strong>ertegen</strong> pleit in je gegevens. Er is geen score en geen 'klaar of niet klaar': pijn, ziekte en je eigen gevoel wegen zwaarder.</p>
-        <p class="note" th:if="${p.types.isEmpty()}">Nog onvoldoende data om dit te tonen.</p>
-        <div class="type-list" th:unless="${p.types.isEmpty()}">
-            <div class="type-row" th:each="t : ${p.types}" th:classappend="${t.css}">
-                <div class="type-head">
-                    <strong th:text="${t.label}">Interval</strong>
-                    <span class="pill" th:text="${t.level}">Geen tegensignalen</span>
-                </div>
-                <ul class="type-parts">
-                    <li th:each="part : ${t.parts}" th:classappend="${part.css}"><span class="part-mark" th:text="${part.stance}">pleit ervoor</span><span><strong th:text="${part.title}">-</strong>: <span th:text="${part.detail}">-</span></span></li>
-                </ul>
-            </div>
-        </div>
-        <p class="note-xs mt-2" th:if="${p.readinessNote != null}" th:text="${p.readinessNote}">-</p>
-    </section>
+    <!--/* 2. Which session fits today (shared with Volgende training) */-->
+    <th:block th:replace="~{fragments :: todayFit(${p.types}, ${p.readinessNote}, ${g['tegensignaal']})}"/>
 
     <!--/* 3. Load over time */-->
     <section class="card perf-section" id="tijd" aria-labelledby="h-tijd">

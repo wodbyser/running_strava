@@ -63,6 +63,32 @@
     </section>
 </th:block>
 
+<!--/* "Which training fits today" card: what pleads for and against each kind of session. Deliberately on two pages
+       (Belasting and Volgende training). types = List<LoadPageBuilder.TypeRow>, note = readiness note, term = glossary term. */-->
+<th:block th:fragment="todayFit(types, note, term)">
+    <section class="card perf-section" id="vandaag" aria-labelledby="h-vandaag">
+        <div class="card-head">
+            <h2 id="h-vandaag">Welke training past vandaag?</h2>
+            <span class="badge badge-est" title="Tegensignalen die de app uit je eigen gegevens haalt. Geen advies.">app-schatting</span>
+            <th:block th:replace="~{fragments :: help(${term})}"/>
+        </div>
+        <p class="lead">Per soort training zie je wat <strong>ervoor</strong> en wat <strong>ertegen</strong> pleit in je gegevens. Er is geen score en geen 'klaar of niet klaar': pijn, ziekte en je eigen gevoel wegen zwaarder.</p>
+        <p class="note" th:if="${types.isEmpty()}">Nog onvoldoende data om dit te tonen.</p>
+        <div class="type-list" th:unless="${types.isEmpty()}">
+            <div class="type-row" th:each="t : ${types}" th:classappend="${t.css}">
+                <div class="type-head">
+                    <strong th:text="${t.label}">Interval</strong>
+                    <span class="pill" th:text="${t.level}">Geen tegensignalen</span>
+                </div>
+                <ul class="type-parts">
+                    <li th:each="part : ${t.parts}" th:classappend="${part.css}"><span class="part-mark" th:text="${part.stance}">pleit ervoor</span><span><strong th:text="${part.title}">-</strong>: <span th:text="${part.detail}">-</span></span></li>
+                </ul>
+            </div>
+        </div>
+        <p class="note-xs mt-2" th:if="${note != null}" th:text="${note}">-</p>
+    </section>
+</th:block>
+
 <!--/* Period select + custom date range used by Dashboard, Trainingen and Records.
        auto = submit on change (true) or wait for the form's submit button (false). */-->
 <th:block th:fragment="periodFilter(label, value, from, till, auto)">

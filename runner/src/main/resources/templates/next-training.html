@@ -11,6 +11,9 @@
         </p>
     </div>
 
+    <th:block th:replace="~{fragments :: todayFit(${todayTypes}, ${todayNote}, ${g['tegensignaal']})}"/>
+    <p class="note-xs mb-2">Dit is dezelfde kaart als op <a href="/load#vandaag">Belasting</a>. Daar zie je ook je belasting over tijd, je herstel en je vermoeidheidssignalen.</p>
+
     <form method="get" action="/next-training/prompt" class="card" aria-labelledby="h-plan">
         <fieldset class="form-section">
         <legend id="h-plan">Geplande training</legend>
