@@ -29,7 +29,7 @@ class CoachController(
 
         model.addAttribute("hasToken", hasToken)
         model.addAttribute("hasData", runs.isNotEmpty())
-        model.addAttribute("title", "Coach")
+        model.addAttribute("title", "Profiel")
         model.addAttribute("savedRhr", savedRhr)
 
         if (runs.isNotEmpty()) {

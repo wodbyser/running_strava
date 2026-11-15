@@ -4,7 +4,7 @@
 
 <div th:if="${!hasToken}" class="card empty-state">
     <h2>Koppel eerst Strava</h2>
-    <p>De coach werkt op je Strava-trainingen. Koppel je account om zones, profiel en voorspellingen te zien.</p>
+    <p>De coach werkt op je Strava-trainingen. Koppel je account om je zones en loopprofiel te zien.</p>
     <div class="actions"><a href="/auth/strava" class="btn btn-primary btn-lg">Koppel Strava-account</a></div>
 </div>
 
@@ -22,11 +22,11 @@
 
     <div class="page-head">
         <div>
-            <h1>Coach</h1>
-            <p>Hartslagzones, profiel en wedstrijdvoorspellingen. Waar je het label <span class="badge badge-est">schatting</span> ziet, heeft de app de waarde afgeleid: niet gemeten.</p>
+            <h1>Profiel</h1>
+            <p>Je hartslagzones en loopprofiel: hoe vaak, hoe ver en hoe snel je traint. Waar je het label <span class="badge badge-est">schatting</span> ziet, heeft de app de waarde afgeleid: niet gemeten.</p>
         </div>
         <form method="post" action="/coach/sync" id="syncForm" data-loading="Nieuwe trainingen syncen...">
-            <button type="submit" class="btn btn-secondary btn-sm" title="Haalt de nieuwste activiteiten van Strava op en herberekent alle coach-analyses.">Nieuwe trainingen syncen</button>
+            <button type="submit" class="btn btn-secondary btn-sm" title="Haalt de nieuwste activiteiten van Strava op en herberekent je profiel.">Nieuwe trainingen syncen</button>
         </form>
     </div>
 
