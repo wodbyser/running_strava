@@ -27,6 +27,23 @@ For every section ask: "Can the owner see in 5 seconds what this means and how i
    - an optional `<details class="explain">` "Meer uitleg" with method details and caveats.
 4. A **"Begrippen"** list at the bottom with every explained term (anchor `#term-<key>`).
 
+### Order of the sections (owner's ranking)
+
+The conclusion stays the first card on every page. After it, the sections are grouped per subject, most important
+first: what you can measure about your condition and speed, then whether you hold it, then how you train, then the
+extras, and only then the explanation of the data and the glossary. Jump links follow the same order.
+
+- **Prestaties**: Conditietrend (conclusion) · Efficiëntie · Kritische snelheid · Intervallen (incl. hartslagherstel) ·
+  Drift · Duurzaamheid · Lange runs · Hartslagzones · Intensiteit · Regelmaat · Loopvermogen · Welke runs tellen mee ·
+  Recente runs · Begrippen. The four cards of the conclusion (EF, kritische snelheid, drift, duurzaamheid) come back in
+  that same order, so "Details" always jumps downwards.
+- **Belasting**: conclusion · Welke training past vandaag? · Belasting over tijd · Opbouw per week · Afwisseling ·
+  Belasting en herstel · Vermoeidheidssignalen · Herstelverwachting · Fitheid-vermoeidheidsmodel · Welke activiteiten
+  tellen mee? · Begrippen. The model card (with its validation table) is deliberately last of the content cards.
+- **Wedstrijd**: conclusion · Doelen · Voorspelde tijden · Tempo en schema · Wedstrijdvorm · Wedstrijdweek ·
+  Niet gemarkeerde wedstrijden · Welke gegevens tellen mee? · Begrippen. Goals stay right under the conclusion because
+  they drive the rest of the page.
+
 ## 3. Charts over tables
 
 - Prefer a chart whenever there is a time dimension: line or dot charts for trends, stacked bars for distributions,

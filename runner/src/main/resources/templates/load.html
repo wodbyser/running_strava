@@ -16,11 +16,11 @@
         <a href="#vandaag">Welke training past vandaag?</a>
         <a href="#tijd">Belasting over tijd</a>
         <a href="#weken">Opbouw per week</a>
+        <a href="#afwisseling">Afwisseling</a>
         <a href="#herstel">Belasting en herstel</a>
         <a href="#signalen">Vermoeidheidssignalen</a>
-        <a href="#afwisseling">Afwisseling</a>
-        <a href="#model">Fitheid-vermoeidheidsmodel</a>
         <a href="#verwachting">Herstelverwachting</a>
+        <a href="#model">Fitheid-vermoeidheidsmodel</a>
         <a href="#data">Welke activiteiten tellen mee?</a>
         <a href="#begrippen">Begrippen</a>
     </nav>
@@ -141,7 +141,19 @@
         </details>
     </section>
 
-    <!--/* 5. Load and recovery */-->
+    <!--/* 5. Monotony */-->
+    <section class="card perf-section" id="afwisseling" aria-labelledby="h-afwisseling">
+        <div class="card-head">
+            <h2 id="h-afwisseling">Afwisseling</h2>
+            <span class="badge badge-calc">berekend</span>
+            <th:block th:replace="~{fragments :: help(${g['monotonie']})}"/>
+        </div>
+        <p class="lead" th:text="${p.monotonyText}">-</p>
+        <div class="chart-box mt-2"><canvas id="cMono" role="img" aria-label="Weekbelasting met monotonie per week"></canvas></div>
+        <p class="note-xs">Een week met één korte training geeft rekenkundig een lage monotonie; kijk daarom ook naar de belasting zelf. Er zijn geen grenzen uit de literatuur gebruikt, alleen je eigen weken.</p>
+    </section>
+
+    <!--/* 6. Load and recovery */-->
     <section class="card perf-section" id="herstel" aria-labelledby="h-herstel">
         <div class="card-head">
             <h2 id="h-herstel">Belasting en herstel</h2>
@@ -156,7 +168,7 @@
         <p class="note-xs">Kleur betekent afstand tot je eigen norm, niet goed of slecht. Herstelwaarden: HRV, rusthartslag, slaapduur en Body Battery bij opstaan.</p>
     </section>
 
-    <!--/* 6. Fatigue signals */-->
+    <!--/* 7. Fatigue signals */-->
     <section class="card perf-section" id="signalen" aria-labelledby="h-signalen">
         <div class="card-head">
             <h2 id="h-signalen">Vermoeidheidssignalen</h2>
@@ -185,19 +197,21 @@
         </div>
     </section>
 
-    <!--/* 7. Monotony */-->
-    <section class="card perf-section" id="afwisseling" aria-labelledby="h-afwisseling">
+    <!--/* 8. Forecast */-->
+    <section class="card perf-section" id="verwachting" aria-labelledby="h-verwachting">
         <div class="card-head">
-            <h2 id="h-afwisseling">Afwisseling</h2>
-            <span class="badge badge-calc">berekend</span>
-            <th:block th:replace="~{fragments :: help(${g['monotonie']})}"/>
+            <h2 id="h-verwachting">Herstelverwachting</h2>
+            <span class="badge badge-est">app-schatting</span>
         </div>
-        <p class="lead" th:text="${p.monotonyText}">-</p>
-        <div class="chart-box mt-2"><canvas id="cMono" role="img" aria-label="Weekbelasting met monotonie per week"></canvas></div>
-        <p class="note-xs">Een week met één korte training geeft rekenkundig een lage monotonie; kijk daarom ook naar de belasting zelf. Er zijn geen grenzen uit de literatuur gebruikt, alleen je eigen weken.</p>
+        <p class="lead">Waar je HRV en rusthartslag de komende 3 dagen waarschijnlijk rond liggen, als je ongeveer doet wat je gewoonlijk doet. De app toont een verwachting alleen als die in het verleden beter klopte dan de simpele gok 'morgen is het zoals vandaag'. Is dat niet zo, dan staat er geen cijfer. Dat is normaal en geen fout. Het houdt geen rekening met je trainingsplan.</p>
+        <div class="cmp-card mb-2 tone-neutral" th:each="f : ${p.forecasts}">
+            <strong th:text="${f.label}">-</strong>
+            <p th:text="${f.text}">-</p>
+            <p class="note-xs" th:text="${f.detail}">-</p>
+        </div>
     </section>
 
-    <!--/* 8. Model */-->
+    <!--/* 9. Model */-->
     <section class="card perf-section" id="model" aria-labelledby="h-model">
         <div class="card-head">
             <h2 id="h-model">Fitheid-vermoeidheidsmodel</h2>
@@ -216,20 +230,6 @@
             </table></div>
             <p class="note-xs">Test: voor elke run werd het model alleen op eerdere runs aangepast en vergeleken met twee simpele gokken. De app toont de curve alleen als het model minstens 10 % minder fout maakte en de gewichten stabiel bleven.</p>
         </details>
-    </section>
-
-    <!--/* 9. Forecast */-->
-    <section class="card perf-section" id="verwachting" aria-labelledby="h-verwachting">
-        <div class="card-head">
-            <h2 id="h-verwachting">Herstelverwachting</h2>
-            <span class="badge badge-est">app-schatting</span>
-        </div>
-        <p class="lead">Waar je HRV en rusthartslag de komende 3 dagen waarschijnlijk rond liggen, als je ongeveer doet wat je gewoonlijk doet. De app toont een verwachting alleen als die in het verleden beter klopte dan de simpele gok 'morgen is het zoals vandaag'. Is dat niet zo, dan staat er geen cijfer. Dat is normaal en geen fout. Het houdt geen rekening met je trainingsplan.</p>
-        <div class="cmp-card mb-2 tone-neutral" th:each="f : ${p.forecasts}">
-            <strong th:text="${f.label}">-</strong>
-            <p th:text="${f.text}">-</p>
-            <p class="note-xs" th:text="${f.detail}">-</p>
-        </div>
     </section>
 
     <!--/* 10. Coverage */-->

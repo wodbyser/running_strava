@@ -30,8 +30,12 @@ class PerformanceControllerTest @Autowired constructor(private val mvc: MockMvc)
         assertTrue(html.contains("href=\"/performance\""))
         assertTrue(html.contains("Nog te weinig data voor een conditietrend"))
         assertTrue(html.contains("id=\"begrippen\""))
-        // Conditietrend first, then efficiency, zones and drift.
-        val order = listOf("id=\"fitness\"", "id=\"ef\"", "id=\"zones\"", "id=\"drift\"").map { html.indexOf(it) }
+        // Conditietrend first, then speed and efficiency, holding it, how you train, and the data behind it.
+        // (Intensiteit is conditional and absent without data, so it is not part of this contract.)
+        val order = listOf(
+            "id=\"fitness\"", "id=\"ef\"", "id=\"cs\"", "id=\"intervals\"", "id=\"drift\"", "id=\"durability\"", "id=\"longruns\"",
+            "id=\"zones\"", "id=\"consistency\"", "id=\"power\"", "id=\"data\"", "id=\"recent\"", "id=\"begrippen\"",
+        ).map { html.indexOf(it) }
         assertTrue(order.all { it > 0 } && order == order.sorted(), order.toString())
     }
 

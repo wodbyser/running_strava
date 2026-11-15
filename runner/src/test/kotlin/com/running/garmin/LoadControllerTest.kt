@@ -28,8 +28,11 @@ class LoadControllerTest @Autowired constructor(private val mvc: MockMvc) {
         assertTrue(html.contains("Nog geen belasting te berekenen"))
         assertTrue(html.contains("id=\"begrippen\""))
         assertTrue(html.contains("Welke training past vandaag?"))
-        val order = listOf("id=\"vandaag\"", "id=\"tijd\"", "id=\"weken\"", "id=\"herstel\"", "id=\"signalen\"", "id=\"afwisseling\"", "id=\"model\"", "id=\"verwachting\"", "id=\"data\"")
-            .map { html.indexOf(it) }
+        // Today's advice, then the load itself (day, week, monotony), then the body's answer, then the model.
+        val order = listOf(
+            "id=\"vandaag\"", "id=\"tijd\"", "id=\"weken\"", "id=\"afwisseling\"", "id=\"herstel\"", "id=\"signalen\"",
+            "id=\"verwachting\"", "id=\"model\"", "id=\"data\"",
+        ).map { html.indexOf(it) }
         assertTrue(order.all { it > 0 } && order == order.sorted(), order.toString())
         assertTrue(html.contains("href=\"/load\""))
     }
