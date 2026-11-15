@@ -4,6 +4,8 @@ import com.running.strava.analysis.performance.TerrainClass
 import com.running.analysis.AiAnalysisService
 import java.util.Locale
 import com.running.analysis.BestEffortService
+import com.running.analysis.CompareGlossary
+import com.running.analysis.ComparisonPage
 import com.running.analysis.NextTrainingParams
 import com.running.analysis.PerfDates
 import com.running.analysis.PeriodComparisonService
@@ -670,14 +672,21 @@ class FrontendController(
 
         val hasData = activityRepository.findAll().isNotEmpty()
         model.addAttribute("hasData", hasData)
+        model.addAttribute("customPeriods", listOf(fromA, tillA, fromB, tillB).any { it != null })
         if (!hasData) return "compare"
 
         val result = periodComparisonService.compare(a, b, labelA = periodLabel("A", a), labelB = periodLabel("B", b))
-        model.addAttribute("result", result)
-
-        model.addAttribute("trendMonths", result.monthlyTrend.map { it.month })
-        model.addAttribute("trendEasyEf", result.monthlyTrend.map { it.easyEf })
-        model.addAttribute("trendIntervalEf", result.monthlyTrend.map { it.intervalEf })
+        model.addAttribute("v", ComparisonPage.of(result))
+        model.addAttribute("g", CompareGlossary.terms)
+        model.addAttribute(
+            "glossary",
+            listOfNotNull(
+                CompareGlossary.terms["ef"],
+                CompareGlossary.terms["periodes"],
+                CompareGlossary.terms["oordeel"],
+                CompareGlossary.terms["sessietype"],
+            ),
+        )
 
         return "compare"
     }

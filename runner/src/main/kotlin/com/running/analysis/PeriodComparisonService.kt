@@ -55,6 +55,8 @@ class PeriodComparisonService(
         /** Steady road runs with average HR >= 85 % of estimated max HR (e.g. a race not tagged on Strava). */
         val excludedHardEfforts: Int,
         val easyAvgPace: String,
+        /** The same average pace in seconds per km, for charts and tables. */
+        val easyPaceSeconds: Double?,
         val easyAvgHr: Double?,
         val easyEf: Double?,
         val easyEfSd: Double?,
@@ -63,6 +65,8 @@ class PeriodComparisonService(
         val intervalRepCount: Int,
         val intervalAvgRepSeconds: Double?,
         val intervalAvgPace: String,
+        /** The same average rep pace in seconds per km, for charts and tables. */
+        val intervalPaceSeconds: Double?,
         val intervalAvgHr: Double?,
         val intervalEf: Double?,
         val intervalEfSd: Double?,
@@ -168,6 +172,8 @@ class PeriodComparisonService(
         }.filterValues { it.isNotEmpty() }
         val allRepSamples = repSamplesPerSession.values.flatten()
         val intervalPerSession = repSamplesPerSession.values.mapNotNull { EfficiencyFactor.pooled(it) }
+        val easySpeed = EfficiencyFactor.avgSpeed(easySamples)
+        val repSpeed = EfficiencyFactor.avgSpeed(allRepSamples)
 
         val stats = PeriodStats(
             label = label,
@@ -183,14 +189,16 @@ class PeriodComparisonService(
             excludedStrides = types.values.count { it == SessionType.STRIDES },
             excludedTrailOrTreadmill = steady.size - roadSteady.size,
             excludedHardEfforts = hardEfforts.size,
-            easyAvgPace = Format.pace(EfficiencyFactor.avgSpeed(easySamples)),
+            easyAvgPace = Format.pace(easySpeed),
+            easyPaceSeconds = easySpeed?.let { 1000.0 / it },
             easyAvgHr = EfficiencyFactor.avgHr(easySamples),
             easyEf = EfficiencyFactor.pooled(easySamples),
             easyEfSd = EfVerdict.sd(easyPerRun),
             intervalSessionCount = repSamplesPerSession.size,
             intervalRepCount = allRepSamples.size,
             intervalAvgRepSeconds = if (allRepSamples.isNotEmpty()) allRepSamples.sumOf { it.seconds } / allRepSamples.size else null,
-            intervalAvgPace = Format.pace(EfficiencyFactor.avgSpeed(allRepSamples)),
+            intervalAvgPace = Format.pace(repSpeed),
+            intervalPaceSeconds = repSpeed?.let { 1000.0 / it },
             intervalAvgHr = EfficiencyFactor.avgHr(allRepSamples),
             intervalEf = EfficiencyFactor.pooled(allRepSamples),
             intervalEfSd = EfVerdict.sd(intervalPerSession),
