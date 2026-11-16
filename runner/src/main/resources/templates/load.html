@@ -265,8 +265,8 @@
             if (c2 && W) {
                 var cols = W.levels.map(function (l) { return l === 'HIGH' ? HIGH : l === 'LOW' ? LOW : l === 'OPEN' ? '#d5dde0' : NORMAL; });
                 new Chart(c2, { data: { labels: W.labels, datasets: [
-                    { type: 'bar', label: 'Belasting per week', data: W.trimp, backgroundColor: cols },
-                    { type: 'line', label: 'Gemiddelde van de 4 weken ervoor', data: W.mean4, borderColor: '#15202b', borderDash: [6, 3], borderWidth: 2, pointRadius: 0, spanGaps: false }
+                    { type: 'bar', label: 'Belasting per week', data: W.trimp, backgroundColor: cols, order: 2 },
+                    { type: 'line', label: 'Gemiddelde van de 4 weken ervoor', data: W.mean4, borderColor: '#15202b', borderDash: [6, 3], borderWidth: 2, pointRadius: 0, spanGaps: false, order: 1 }
                 ] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(W.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') } },
                     plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw); } } } } }, RC.link(function (i) { return RC.rangeUrl(W.labels[i], RC.addDays(W.labels[i], 6)); })) });
