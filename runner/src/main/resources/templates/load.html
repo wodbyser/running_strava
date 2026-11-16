@@ -302,8 +302,8 @@
                 var wk = W.labels.map(function (l, i) { return i; }).filter(function (i) { return W.complete[i]; });
                 var lab = wk.map(function (i) { return W.labels[i]; });
                 new Chart(m, { data: { labels: lab, datasets: [
-                    { type: 'bar', label: 'Belasting per week', data: wk.map(function (i) { return W.trimp[i]; }), backgroundColor: '#8aa6a0', yAxisID: 'y' },
-                    { type: 'line', label: 'Monotonie', data: wk.map(function (i) { return W.monotony[i]; }), borderColor: '#c2410c', borderWidth: 2, pointRadius: 3, yAxisID: 'y2', spanGaps: false }
+                    { type: 'bar', label: 'Belasting per week', data: wk.map(function (i) { return W.trimp[i]; }), backgroundColor: 'rgba(138,166,160,0.55)', yAxisID: 'y', order: 2 },
+                    { type: 'line', label: 'Monotonie', data: wk.map(function (i) { return W.monotony[i]; }), borderColor: '#c2410c', backgroundColor: '#ffffff', borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y2', spanGaps: false, order: 1 }
                 ] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(lab) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') }, y2: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: RC.axisTitle('Monotonie', 'mon.') } },
                     plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(lab[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? c.dataset.label + ': niet te berekenen' : c.dataset.label + ': ' + (c.dataset.yAxisID === 'y2' ? c.raw.toFixed(2) : fmt(c.raw)); } } } } }, RC.link(function (i) { return RC.rangeUrl(lab[i], RC.addDays(lab[i], 6)); })) });
