@@ -138,7 +138,7 @@ say "Installatie klaar."
 if [ "$funnel" = 1 ] && tailscale_ok; then
     dns="$(public_dns)"
     if [ -n "$dns" ]; then
-        printf '    Lokaal:  http://127.0.0.1:8080\n'
+        printf '    Lokaal:  http://127.0.0.1:%s\n' "$APP_PORT"
         printf '    Publiek: https://%s  (login nodig)\n' "$dns"
         printf '\n    Werkt de publieke link niet, zet dan in de Tailscale-console HTTPS-certificaten\n'
         printf '    en het funnel-attribuut aan (zie deploy/LINUX.md). Zet ook het\n'

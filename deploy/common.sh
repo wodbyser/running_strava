@@ -9,7 +9,15 @@
 DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$DEPLOY_DIR")"
 COMPOSE_FILE="$DEPLOY_DIR/docker-compose.yml"
-APP_URL="http://127.0.0.1:8080/login"
+ENV_FILE="$DEPLOY_DIR/.env"
+
+# APP_PORT = host-poort van de app (standaard 8080). Volgorde: omgeving, deploy/.env, 8080.
+if [ -z "${APP_PORT:-}" ] && [ -f "$ENV_FILE" ]; then
+    APP_PORT="$(sed -n 's/^APP_PORT=\([0-9][0-9]*\).*/\1/p' "$ENV_FILE" | tail -1)"
+fi
+APP_PORT="${APP_PORT:-8080}"
+export APP_PORT
+APP_URL="http://127.0.0.1:$APP_PORT/login"
 
 say() { printf '\n==> %s\n' "$*"; }
 warn() { printf 'LET OP: %s\n' "$*" >&2; }
@@ -124,3 +132,40 @@ public_dns() {
 
 # --- app --------------------------------------------------------------------
 app_ok() { curl -fsS -o /dev/null --max-time 10 "$APP_URL"; }
+
+# port_busy PORT: luistert er iets op deze poort (ook andere containers met host-netwerk)?
+port_busy() {
+    if command -v ss >/dev/null 2>&1; then
+        [ -n "$(ss -H -ltn "sport = :$1" 2>/dev/null)" ]
+    else
+        (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+    fi
+}
+
+# resolve_app_port: staat de poort in gebruik door iets anders dan onze eigen app, kies
+# dan de eerstvolgende vrije poort en bewaar die als APP_PORT in deploy/.env, zodat
+# compose, status en Funnel dezelfde poort gebruiken.
+resolve_app_port() {
+    if dc ps --format '{{.Name}}|{{.Status}}' 2>/dev/null | grep -qi '^running-app|.*up'; then
+        return 0
+    fi
+    port_busy "$APP_PORT" || return 0
+    local old="$APP_PORT" p
+    for p in $(seq $((old + 1)) $((old + 50))); do
+        if ! port_busy "$p"; then
+            warn "Poort $old is al in gebruik door een ander programma; de app gebruikt voortaan poort $p."
+            if [ -f "$ENV_FILE" ]; then
+                if grep -q '^APP_PORT=' "$ENV_FILE"; then
+                    sed -i "s|^APP_PORT=.*|APP_PORT=$p|" "$ENV_FILE"
+                else
+                    printf 'APP_PORT=%s\n' "$p" >>"$ENV_FILE"
+                fi
+            fi
+            APP_PORT="$p"
+            export APP_PORT
+            APP_URL="http://127.0.0.1:$APP_PORT/login"
+            return 0
+        fi
+    done
+    fail "Geen vrije poort gevonden tussen $old en $((old + 50))."
+}

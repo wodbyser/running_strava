@@ -94,7 +94,7 @@ fi
 # --- Samenvatting -----------------------------------------------------------
 printf '\n'
 if [ "$problems" -eq 0 ]; then
-    printf 'Alles in orde. Lokaal: http://127.0.0.1:8080%s\n\n' "${url:+  Publiek: $url}"
+    printf 'Alles in orde. Lokaal: http://127.0.0.1:%s%s\n\n' "$APP_PORT" "${url:+  Publiek: $url}"
     exit 0
 fi
 printf '%s probleem(en):\n' "$problems"

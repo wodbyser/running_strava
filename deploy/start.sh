@@ -38,6 +38,7 @@ docker_ok || fail "Docker reageert niet. Controleer: systemctl status docker,
   en of je gebruiker in de docker-groep zit (na toevoegen een keer uit- en inloggen)."
 
 # --- 2. Stack starten -------------------------------------------------------
+resolve_app_port
 if [ "$build" = 1 ]; then
     say "Image bouwen en stack starten (de eerste keer duurt dit enkele minuten)"
     dc up -d --build
@@ -71,7 +72,7 @@ if [ "$funnel" = 1 ]; then
     elif funnel_on; then
         say "Publieke link stond al aan"
     else
-        say "Publieke link aanzetten (tailscale funnel --bg 8080)"
+        say "Publieke link aanzetten (tailscale funnel --bg $APP_PORT)"
         # Staat Funnel nog niet aan op de tailnet, dan blijft `tailscale funnel` wachten
         # tot je dat in de console doet. Daarom een limiet: met een terminal krijg je
         # drie minuten de tijd, zonder terminal stoppen we snel (bijv. bij het opstarten).
@@ -84,7 +85,7 @@ if [ "$funnel" = 1 ]; then
         else
             limit=15
         fi
-        if ts_timeout "$limit" funnel --bg 8080; then
+        if ts_timeout "$limit" funnel --bg $APP_PORT; then
             say "Publieke link staat aan"
         else
             warn "Funnel is niet toegestaan op deze tailnet. Open de link die Tailscale"
@@ -105,7 +106,7 @@ if tailscale_ok; then
 fi
 
 say "De app draait.
-  Lokaal:    http://127.0.0.1:8080
+  Lokaal:    http://127.0.0.1:$APP_PORT
   Publiek:   ${url:-onbekend - Tailscale niet verbonden}${url:+  (login nodig)}
   Login:     gebruiker uit APP_USERNAME, wachtwoord uit deploy/.env
   Stoppen:   bash deploy/stop.sh
