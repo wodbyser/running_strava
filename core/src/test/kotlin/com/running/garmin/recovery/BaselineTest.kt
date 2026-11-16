@@ -121,4 +121,41 @@ class BaselineTest {
         assertEquals(50.0, t.baselineMedian)
         assertEquals(3.0, t.deviation!!, 1e-9)
     }
+
+    // ---------------------------------------------------------------- Garmin's HRV range as the norm
+
+    @Test
+    fun `Garmin HRV range keeps the owner case 73 in a range of 70 to 79 within norm`() {
+        // The app's own median was 70 with a robust SD of 2.97, so 73 was +1.0 SD. Garmin's range decides for HRV.
+        val c = GarminHrvNorm.check(73.0, 70, 79)!!
+        assertEquals(DeviationBand.WITHIN, c.band)
+        assertEquals(-1.0 / 3.0, c.deviation, 1e-9)
+        assertEquals(0.0, c.outside, 1e-9)
+        assertEquals(70, c.low)
+        assertEquals(79, c.upper)
+    }
+
+    @Test
+    fun `Garmin HRV range edges and outside values`() {
+        // Garmin's range is inclusive, so both edges are within; half a range width outside is afwijkend, a full one strong.
+        assertEquals(DeviationBand.WITHIN, GarminHrvNorm.check(70.0, 70, 79)!!.band)
+        assertEquals(DeviationBand.WITHIN, GarminHrvNorm.check(79.0, 70, 79)!!.band)
+        assertEquals(1.0, GarminHrvNorm.check(79.0, 70, 79)!!.deviation, 1e-9)
+        assertEquals(DeviationBand.DEVIATING, GarminHrvNorm.check(80.0, 70, 79)!!.band)
+        assertEquals(2.0, GarminHrvNorm.check(83.5, 70, 79)!!.deviation, 1e-9)
+        assertEquals(DeviationBand.STRONG, GarminHrvNorm.check(83.5, 70, 79)!!.band)
+        assertEquals(-9.0, GarminHrvNorm.check(61.0, 70, 79)!!.outside, 1e-9) // 9 ms below the lower edge
+        assertEquals(2.0, GarminHrvNorm.check(81.0, 70, 79)!!.outside, 1e-9)
+        assertEquals(0.0, GarminHrvNorm.check(74.5, 70, 79)!!.deviation, 1e-9)
+    }
+
+    @Test
+    fun `Garmin HRV range abstains without a usable range`() {
+        assertNull(GarminHrvNorm.check(null, 70, 79))
+        assertNull(GarminHrvNorm.check(73.0, null, 79))
+        assertNull(GarminHrvNorm.check(73.0, 70, null))
+        assertNull(GarminHrvNorm.check(73.0, 79, 79)) // empty range
+        assertNull(GarminHrvNorm.check(73.0, 80, 70)) // inverted range
+        assertNull(GarminHrvNorm.check(73.0, 0, 0)) // Garmin sends 0 for "no range"
+    }
 }

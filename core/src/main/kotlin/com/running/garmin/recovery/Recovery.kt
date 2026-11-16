@@ -13,6 +13,11 @@ import java.time.ZoneId
 
 enum class ReadinessKind { HRV, RESTING_HR, SLEEP, BODY_BATTERY }
 
+/**
+ * `basis` says which norm decided the band. HRV uses Garmin's balanced range of the day ([ReadinessBasis.GARMIN_RANGE],
+ * owner decision 2026-11-15); the others use the app's own median. `median` stays filled for HRV as a reference and
+ * `garminLow`/`garminUpper` hold the range that was used.
+ */
 data class ReadinessComponent(
     val kind: ReadinessKind,
     val hasData: Boolean,
@@ -21,9 +26,12 @@ data class ReadinessComponent(
     val deviation: Double?,
     val band: DeviationBand?,
     val n: Int,
+    val basis: ReadinessBasis = ReadinessBasis.OWN_NORM,
+    val garminLow: Double? = null,
+    val garminUpper: Double? = null,
 )
 
-enum class ReadinessBasis { OWN_NORM, SLEEP_TARGET }
+enum class ReadinessBasis { OWN_NORM, SLEEP_TARGET, GARMIN_RANGE }
 
 data class ReadinessDeviation(val kind: ReadinessKind, val deviation: Double, val band: DeviationBand, val basis: ReadinessBasis = ReadinessBasis.OWN_NORM)
 
@@ -50,9 +58,28 @@ object ReadinessAnalysis {
         return ReadinessComponent(kind, has, m?.value, p?.median, p?.deviation, p?.band, p?.n ?: 0)
     }
 
+    /**
+     * HRV is judged against Garmin's balanced range of that day when Garmin stored one. The app's own 20-of-28 minimum does
+     * not apply there: Garmin's range already is a long-running personal norm, so a single night with a range is enough.
+     * Without a range (older rows) the own median decides, exactly as before.
+     */
+    private fun hrvComponent(hrv: HrvResult): ReadinessComponent {
+        val own = component(ReadinessKind.HRV, hrv.metric)
+        val garmin = GarminHrvNorm.check(hrv.lastNightAvg?.toDouble(), hrv.garminBalancedLow, hrv.garminBalancedUpper) ?: return own
+        return own.copy(
+            hasData = true,
+            value = garmin.value,
+            deviation = garmin.deviation,
+            band = garmin.band,
+            basis = ReadinessBasis.GARMIN_RANGE,
+            garminLow = garmin.low.toDouble(),
+            garminUpper = garmin.upper.toDouble(),
+        )
+    }
+
     fun fromComponents(components: List<ReadinessComponent>, sleepTarget: SleepTargetCheck?): Readiness {
         val effective = components.mapNotNull { c ->
-            val own = if (c.hasData) ReadinessDeviation(c.kind, c.deviation!!, c.band!!, ReadinessBasis.OWN_NORM) else null
+            val own = if (c.hasData) ReadinessDeviation(c.kind, c.deviation!!, c.band!!, c.basis) else null
             val target = if (c.kind == ReadinessKind.SLEEP && sleepTarget != null) ReadinessDeviation(c.kind, sleepTarget.deviation, sleepTarget.band, ReadinessBasis.SLEEP_TARGET) else null
             listOfNotNull(own, target).maxByOrNull { it.band.ordinal }
         }
@@ -64,7 +91,7 @@ object ReadinessAnalysis {
     fun evaluate(hrv: HrvResult, restingHr: RestingHrResult, sleep: SleepQuality, battery: BodyBatteryResult, sleepTarget: SleepTargetCheck?): Readiness =
         fromComponents(
             listOf(
-                component(ReadinessKind.HRV, hrv.metric),
+                hrvComponent(hrv),
                 component(ReadinessKind.RESTING_HR, restingHr.metric),
                 component(ReadinessKind.SLEEP, sleep.duration),
                 component(ReadinessKind.BODY_BATTERY, battery.wakeLevelMetric),

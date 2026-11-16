@@ -36,7 +36,7 @@
         </div>
         <div class="filter-row filter-row--norm">
             <th:block th:replace="~{fragments :: windowForm(${ {'norm'} }, 'main')}"/>
-            <span class="field-hint">Bepaalt wat "normaal voor jou" is: in de conclusie, de kaarten, de groene band in de grafieken en de kleuren in de tabel.</span>
+            <span class="field-hint">Bepaalt wat "normaal voor jou" is: in de conclusie, de kaarten, de groene band in de grafieken en de kleuren in de tabel. Voor HRV geldt Garmins eigen balansbereik.</span>
         </div>
     </div>
 
@@ -87,14 +87,14 @@
             <th:block th:replace="~{fragments :: windowForm(${ {'chart'} }, 'h-chart')}"/>
             <th:block th:fragment="chartGrid">
                 <div class="chart-grid">
-                    <figure class="mini-chart"><figcaption>HRV <span class="unit">ms</span> <th:block th:replace="~{fragments :: help(${g['hrv']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cHrv" role="img" aria-label="HRV per nacht met je eigen norm als band"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>HRV <span class="unit">ms</span> <th:block th:replace="~{fragments :: help(${g['hrv']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cHrv" role="img" aria-label="HRV per nacht met Garmins balansbereik als band"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Rusthartslag <span class="unit">bpm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRhr" role="img" aria-label="Rusthartslag per dag met je eigen norm als band"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Slaap <span class="unit">uren per nacht</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cSleep" role="img" aria-label="Slaapduur per nacht met je eigen norm en je doel"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Body Battery bij ontwaken <th:block th:replace="~{fragments :: help(${g['body-battery']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cBb" role="img" aria-label="Body Battery bij ontwaken per dag met je eigen norm als band"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Stress <span class="unit">daggemiddelde</span> <th:block th:replace="~{fragments :: help(${g['stress']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cStress" role="img" aria-label="Gemiddeld stressniveau per dag met je eigen norm als band"></canvas></div></figure>
                 </div>
                 <div class="legend">
-                    <span><span class="legend-band"></span>Eigen norm op die dag <th:block th:replace="~{fragments :: help(${g['eigen-norm']})}"/></span>
+                    <span><span class="legend-band"></span>Eigen norm op die dag; bij HRV Garmins balansbereik van die nacht <th:block th:replace="~{fragments :: help(${g['eigen-norm']})}"/></span>
                     <span><span class="legend-dot dot-ok"></span>binnen je norm</span>
                     <span><span class="legend-dot dot-warn"></span>afwijkend</span>
                     <span><span class="legend-dot dot-alert"></span>sterk afwijkend</span>
@@ -164,7 +164,7 @@
                     </tr>
                     </tbody>
                 </table></div>
-                <p class="note-xs mt-2">Gekleurd vak = anders dan je eigen norm van die dag: oranje afwijkend, rood sterk afwijkend. Hoger of lager is op zich geen goed of slecht teken.</p>
+                <p class="note-xs mt-2">Gekleurd vak = anders dan de norm van die dag: bij HRV is dat Garmins balansbereik van die nacht, bij de andere kolommen je eigen norm. Oranje afwijkend, rood sterk afwijkend. Hoger of lager is op zich geen goed of slecht teken.</p>
             </th:block>
         </section>
     </th:block>
@@ -201,7 +201,7 @@
                 var radius = s.values.map(function (v, i) { return v === null ? 0 : (C.highlight && i === last ? 6 : (n > 40 ? 2.5 : 4)); });
                 var ds = [
                     { label: 'low', data: s.low, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: false, spanGaps: true },
-                    { label: 'Eigen norm', data: s.high, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: '-1', backgroundColor: 'rgba(47,143,91,0.14)', spanGaps: true },
+                    { label: opts.band || 'Eigen norm', data: s.high, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: '-1', backgroundColor: 'rgba(47,143,91,0.14)', spanGaps: true },
                 ];
                 if (opts.bars) {
                     ds.push({ type: 'bar', label: opts.label, data: s.values, backgroundColor: cols.map(function (c) { return c + 'cc'; }), borderRadius: 2, order: 1 });
@@ -216,12 +216,12 @@
                             callbacks: {
                                 title: function (items) { return items.length ? C.titles[items[0].dataIndex] : ''; },
                                 label: function (c) {
-                                    if (c.dataset.label === 'Eigen norm') { var lo = s.low[c.dataIndex]; return 'Eigen norm: ' + fmt(lo) + ' tot ' + fmt(c.raw); }
+                                    if (c.dataset.label === (opts.band || 'Eigen norm')) { var lo = s.low[c.dataIndex]; return (opts.band || 'Eigen norm') + ': ' + fmt(lo) + ' tot ' + fmt(c.raw); }
                                     return c.dataset.label + ': ' + fmt(c.raw);
                                 } } } },
                         scales: { x: { offset: !!opts.bars, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { ticks: { callback: function (v) { return opts.tick ? opts.tick(v) : v; } } } } } });
             }
-            draw('cHrv', C.hrv, { label: 'HRV', fmt: function (v) { return Math.round(v) + ' ms'; } });
+            draw('cHrv', C.hrv, { label: 'HRV', band: 'Garmin-bereik', fmt: function (v) { return Math.round(v) + ' ms'; } });
             draw('cRhr', C.rhr, { label: 'Rusthartslag', fmt: function (v) { return Math.round(v) + ' bpm'; } });
             draw('cSleep', C.sleep, { label: 'Slaap', bars: true, target: C.sleepTarget, fmt: function (v) { return hm(v) + ' u'; }, tick: function (v) { return hm(v); } });
             draw('cBb', C.bb, { label: 'Body Battery', fmt: function (v) { return Math.round(v); } });

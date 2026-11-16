@@ -65,6 +65,15 @@ Every page and prompt block with a readiness or trend statement carries: "Geen m
 
 - **Input:** `lastNightAvg` per wake-up date. Label: "HRV (Garmin, nachtgemiddelde)", unit "ms" shown as UNVERIFIED in the legend.
 - **Output:** per window (7/28/60/90): median, robust SD, n. Last night with deviation against the 28 d baseline. Garmin's own balanced band (`baselineBalancedLow` to `baselineBalancedUpper`) and `status` shown separately, labelled `[gemeten]` Garmin, never merged with the app baseline (never average incompatible measurements).
+- **OWNER DECISION 2026-11-15 (adds to the above, `recovery-v2`): the balanced band IS the norm for HRV.** A value inside
+  Garmin's band counts as within norm; up to half a band width outside is deviating, further out strongly deviating. The
+  band is read from the stored row of that day, because Garmin adapts it. Deviation is expressed in half band widths (so
+  ±1 = the edge of the band), not in robust SD of the app. Reason: with a very stable HRV the app's own robust SD is only
+  ~3 ms, so 73 ms against a median of 70 ms became "afwijkend" while it sat comfortably inside Garmin's 70-79 band; the
+  owner considers Garmin's band more accurate. The app's own median stays on the page as a reference only (HRV cards,
+  tables, trend). The own-norm machinery (windows, trend, sustained deviation) still runs and is still shown, it just no
+  longer decides the conclusion. Because Garmin's band is a long-running norm, HRV needs no 20-of-28 days of app history:
+  a night with a band counts as "with data".
 - **Abstain:** window below minimum (section 2.1) gives `onvoldoende data (n van W)`. No `lastNightAvg` for D gives `[onbeschikbaar] geen HRV voor deze nacht` (HTTP 204 days are not stored).
 - **Compare like with like:** only `lastNightAvg` is used. `weeklyAvg` is Garmin's own 7-day figure and is shown, not mixed into the series. The protocol (nightly, sleep window) is constant, so no protocol mixing. If a baseline window contains a Garmin firmware or device change it cannot be detected (UNVERIFIED), noted in the legend.
 
@@ -237,12 +246,13 @@ Training load, training response (#5), recovery time (#10), fatigue detection (#
 ## 11. Post-approval changes (eleventh session, 2026-10-30, owner request)
 
 Phase 2 was already APPROVED; the owner asked to redesign `/recovery` like Prestaties and to make every period adjustable.
-Calculations and bands are unchanged for the default periods; `recovery-v1` stays.
+Calculations and bands are unchanged for the default periods; `recovery-v1` stays. (Later: `recovery-v2` on 2026-11-15 —
+HRV is judged against Garmin's balanced band, see section 3 #1.)
 
 - Hero card kept as it was (owner: "zegt in 1 oogopslag heel veel"); only its dates are Dutch now.
 - Day view: five small charts (HRV, rusthartslag, slaap as bars with the target line, Body Battery bij ontwaken, stress)
-  with the rolling own-norm band (median ± 1 robust SD of the N days before each day, `core/.../recovery/Daily.kt`,
-  `DailyNorms`) and dots coloured by band; one card per metric instead of tables (value, band pill, own norm, trend
+  with the rolling norm band (HRV: Garmin's balanced band of that night, see the owner decision in section 3; the others:
+  median ± 1 robust SD of the N days before each day, `core/.../recovery/Daily.kt`, `DailyNorms`) and dots coloured by band; one card per metric instead of tables (value, band pill, own norm, trend
   sentence, extra facts, norms over other windows folded away, sleep stage bar, 7-night bars against the target,
   Body Battery range bar); a colour-coded day table instead of the "Laatste 7 dagen" list; previous/next day links.
 - Week and month view: tiles (median, range, change against the previous period) instead of the table, the same charts,

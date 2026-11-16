@@ -167,7 +167,8 @@ object RecoveryGlossary {
         Term(
             "hrv", "HRV (hartslagvariabiliteit)",
             "Hoeveel de tijd tussen twee hartslagen varieert, gemeten tijdens je slaap. Het is een heel persoonlijke waarde: vergelijk ze alleen met " +
-                "je eigen cijfers, niet met die van anderen. Een waarde die dagenlang onder je norm ligt, kan samengaan met vermoeidheid, ziekte, " +
+                "je eigen cijfers, niet met die van anderen. De app legt je HRV naast Garmins balansbereik van die nacht: binnen dat bereik is je HRV " +
+                "zoals gewoonlijk voor jou, erbuiten wijkt ze af. Een waarde die dagenlang onder je bereik ligt, kan samengaan met vermoeidheid, ziekte, " +
                 "stress of alcohol, maar is op zich geen goed of slecht teken.", PAGE,
         ),
         Term(
@@ -183,12 +184,13 @@ object RecoveryGlossary {
         Term(
             "eigen-norm", "Eigen norm",
             "Wat normaal is voor jou: de mediaan van je eigen waarden over de dagen vóór de getoonde dag (standaard 28, aan te passen bovenaan de pagina). De groene band in de grafieken toont " +
-                "dat normale bereik. Zo word je met jezelf vergeleken, niet met een tabel.", PAGE,
+                "dat normale bereik. Zo word je met jezelf vergeleken, niet met een tabel. HRV is de uitzondering: daarvoor geldt Garmins eigen balansbereik, dat Garmin zelf aanpast.", PAGE,
         ),
         Term(
             "sd", "SD (afwijking)",
             "Hoe ver een waarde van je eigen norm ligt, gemeten in je gewone schommeling van dag tot dag. 0 = precies je norm, onder 1 = binnen je " +
-                "norm, 1 tot 2 = afwijkend, vanaf 2 = sterk afwijkend. Eén uitschieter in je geschiedenis verandert deze maat nauwelijks.", PAGE,
+                "norm, 1 tot 2 = afwijkend, vanaf 2 = sterk afwijkend. Eén uitschieter in je geschiedenis verandert deze maat nauwelijks. " +
+                "Bij HRV staat er geen SD maar een afstand in ms tot Garmins bereik, met dezelfde twee stappen.", PAGE,
         ),
         Term(
             "slaaptekort", "Slaaptekort",

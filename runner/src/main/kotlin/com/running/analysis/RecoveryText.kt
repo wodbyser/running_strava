@@ -1,6 +1,5 @@
 package com.running.analysis
 
-import com.running.garmin.recovery.HrvResult
 import com.running.garmin.recovery.BaselineResult
 import com.running.garmin.recovery.BaselineStatus
 import com.running.garmin.recovery.BodyBatteryResult
@@ -10,6 +9,7 @@ import com.running.garmin.recovery.PeriodMetricKind
 import com.running.garmin.recovery.PeriodReport
 import com.running.garmin.recovery.Readiness
 import com.running.garmin.recovery.ReadinessBasis
+import com.running.garmin.recovery.ReadinessComponent
 import com.running.garmin.recovery.ReadinessDeviation
 import com.running.garmin.recovery.ReadinessKind
 import com.running.garmin.recovery.ReadinessSummary
@@ -36,7 +36,7 @@ data class RecoveryRow(val label: String, val value: String, val reference: Stri
 data class RecoverySection(val id: String, val title: String, val notes: List<String>, val rows: List<RecoveryRow>)
 
 enum class HeroLevel(val label: String, val css: String) {
-    WITHIN("Binnen je eigen norm", "hero-ok"),
+    WITHIN("Binnen je normen", "hero-ok"),
     SLIGHT("Licht afwijkend", "hero-warn"),
     CLEAR("Duidelijk afwijkend", "hero-alert"),
     INSUFFICIENT("Onvoldoende data", "hero-na"),
@@ -92,6 +92,41 @@ object RecoveryText {
     }
 
     fun directionText(deviation: Double) = if (deviation > 0) "hoger dan jouw eigen norm" else "lager dan jouw eigen norm"
+
+    // ---------------------------------------------------------------- HRV: Garmin's own norm
+
+    /** "Garmin-bereik 70 tot 79 ms (Garmin past dit zelf aan)": the norm that counts for HRV. */
+    private fun garminRangeText(c: ReadinessComponent) =
+        "Garmin-bereik ${f(c.garminLow ?: 0.0, 0)} tot ${f(c.garminUpper ?: 0.0, 0)} ms (Garmin past dit zelf aan)"
+
+    /** "73 ms ligt binnen Garmins bereik", "68 ms ligt onder Garmins bereik (2 ms eronder)". */
+    private fun garminVerdict(c: ReadinessComponent): String {
+        val v = c.value ?: return "-"
+        val low = c.garminLow ?: return "-"
+        val upper = c.garminUpper ?: return "-"
+        return when {
+            v < low -> "${f(v, 0)} ms ligt onder Garmins bereik (${f(low - v, 0)} ms eronder)"
+            v > upper -> "${f(v, 0)} ms ligt boven Garmins bereik (${f(v - upper, 0)} ms erboven)"
+            else -> "${f(v, 0)} ms ligt binnen Garmins bereik"
+        }
+    }
+
+    /** Compact: "binnen Garmins bereik 70 tot 79 ms" or "2 ms onder Garmins bereik van 70 tot 79 ms". */
+    private fun garminShortVerdict(c: ReadinessComponent): String {
+        val v = c.value ?: return "-"
+        val low = c.garminLow ?: return "-"
+        val upper = c.garminUpper ?: return "-"
+        val range = "${f(low, 0)} tot ${f(upper, 0)} ms"
+        return when {
+            v < low -> "${f(low - v, 0)} ms onder Garmins bereik van $range"
+            v > upper -> "${f(v - upper, 0)} ms boven Garmins bereik van $range"
+            else -> "binnen Garmins bereik van $range"
+        }
+    }
+
+    /** The own median of HRV is no longer a verdict: it stays on the page as a reference next to Garmin's range. */
+    private fun ownReferenceText(c: ReadinessComponent): String? =
+        c.median?.let { "eigen mediaan ${f(it, 0)} ms" + if (c.n > 0) " (${c.n} dagen), ter vergelijking" else ", ter vergelijking" }
 
     fun deviationText(b: BaselineResult): String {
         val d = b.deviation ?: return "geen afwijking berekend"
@@ -150,13 +185,18 @@ object RecoveryText {
             val t = rd.sleepTarget!!
             return "slaap onder je doel van ${hm(t.targetMinutes.toDouble())} (gemiddeld ${f(t.averageShortfallMinutes, 0)} min tekort per nacht over ${t.nights} nachten, ${bandText(d.band)})"
         }
+        if (d.basis == ReadinessBasis.GARMIN_RANGE) {
+            val c = rd.components.first { it.kind == d.kind }
+            // "HRV 68 ms, 2 ms onder Garmins bereik van 70 tot 79 ms (afwijkend)"
+            return "${component(d.kind)} ${f(c.value ?: 0.0, 0)} ms, ${garminShortVerdict(c)} (${bandText(d.band)})"
+        }
         return "${component(d.kind)} ${directionText(d.deviation)} (${signed(d.deviation)} SD, ${bandText(d.band)})"
     }
 
     fun summaryText(rd: Readiness): String {
         val s = rd.summary
         if (!s.available) return "Onvoldoende data voor een samenvatting (${s.componentsWithData} van 4 componenten hebben data, minimaal 3). De componenten staan hieronder apart."
-        val base = "${s.within} van ${s.componentsWithData} componenten binnen eigen norm"
+        val base = "${s.within} van ${s.componentsWithData} componenten binnen de norm"
         if (s.deviating.isEmpty()) return base
         return "$base, ${s.deviating.size} afwijkend: " + s.deviating.joinToString(", ") { deviationSentence(it, rd) }
     }
@@ -166,22 +206,36 @@ object RecoveryText {
         val nd = w.normDays
         val sections = mutableListOf<RecoverySection>()
 
-        sections += RecoverySection("readiness", "Herstel: componenten", listOf("Geen score en geen weging tussen componenten: er bestaan geen gevalideerde gewichten. Recente belasting is nog geen component."),
+        sections += RecoverySection("readiness", "Herstel: componenten", listOf("Geen score en geen weging tussen componenten: er bestaan geen gevalideerde gewichten. Recente belasting is nog geen component.", "HRV wordt tegenover Garmins eigen balansbereik gelegd, de andere componenten tegenover je eigen mediaan."),
             r.readiness.components.map { c ->
-                if (c.value == null) na(component(c.kind), "geen waarde voor deze dag (eigen norm: n=${c.n} van $nd dagen)")
-                else if (!c.hasData) na(component(c.kind), "onvoldoende data voor een eigen norm (n=${c.n} van $nd dagen)")
-                else RecoveryRow(component(c.kind), f(c.value!!), "mediaan ${f(c.median!!)}, n=${c.n} van $nd dagen", "${bandText(c.band!!)}" + if (c.band != DeviationBand.WITHIN) ": ${directionText(c.deviation!!)}" else "", RecoveryTag.ESTIMATE)
+                when {
+                    c.basis == ReadinessBasis.GARMIN_RANGE -> RecoveryRow(component(c.kind), f(c.value!!), garminRangeText(c), garminVerdict(c), RecoveryTag.ESTIMATE)
+                    c.value == null -> na(component(c.kind), "geen waarde voor deze dag (eigen norm: n=${c.n} van $nd dagen)")
+                    !c.hasData -> na(component(c.kind), "onvoldoende data voor een eigen norm (n=${c.n} van $nd dagen)")
+                    else -> RecoveryRow(component(c.kind), f(c.value!!), "mediaan ${f(c.median!!)}, n=${c.n} van $nd dagen", "${bandText(c.band!!)}" + if (c.band != DeviationBand.WITHIN) ": ${directionText(c.deviation!!)}" else "", RecoveryTag.ESTIMATE)
+                }
             })
 
         val h = r.hrv
-        sections += RecoverySection("hrv", "HRV (Garmin, nachtgemiddelde)", listOf(ESTIMATE_LEGEND, "Garmin-bereik en -status staan apart en worden nooit gemengd met de eigen norm van de app."),
-            metricRows("HRV nachtgemiddelde", "ms", h.metric, h.lastNightAvg?.let { "$it ms" } ?: "-", RecoveryTag.MEASURED, "geen HRV voor deze nacht", w = w) +
-                windowRows("HRV", "ms", h.metric) +
-                listOfNotNull(
-                    h.weeklyAvg?.let { RecoveryRow("Garmin weekgemiddelde", "$it ms", "-", "-", RecoveryTag.MEASURED) },
-                    if (h.garminBalancedLow != null && h.garminBalancedUpper != null)
-                        RecoveryRow("Garmin-bereik (balanced)", "${h.garminBalancedLow} tot ${h.garminBalancedUpper} ms", "-", h.garminStatus ?: "-", RecoveryTag.MEASURED) else null,
-                ))
+        val hrvComponent = r.readiness.components.first { it.kind == ReadinessKind.HRV }
+        val hrvRows = mutableListOf<RecoveryRow>()
+        hrvRows += when {
+            h.lastNightAvg == null -> na("HRV nachtgemiddelde", "geen HRV voor deze nacht")
+            hrvComponent.basis == ReadinessBasis.GARMIN_RANGE ->
+                RecoveryRow("HRV nachtgemiddelde", "${h.lastNightAvg} ms", garminRangeText(hrvComponent), garminVerdict(hrvComponent), RecoveryTag.MEASURED)
+            else -> metricRows("HRV nachtgemiddelde", "ms", h.metric, h.lastNightAvg?.let { "$it ms" } ?: "-", RecoveryTag.MEASURED, "geen HRV voor deze nacht", w = w).first()
+        }
+        hrvRows += listOfNotNull(
+            hrvComponent.median?.let { RecoveryRow("HRV: eigen mediaan", "-", referenceText(h.metric.primary, "ms"), "ter vergelijking, weegt niet mee in de conclusie", RecoveryTag.COMPUTED) },
+            RecoveryRow("HRV: trend", "-", trendText(h.metric, "ms", w), "-", RecoveryTag.ESTIMATE),
+        )
+        hrvRows += windowRows("HRV", "ms", h.metric)
+        hrvRows += listOfNotNull(
+            h.weeklyAvg?.let { RecoveryRow("Garmin weekgemiddelde", "$it ms", "-", "-", RecoveryTag.MEASURED) },
+            if (h.garminBalancedLow != null && h.garminBalancedUpper != null)
+                RecoveryRow("Garmin-bereik (balanced)", "${h.garminBalancedLow} tot ${h.garminBalancedUpper} ms", "-", h.garminStatus ?: "-", RecoveryTag.MEASURED) else null,
+        )
+        sections += RecoverySection("hrv", "HRV (Garmin, nachtgemiddelde)", listOf(ESTIMATE_LEGEND, "De conclusie legt HRV naast Garmins balansbereik van die nacht. Dat bereik past Garmin zelf aan en is een langdurige eigen norm, dus de app heeft er geen 28 dagen eigen geschiedenis voor nodig. Je eigen mediaan staat ernaast als referentie en telt niet mee."), hrvRows)
 
         val rr = r.restingHr
         val rhrRows = when (rr.source) {
@@ -292,34 +346,7 @@ object RecoveryText {
         ReadinessKind.BODY_BATTERY -> f(median, 0)
     }
 
-    /**
-     * HRV bar of the day view: the green zone is Garmin's own balanced range of that day (Garmin may change it; it is
-     * read from the stored row of the day, not fixed). The scale is the range with one range width on each side. The
-     * conclusion level still uses the app's own norm, which is stated on the card; the two are never merged.
-     */
-    private fun garminHrvComponent(h: HrvResult?, own: HeroComponent?): HeroComponent? {
-        if (h == null || own == null) return null
-        val low = h.garminBalancedLow ?: return null
-        val up = h.garminBalancedUpper ?: return null
-        val v = h.lastNightAvg ?: return null
-        if (up <= low) return null
-        val width = (up - low).toDouble()
-        val min = low - width
-        val pos = ((v - min) / (3 * width) * 100).coerceIn(0.0, 100.0)
-        val words = when {
-            v < low -> "$v ms ligt onder Garmins bereik"
-            v > up -> "$v ms ligt boven Garmins bereik"
-            else -> "$v ms ligt binnen Garmins bereik"
-        }
-        val ownText = if (own.position != null) "eigen norm ${own.norm.removePrefix("norm ")}: ${own.deviation}" else "eigen norm: ${own.deviation}"
-        return own.copy(
-            norm = "Garmin-bereik $low tot $up ms (Garmin past dit zelf aan)",
-            deviation = "$words · $ownText",
-            position = pos,
-            aria = "${own.label}: $v ms, $words, groene zone is Garmins bereik $low tot $up ms, $ownText",
-            axisMiddle = "Garmin-bereik",
-        )
-    }
+    private fun spectrumPosition(deviation: Double) = (deviation.coerceIn(-3.0, 3.0) + 3.0) / 6.0 * 100.0
 
     /** Shared by the day and the period view. */
     private fun buildHero(
@@ -331,7 +358,6 @@ object RecoveryText {
         scopeText: String,
         footnote: String,
         noValueWords: String,
-        garminHrv: HrvResult? = null,
     ): Hero {
         val s = rd.summary
         val level = heroLevel(s)
@@ -340,17 +366,26 @@ object RecoveryText {
             if (!c.hasData) {
                 val why = if (c.value == null) noValueWords else "onvoldoende data voor een eigen norm"
                 HeroComponent(label, value(c.kind), "-", why, "hero-na", null, "$label: $why")
+            } else if (c.basis == ReadinessBasis.GARMIN_RANGE) {
+                // HRV: the green zone is Garmin's balanced range of that day, so the bar and the conclusion always agree.
+                val verdict = garminVerdict(c)
+                val ownText = ownReferenceText(c)
+                HeroComponent(
+                    label, value(c.kind), garminRangeText(c),
+                    verdict + if (ownText != null) " · $ownText" else "",
+                    bandCss(c.band), spectrumPosition(c.deviation!!),
+                    "$label: ${value(c.kind)}, $verdict, groene zone is Garmins bereik ${f(c.garminLow ?: 0.0, 0)} tot ${f(c.garminUpper ?: 0.0, 0)} ms" +
+                        (ownText?.let { ", $it" } ?: ""),
+                    axisMiddle = "Garmin-bereik",
+                )
             } else {
                 val dev = c.deviation!!
                 val words = if (c.band == DeviationBand.WITHIN) "binnen eigen norm" else "${bandText(c.band!!)}, ${directionText(dev)}"
                 val norm = "norm ${dayNorm(c.kind, c.median!!)}"
-                HeroComponent(label, value(c.kind), norm, "$words (${signed(dev)} SD)", bandCss(c.band), (dev.coerceIn(-3.0, 3.0) + 3.0) / 6.0 * 100.0, "$label: ${value(c.kind)}, eigen $norm, $words")
+                HeroComponent(label, value(c.kind), norm, "$words (${signed(dev)} SD)", bandCss(c.band), spectrumPosition(dev), "$label: ${value(c.kind)}, eigen $norm, $words")
             }
         }.toMutableList()
-        garminHrvComponent(garminHrv, comps.firstOrNull { it.label == component(ReadinessKind.HRV).replaceFirstChar { c -> c.uppercase() } })?.let { g ->
-            val i = comps.indexOfFirst { it.label == g.label }
-            comps[i] = g
-        }
+
         rd.sleepTarget?.let { t ->
             val words = if (t.band == DeviationBand.WITHIN) "binnen je doel" else "${bandText(t.band)}: onder je doel"
             val avg = "${f(t.averageShortfallMinutes, 0)} min tekort per nacht"
@@ -364,7 +399,7 @@ object RecoveryText {
         } else {
             val deviatingKinds = s.deviating.map { it.kind }.toSet()
             val within = rd.components.filter { c -> (c.hasData || (c.kind == ReadinessKind.SLEEP && rd.sleepTarget != null)) && c.kind !in deviatingKinds }.map { component(it.kind) }
-            if (within.isNotEmpty()) conclusion += "Binnen je eigen norm${if (rd.sleepTarget != null && ReadinessKind.SLEEP !in deviatingKinds) " (slaap ook binnen je doel)" else ""}: ${within.joinToString(", ")}."
+            if (within.isNotEmpty()) conclusion += "Binnen je normen${if (rd.sleepTarget != null && ReadinessKind.SLEEP !in deviatingKinds) " (slaap ook binnen je doel)" else ""}: ${within.joinToString(", ")}."
             if (s.deviating.isNotEmpty()) conclusion += "Afwijkend: " + s.deviating.joinToString("; ") { deviationSentence(it, rd) } + "."
         }
         if (sustained.isNotEmpty()) conclusion += "Over de laatste dagen: ${sustained.joinToString("; ")}."
@@ -373,13 +408,20 @@ object RecoveryText {
 
         val method = listOf(
             scopeText,
+            HRV_METHOD,
             "Slaap wordt tweemaal beoordeeld: tegenover je eigen norm en tegenover je doel. Slaaptekort = gemiddeld aantal minuten per nacht onder je doel (lange nachten compenseren niet): minder dan ${SLEEP_BAND} min is binnen doel, ${SLEEP_BAND} tot ${SLEEP_BAND * 2} min afwijkend, vanaf ${SLEEP_BAND * 2} min sterk afwijkend. De grootste afwijking van beide telt voor de conclusie.",
-            "Conclusie: alles binnen norm en doel = \"Binnen je eigen norm\". Eén component afwijkend (1 tot 2 SD) = \"Licht afwijkend\". Twee of meer afwijkend, of één sterk afwijkend = \"Duidelijk afwijkend\". Minder dan 3 componenten met data = \"Onvoldoende data\".",
+            "Conclusie: alles binnen norm en doel = \"Binnen je normen\". Eén component afwijkend (1 tot 2 SD, of tot een halve bereikbreedte buiten Garmins HRV-bereik) = \"Licht afwijkend\". Twee of meer afwijkend, of één sterk afwijkend = \"Duidelijk afwijkend\". Minder dan 3 componenten met data = \"Onvoldoende data\".",
             "Geen getal en geen weging: er bestaan geen gevalideerde gewichten tussen HRV, rusthartslag, slaap en Body Battery. De drempels zijn app-schattingen zonder externe validatie.",
             "Recente trainingsbelasting is nog geen onderdeel. Garmin-waarden zoals HRV, slaapfasen en Body Battery zijn Garmin-schattingen.",
         )
         return Hero(level, level.label, summaryText(rd), footnote, conclusion, facts, comps, method)
     }
+
+    private const val HRV_METHOD =
+        "HRV wordt niet tegenover je eigen mediaan gelegd maar tegenover Garmins eigen balansbereik van die dag (Garmin past " +
+            "dat bereik zelf aan). Binnen dat bereik is binnen je norm, tot een halve bereikbreedte erbuiten afwijkend, verder " +
+            "sterk afwijkend. Je eigen mediaan staat ernaast als referentie en weegt niet mee: bij een heel stabiele HRV wordt " +
+            "een verschil van een paar ms anders al snel één SD."
 
     private val SLEEP_BAND = SleepAnalysis.TARGET_BAND_MINUTES.toInt()
 
@@ -397,12 +439,11 @@ object RecoveryText {
             "Geschat slaaptekort over ${r.windows.debtNights} nachten: ${hmSeconds(d.shortfallSeconds!!)} (doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsBelowTarget} nacht(en) eronder)." else null
         return buildHero(
             r.readiness, { dayValue(r, it) },
-            listOf("Dag" to PerfDates.dayLong(r.date) + if (r.isToday) " (vandaag)" else "", "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van ${r.windows.normDays} dagen"),
+            listOf("Dag" to PerfDates.dayLong(r.date) + if (r.isToday) " (vandaag)" else "", "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van ${r.windows.normDays} dagen (niet voor HRV)"),
             sustained, debtLine,
-            "Elke component vergelijkt de waarde van deze dag met de mediaan van je ${r.windows.normDays} vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
+            "Rusthartslag, slaapduur en Body Battery vergelijken de waarde van deze dag met de mediaan van je ${r.windows.normDays} vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
             "Algoritme ${r.algorithmVersion}." + if (r.isToday) " Vandaag: stress en Body Battery van vandaag zijn onvolledig en tellen niet mee in normen." else "",
             "geen waarde voor deze dag",
-            r.hrv,
         )
     }
 
@@ -464,9 +505,9 @@ object RecoveryText {
             "Geschat slaaptekort in deze periode: ${hmSeconds(d.shortfallSeconds!!)} (doel ${hm(sleepTargetMinutes.toDouble())} per nacht, ${d.nightsWithData} nachten met data, ${d.nightsBelowTarget} eronder)." else null
         val hero = buildHero(
             r.readiness, unit,
-            listOf("Periode" to PerfDates.range(r.from, r.to), "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van de ${r.windows.normDays} dagen vóór de periode"),
+            listOf("Periode" to PerfDates.range(r.from, r.to), "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van de ${r.windows.normDays} dagen vóór de periode (niet voor HRV)"),
             emptyList(), periodDebtLine,
-            "Elke component vergelijkt de mediaan van de dagen met data in deze periode met de mediaan van de ${r.windows.normDays} dagen vóór de periode. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
+            "Rusthartslag, slaapduur en Body Battery vergelijken de mediaan van de dagen met data in deze periode met de mediaan van de ${r.windows.normDays} dagen vóór de periode. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
             "Algoritme ${r.algorithmVersion}.",
             "te weinig dagen met data in deze periode",
         )

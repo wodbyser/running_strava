@@ -6,7 +6,8 @@ import kotlin.math.abs
 import kotlin.math.max
 
 object RecoveryAlgorithm {
-    const val VERSION = "recovery-v1"
+    /** v2: HRV is judged against Garmin's balanced range instead of the app's own median (owner decision 2026-11-15). */
+    const val VERSION = "recovery-v2"
 }
 
 enum class DeviationBand { WITHIN, DEVIATING, STRONG }
@@ -184,6 +185,48 @@ object MetricAnalyzer {
         return MetricAnalysis(value, incomplete, windows, windows.first { it.windowDays == w.normDays }, Trend.evaluate(series, date, w))
     }
 }
+
+/**
+ * HRV against Garmin's own norm: the balanced range (`baselineBalancedLow` to `baselineBalancedUpper`) that Garmin keeps
+ * and adapts itself. The deviation is expressed in half ranges, so ±1 is exactly the edge of Garmin's range: inside is
+ * within norm, up to half a range width outside is deviating, further out is strongly deviating. That is the same 1 and
+ * 2 step as [Baseline.band], and the same geometry as the green/yellow/red band on the page.
+ *
+ * Owner decision 2026-11-15: for HRV Garmin's range decides, not the app's own median. A value well inside Garmin's
+ * balanced range can be one robust SD above the app's median of the last 28 days (a very stable series gives a very small
+ * SD), and calling that "afwijkend" is wrong for the owner.
+ */
+data class GarminRangeNorm(
+    val low: Int,
+    val upper: Int,
+    val value: Double,
+    val deviation: Double,
+    val band: DeviationBand,
+) {
+    /** Ms above the upper edge (positive) or below the lower edge (negative); 0 when the value is inside the range. */
+    val outside: Double
+        get() = when {
+            value < low -> value - low
+            value > upper -> value - upper
+            else -> 0.0
+        }
+}
+
+object GarminHrvNorm {
+    /**
+     * Null when the value or the range is missing, or when Garmin's range is empty (`upper <= low`), because then the
+     * range cannot be a norm and the caller falls back to the app's own norm.
+     */
+    fun check(value: Double?, low: Int?, upper: Int?): GarminRangeNorm? {
+        if (value == null || low == null || upper == null) return null
+        if (low <= 0 || upper <= low) return null
+        val deviation = (value - (low + upper) / 2.0) / ((upper - low) / 2.0)
+        // Garmin's range is inclusive: exactly on an edge is still "within", only a value outside gets a band.
+        val band = if (value in low.toDouble()..upper.toDouble()) DeviationBand.WITHIN else Baseline.band(deviation)
+        return GarminRangeNorm(low, upper, value, deviation, band)
+    }
+}
+
 
 fun <T : GarminDailyRecord> List<T>.toSeries(select: (T) -> Number?): Map<LocalDate, Double> =
     mapNotNull { r -> select(r)?.let { r.calendarDate to it.toDouble() } }.toMap()

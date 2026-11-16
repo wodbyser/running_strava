@@ -335,11 +335,23 @@ class RecoveryAnalysisTest {
 
     @Test
     fun `readiness with 2 of 4 abstains from a summary but keeps the components`() {
-        val r = report(fullInputs(rhrDays = 3, hrvDays = 3)).readiness
+        // HRV without a Garmin range needs the app's own 20 of 28 days, so 3 days abstains.
+        val noRange = fullInputs(rhrDays = 3, hrvDays = 3).copy(hrv = fullInputs(hrvDays = 3).hrv.map { it.copy(baselineBalancedLow = null, baselineBalancedUpper = null) })
+        val r = report(noRange).readiness
         assertEquals(2, r.summary.componentsWithData)
         assertFalse(r.summary.available)
         assertEquals(4, r.components.size)
         assertTrue(r.components.count { it.hasData } == 2)
+    }
+
+    @Test
+    fun `HRV with a Garmin range needs no history of the app`() {
+        // Garmin's balanced range already is a long-running norm, so one night is enough (owner decision 2026-11-15).
+        val r = report(fullInputs(rhrDays = 3, hrvDays = 3)).readiness
+        val hrv = r.components.first { it.kind == ReadinessKind.HRV }
+        assertTrue(hrv.hasData)
+        assertEquals(ReadinessBasis.GARMIN_RANGE, hrv.basis)
+        assertEquals(3, r.summary.componentsWithData)
     }
 
     @Test
@@ -364,7 +376,7 @@ class RecoveryAnalysisTest {
     @Test
     fun `report carries the algorithm version and no numeric score field`() {
         val rep = report(fullInputs())
-        assertEquals("recovery-v1", rep.algorithmVersion)
+        assertEquals("recovery-v2", rep.algorithmVersion)
         val readinessFields = Readiness::class.java.declaredFields.map { it.name } + ReadinessSummary::class.java.declaredFields.map { it.name }
         assertTrue(readinessFields.none { it.contains("score", ignoreCase = true) }, readinessFields.toString())
         assertEquals(60, rep.hrvSeries.size)

@@ -7,6 +7,9 @@ import com.running.garmin.recovery.MetricAnalysis
 import com.running.garmin.recovery.NormPoint
 import com.running.garmin.recovery.PeriodMetricKind
 import com.running.garmin.recovery.PeriodReport
+import com.running.garmin.recovery.ReadinessBasis
+import com.running.garmin.recovery.ReadinessComponent
+import com.running.garmin.recovery.ReadinessKind
 import com.running.garmin.recovery.RecoveryReport
 import com.running.garmin.recovery.RecoveryWindows
 import com.running.garmin.recovery.RestingHrSource
@@ -90,6 +93,34 @@ object RecoveryViewBuilder {
         }
     }
 
+    /** HRV is judged against Garmin's balanced range, so its pill says so; the own median never decides. */
+    private fun garminPill(c: ReadinessComponent, m: MetricAnalysis?): Pill? {
+        if (c.basis != ReadinessBasis.GARMIN_RANGE) return pill(m)
+        val band = c.band ?: return null
+        val above = (c.value ?: return null) > (c.garminUpper ?: return null)
+        return when (band) {
+            DeviationBand.WITHIN -> Pill("binnen Garmins bereik", Tone.GOOD)
+            DeviationBand.DEVIATING -> Pill(if (above) "boven Garmins bereik" else "onder Garmins bereik", Tone.UNCERTAIN)
+            DeviationBand.STRONG -> Pill(if (above) "duidelijk boven Garmins bereik" else "duidelijk onder Garmins bereik", Tone.BAD)
+        }
+    }
+
+    /** The norm line of the HRV card: Garmin's range, with the own median as an extra fact. */
+    private fun garminNormLine(c: ReadinessComponent, m: MetricAnalysis?): String? {
+        if (c.basis != ReadinessBasis.GARMIN_RANGE) {
+            return normLine(m, { v -> "${num(v)} ms" })?.let { "$it · Garmin gaf geen balansbereik voor deze nacht, daarom je eigen mediaan." }
+        }
+        val low = num(c.garminLow ?: return null)
+        val upper = num(c.garminUpper ?: return null)
+        val v = c.value ?: return null
+        val verdict = when {
+            v < (c.garminLow ?: return null) -> "${num((c.garminLow ?: 0.0) - v)} ms onder Garmins bereik"
+            v > (c.garminUpper ?: return null) -> "${num(v - (c.garminUpper ?: 0.0))} ms boven Garmins bereik"
+            else -> "binnen Garmins bereik"
+        }
+        return "Garmin-bereik $low tot $upper ms (Garmin past dit zelf aan) · $verdict"
+    }
+
     private fun normLine(m: MetricAnalysis?, fmt: (Double) -> String): String? {
         val p = m?.primary ?: return null
         return when (p.status) {
@@ -151,16 +182,18 @@ object RecoveryViewBuilder {
         val cards = mutableListOf<MetricCard>()
 
         val h = r.hrv
+        val hrvComponent = r.readiness.components.first { it.kind == ReadinessKind.HRV }
         cards += MetricCard(
             "hrv", "HRV", "hrv", Kind.MEASURED, h.lastNightAvg?.let { "$it ms" } ?: "geen meting",
-            pill(h.metric), normLine(h.metric, ms), trendLine(h.metric, ms, w),
+            garminPill(hrvComponent, h.metric), garminNormLine(hrvComponent, h.metric), trendLine(h.metric, ms, w),
             listOfNotNull(
                 if (h.garminBalancedLow != null && h.garminBalancedUpper != null) "Garmin-bereik" to "${h.garminBalancedLow} tot ${h.garminBalancedUpper} ms" else null,
                 garminHrvStatus(h.garminStatus)?.let { "Garmin-status" to it },
                 h.weeklyAvg?.let { "Garmin weekgemiddelde" to "$it ms" },
+                hrvComponent.median?.let { "Eigen mediaan" to "${num(it)} ms over ${hrvComponent.n} dagen (referentie)" },
             ),
             norms(h.metric, ms),
-            "Nachtgemiddelde volgens Garmin. Het Garmin-bereik en de eigen norm van de app staan los van elkaar.",
+            "Nachtgemiddelde volgens Garmin. De conclusie beoordeelt HRV tegenover Garmins eigen balansbereik van deze nacht; je eigen mediaan staat eronder als referentie en weegt niet mee.",
         )
 
         val rr = r.restingHr
@@ -267,7 +300,14 @@ object RecoveryViewBuilder {
 
     private fun cell(p: NormPoint?, fmt: (Double) -> String): DayCell {
         val v = p?.value ?: return DayCell("-", "cell-none")
-        val dev = if (p.median != null && p.sd != null && p.sd!! > 0) (v - p.median!!) / p.sd!! else null
+        val low = p.bandLow
+        val high = p.bandHigh
+        val dev = when {
+            // HRV: Garmin's balanced range of that day is the norm, exactly as in the conclusion.
+            low != null && high != null && high > low -> (v - (low + high) / 2) / ((high - low) / 2)
+            p.median != null && p.sd != null && p.sd!! > 0 -> (v - p.median!!) / p.sd!!
+            else -> null
+        }
         val css = when {
             dev == null -> "cell-none"
             abs(dev) < 1 -> "cell-ok"
@@ -299,8 +339,22 @@ object RecoveryViewBuilder {
 
     private fun chartSeries(points: List<NormPoint>, scale: Double = 1.0) = mapOf(
         "values" to points.map { round1(it.value?.div(scale)) },
-        "low" to points.map { p -> if (p.median != null && p.sd != null) round1((p.median!! - p.sd!!) / scale) else null },
-        "high" to points.map { p -> if (p.median != null && p.sd != null) round1((p.median!! + p.sd!!) / scale) else null },
+        "low" to points.map { p ->
+            val bandLow = p.bandLow
+            when {
+                bandLow != null -> round1(bandLow / scale)
+                p.median != null && p.sd != null -> round1((p.median!! - p.sd!!) / scale)
+                else -> null
+            }
+        },
+        "high" to points.map { p ->
+            val bandHigh = p.bandHigh
+            when {
+                bandHigh != null -> round1(bandHigh / scale)
+                p.median != null && p.sd != null -> round1((p.median!! + p.sd!!) / scale)
+                else -> null
+            }
+        },
         "median" to points.map { round1(it.median?.div(scale)) },
     )
 

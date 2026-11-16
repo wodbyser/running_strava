@@ -50,13 +50,14 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
         assertTrue(html.contains("id=\"cHrv\""))
         assertTrue(html.contains("Laatste 7 dagen"))
         assertTrue(html.contains("donderdag 15 januari 2026"))
-        assertTrue(html.contains("Eigen norm 50,5 ms"), "own norm on the HRV card")
-        assertTrue(html.contains("recovery-v1"))
+        assertTrue(html.contains("Garmin-bereik 45 tot 60 ms"), "Garmin's range is the HRV norm")
+        assertTrue(html.contains("50,5 ms over 28 dagen"), "own median stays as a reference")
+        assertTrue(html.contains("recovery-v2"))
         assertFalse(html.contains("RMSSD"))
 
         val json = mvc.perform(get("/recovery/data?date=$day"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.algorithmVersion").value("recovery-v1"))
+            .andExpect(jsonPath("$.algorithmVersion").value("recovery-v2"))
             .andExpect(jsonPath("$.hrv.hasNight").value(true))
             .andReturn().response.contentAsString
         listOf("apiKey", "api-key", "token", "bearer", "Authorization").forEach { assertFalse(json.contains(it, ignoreCase = true), it) }

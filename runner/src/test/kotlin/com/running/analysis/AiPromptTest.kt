@@ -152,7 +152,7 @@ class AiPromptRecoveryGuardrailTest {
     fun `recovery block on request switches the guardrail`() {
         val s = AiAnalysisService(repo, PeriodComparisonService(repo), recoveryService())
         val p = s.buildAiPrompt(includeRecovery = true)
-        assertTrue(p.contains("<herstel algoritme=\"recovery-v1\""))
+        assertTrue(p.contains("<herstel algoritme=\"recovery-v2\""))
         assertFalse(p.contains("Deze data bevat GEEN weer, slaap, HRV, rusthartslag"))
         assertTrue(p.contains("Deze data bevat GEEN weer, ziekte, pijn/klachten,"))
         assertTrue(p.contains("niet bepaalbaar uit deze data"))

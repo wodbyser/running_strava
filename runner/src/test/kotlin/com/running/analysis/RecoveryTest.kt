@@ -59,7 +59,7 @@ class RecoveryTest {
         val r = report()
         assertEquals(day, r.date)
         assertFalse(r.isToday)
-        assertEquals("recovery-v1", r.algorithmVersion)
+        assertEquals("recovery-v2", r.algorithmVersion)
         assertTrue(r.hrv.hasNight)
         assertEquals(service(StubRepo()).today(), LocalDate.of(2026, 1, 16))
     }
@@ -87,7 +87,7 @@ class RecoveryTest {
         }
         val lines = appender.list.map { it.formattedMessage }
         assertTrue(lines.isNotEmpty())
-        assertTrue(lines.any { it.contains("recovery-v1") })
+        assertTrue(lines.any { it.contains("recovery-v2") })
         assertTrue(lines.none { it.contains(marker.toString()) || it.contains("4322") }, lines.toString())
     }
 
@@ -106,8 +106,9 @@ class RecoveryTest {
         val low = report(StubRepo(hrv = hrvDays { if (it == 0) 20 else 50 + it % 2 }))
         val textHigh = allText(high)
         val textLow = allText(low)
-        assertTrue("hoger dan jouw eigen norm" in textHigh)
-        assertTrue("lager dan jouw eigen norm" in textLow)
+        // HRV is judged against Garmin's range (45 to 60 ms here), so the direction is stated in ms, not in SD.
+        assertTrue("boven garmins bereik" in textHigh)
+        assertTrue("onder garmins bereik" in textLow)
         forbidden.forEach { assertFalse(it in textHigh, it); assertFalse(it in textLow, it) }
         assertTrue(RecoveryText.page(high, 450).safety.startsWith("Geen medische beoordeling."))
         assertTrue(RecoveryText.promptBlock(high, 450).contains(RecoveryText.SAFETY))
@@ -141,7 +142,7 @@ class RecoveryTest {
     @Test
     fun `prompt block carries labels, version and no identifiers`() {
         val block = RecoveryText.promptBlock(report(), 450)
-        assertTrue(block.startsWith("<herstel algoritme=\"recovery-v1\""))
+        assertTrue(block.startsWith("<herstel algoritme=\"recovery-v2\""))
         assertTrue(block.contains("[gemeten]"))
         assertTrue(block.contains("[app-schatting]"))
         assertTrue(block.trimEnd().endsWith("</herstel>"))
@@ -180,6 +181,68 @@ class RecoveryTest {
         assertEquals(HeroLevel.INSUFFICIENT, RecoveryText.heroLevel(withRhr(51, sleepToo = false))) // 2 of 4 have data
     }
 
+    /**
+     * The owner's case of 15 November 2026: HRV 73 ms, own 28-day median 70 ms with a robust SD of 2.97 ms, so +1.0 SD
+     * against the own norm, while Garmin's balanced range of that night was 70 to 79 ms. Garmin's range decides for HRV,
+     * so this day is within the norm and not "licht afwijkend".
+     */
+    private fun ownerHrvCase(): com.running.garmin.recovery.RecoveryReport {
+        val last28 = listOf(68, 76, 73, 68, 71, 72, 71, 67, 73, 70, 71, 69, 67, 73, 73, 69, 67, 70, 71, 68, 67, 65, 69, 70, 71, 72, 70, 74)
+        val hrv = last28.mapIndexed { i, v -> GarminHrvDay(day.minusDays(i + 1L), v, v, null, 70, 70, 79, null, "BALANCED", null, src) } +
+            GarminHrvDay(day, 73, 73, null, 70, 70, 79, null, "BALANCED", null, src)
+        val rhr = (0..28).map { GarminRestingHrDay(day.minusDays(it.toLong()), if (it == 0) 51 else 50 + it % 2, null, null, src) }
+        val sleep = (0..28).map { GarminSleepDay(day.minusDays(it.toLong()), 27000 + it % 2 * 300, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, src) }
+        return RecoveryAnalyzer.analyze(RecoveryInputs(hrv, sleep, rhr, emptyList(), emptyList(), emptyList(), null), day, day.plusDays(1), 450, RecoveryService.ZONE)
+    }
+
+    @Test
+    fun `HRV is judged against Garmin's range instead of a tight own norm`() {
+        val r = ownerHrvCase()
+        // The own norm really would have called this day deviating: median 70, robust SD 2.97, deviation +1.01.
+        assertEquals(70.0, r.hrv.metric.primary.median)
+        assertEquals(1.0, r.hrv.metric.primary.deviation!!, 0.02)
+        assertEquals(com.running.garmin.recovery.DeviationBand.DEVIATING, r.hrv.metric.primary.band)
+
+        val hrv = r.readiness.components.first { it.kind == com.running.garmin.recovery.ReadinessKind.HRV }
+        assertEquals(com.running.garmin.recovery.ReadinessBasis.GARMIN_RANGE, hrv.basis)
+        assertEquals(com.running.garmin.recovery.DeviationBand.WITHIN, hrv.band)
+        assertTrue(r.readiness.summary.deviating.isEmpty(), r.readiness.summary.deviating.toString())
+        assertEquals(HeroLevel.WITHIN, RecoveryText.heroLevel(r))
+
+        val hero = RecoveryText.hero(r, 450)
+        val card = hero.components.first { it.label == "HRV" }
+        assertEquals("Garmin-bereik 70 tot 79 ms (Garmin past dit zelf aan)", card.norm)
+        assertTrue("73 ms ligt binnen Garmins bereik" in card.deviation, card.deviation)
+        assertTrue("eigen mediaan 70 ms" in card.deviation, card.deviation)
+        assertTrue(card.position!! > 33.3 && card.position!! < 66.7, "marker sits in the green band: ${card.position}")
+        assertEquals("hero-ok", card.css)
+        assertTrue(hero.conclusion.any { it.startsWith("Binnen je normen") }, hero.conclusion.toString())
+        assertTrue(hero.conclusion.none { "Afwijkend:" in it }, hero.conclusion.toString())
+        assertTrue("binnen de norm" in RecoveryText.summaryText(r), RecoveryText.summaryText(r))
+        // The HRV detail row tells the same story as the conclusion.
+        val rows = RecoveryText.page(r, 450).sections.first { it.id == "hrv" }.rows
+        assertTrue(rows.any { "73 ms ligt binnen Garmins bereik" in it.deviation }, rows.toString())
+        assertTrue(rows.any { it.label == "HRV: eigen mediaan" && "weegt niet mee" in it.deviation })
+    }
+
+    @Test
+    fun `HRV outside Garmin's range is still reported as deviating`() {
+        val r = ownerHrvCase()
+        val outside = r.copy(
+            readiness = com.running.garmin.recovery.ReadinessAnalysis.fromComponents(
+                r.readiness.components.map {
+                    if (it.kind == com.running.garmin.recovery.ReadinessKind.HRV)
+                        it.copy(value = 84.0, deviation = 2.11, band = com.running.garmin.recovery.DeviationBand.STRONG)
+                    else it
+                },
+                r.readiness.sleepTarget,
+            ),
+        )
+        assertEquals(HeroLevel.CLEAR, RecoveryText.heroLevel(outside))
+        val hero = RecoveryText.hero(outside, 450)
+        assertTrue(hero.conclusion.any { "HRV" in it && "boven Garmins bereik" in it }, hero.conclusion.toString())
+    }
+
     @Test
     fun `hero spectrum position is 0 to 100 on minus 3 to plus 3 SD and clamps`() {
         val slight = RecoveryText.hero(withRhr(52), 450).components.first { it.label == "Rusthartslag" }
@@ -198,7 +261,7 @@ class RecoveryTest {
         val hero = RecoveryText.hero(withRhr(52), 450)
         val text = hero.conclusion.joinToString(" ")
         assertTrue("Afwijkend: rusthartslag hoger dan jouw eigen norm" in text, text)
-        assertTrue("Binnen je eigen norm (slaap ook binnen je doel): HRV, slaapduur" in text, text)
+        assertTrue("Binnen je normen (slaap ook binnen je doel): HRV, slaapduur" in text, text)
         assertTrue("geen diagnose" in text)
         assertTrue(hero.components.none { it.value.matches(Regex("\\d+ ?/ ?100")) })
         forbidden.forEach { assertFalse(it in text.lowercase(), it) }

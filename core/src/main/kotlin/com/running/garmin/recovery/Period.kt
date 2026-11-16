@@ -1,6 +1,7 @@
 package com.running.garmin.recovery
 
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 enum class PeriodKind { WEEK, MONTH }
 
@@ -130,14 +131,39 @@ object PeriodAnalysis {
             metric(PeriodMetricKind.BODY_BATTERY_WAKE, wake), metric(PeriodMetricKind.STRESS_AVG, stress),
         )
         // Readiness of the period: the period median against the 28 days before the period, same bands as the day view.
+        // HRV is the exception: it is judged against Garmin's balanced range (owner decision 2026-11-15), taken as the
+        // median of the daily range bounds of the days in the period, because Garmin adapts that range day by day.
         fun comp(kind: ReadinessKind, pk: PeriodMetricKind, series: Map<LocalDate, Double>): ReadinessComponent {
             val value = metrics.first { it.kind == pk }.median
             val b = Baseline.fromValues(Baseline.windowBefore(series, from, w.normDays), w.normDays, Baseline.minimumCount(w.normDays), value)
             return ReadinessComponent(kind, b.status == BaselineStatus.OK && b.deviation != null, value, b.median, b.deviation, b.band, b.n)
         }
+        fun garminHrvComponent(): ReadinessComponent {
+            val own = comp(ReadinessKind.HRV, PeriodMetricKind.HRV, hrv)
+            val ranges = inputs.hrv.filter { it.calendarDate in from..to }.mapNotNull { d ->
+                val low = d.baselineBalancedLow ?: return@mapNotNull null
+                val upper = d.baselineBalancedUpper ?: return@mapNotNull null
+                if (low <= 0 || upper <= low) null else low.toDouble() to upper.toDouble()
+            }
+            if (ranges.size < needed) return own
+            val garmin = GarminHrvNorm.check(
+                own.value,
+                Baseline.median(ranges.map { it.first }).roundToInt(),
+                Baseline.median(ranges.map { it.second }).roundToInt(),
+            ) ?: return own
+            return own.copy(
+                hasData = true,
+                deviation = garmin.deviation,
+                band = garmin.band,
+                basis = ReadinessBasis.GARMIN_RANGE,
+                garminLow = garmin.low.toDouble(),
+                garminUpper = garmin.upper.toDouble(),
+                n = ranges.size,
+            )
+        }
         val readiness = ReadinessAnalysis.fromComponents(
             listOf(
-                comp(ReadinessKind.HRV, PeriodMetricKind.HRV, hrv), comp(ReadinessKind.RESTING_HR, PeriodMetricKind.RESTING_HR, rhr),
+                garminHrvComponent(), comp(ReadinessKind.RESTING_HR, PeriodMetricKind.RESTING_HR, rhr),
                 comp(ReadinessKind.SLEEP, PeriodMetricKind.SLEEP_DURATION, sleepMin), comp(ReadinessKind.BODY_BATTERY, PeriodMetricKind.BODY_BATTERY_WAKE, wake),
             ),
             debt.target,
