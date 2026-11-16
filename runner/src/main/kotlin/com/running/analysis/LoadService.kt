@@ -5,6 +5,7 @@ import com.running.garmin.domain.GarminSleepDay
 import com.running.garmin.matching.GarminActivityMatcher
 import com.running.garmin.recovery.BodyBatteryAnalysis
 import com.running.garmin.recovery.DeviationBand
+import com.running.garmin.recovery.NormSide
 import com.running.garmin.recovery.RecoveryReport
 import com.running.garmin.recovery.RecoveryWindows
 import com.running.garmin.recovery.SleepAnalysis
@@ -417,7 +418,7 @@ class LoadService(
         val monoByWeek = b.weeks.filter { it.complete && it.knownDays == 7 && it.monotony != null }
         val counts = hist.map { d ->
             val hrv = Trend.evaluate(b.series.hrv, d, rw).sustained
-            val rhr = Trend.evaluate(b.series.restingHr, d, rw).sustained
+            val rhr = Trend.evaluate(b.series.restingHr, d, rw, NormSide.HIGHER_ONLY).sustained
             val sleepBand = SleepAnalysis.debt(b.sleepDays, d, target, rw).target?.band
             val lp90 = LoadStats.percentile(t7.filterKeys { it.isBefore(d) && !it.isBefore(d.minusWeeks(w.bandWeeks.toLong())) }.values.toList(), b.cfg.hardPercentile)
             val lastWeek = monoByWeek.lastOrNull { it.weekStart.plusDays(6).isBefore(d) }

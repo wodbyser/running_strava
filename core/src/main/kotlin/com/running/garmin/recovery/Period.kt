@@ -135,7 +135,9 @@ object PeriodAnalysis {
         // median of the daily range bounds of the days in the period, because Garmin adapts that range day by day.
         fun comp(kind: ReadinessKind, pk: PeriodMetricKind, series: Map<LocalDate, Double>): ReadinessComponent {
             val value = metrics.first { it.kind == pk }.median
-            val b = Baseline.fromValues(Baseline.windowBefore(series, from, w.normDays), w.normDays, Baseline.minimumCount(w.normDays), value)
+            // Resting heart rate is one-sided: only a period median above its norm counts as deviating.
+            val side = if (kind == ReadinessKind.RESTING_HR) NormSide.HIGHER_ONLY else NormSide.BOTH_SIDES
+            val b = Baseline.fromValues(Baseline.windowBefore(series, from, w.normDays), w.normDays, Baseline.minimumCount(w.normDays), value, side)
             return ReadinessComponent(kind, b.status == BaselineStatus.OK && b.deviation != null, value, b.median, b.deviation, b.band, b.n)
         }
         fun garminHrvComponent(): ReadinessComponent {

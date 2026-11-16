@@ -3,9 +3,11 @@ package com.running.load
 import com.running.garmin.recovery.Baseline
 import com.running.garmin.recovery.BaselineStatus
 import com.running.garmin.recovery.DeviationBand
+import com.running.garmin.recovery.NormSide
 import com.running.garmin.recovery.SustainedDirection
 import java.time.LocalDate
 import kotlin.math.abs
+import kotlin.math.max
 
 // ------------------------------------------------------------------ #11 fatigue signals
 
@@ -189,7 +191,7 @@ object SessionReadiness {
     }
 }
 
-/** Count of recovery values outside the own norm per morning (own norm only; used for history, #31 and #42). */
+/** Count of recovery values outside the own norm per morning (own norm only; used for history, #31 and #42). Resting heart rate counts only when it is higher. */
 object DailyDeviation {
     data class Day(val withData: Int, val deviating: Int, val strong: Boolean) {
         val available: Boolean get() = withData >= 3
@@ -205,8 +207,9 @@ object DailyDeviation {
             val b = Baseline.compute(s, date, normDays, v)
             if (b.status != BaselineStatus.OK || b.deviation == null) continue
             withData++
-            if (abs(b.deviation) >= 1.0) deviating++
-            if (abs(b.deviation) >= 2.0) strong = true
+            val outside = if (m == ResponseMetric.RESTING_HR) max(b.deviation!!, 0.0) else abs(b.deviation!!)
+            if (outside >= 1.0) deviating++
+            if (outside >= 2.0) strong = true
         }
         return Day(withData, deviating, strong)
     }

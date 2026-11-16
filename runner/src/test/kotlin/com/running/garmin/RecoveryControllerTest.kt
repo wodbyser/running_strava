@@ -64,6 +64,15 @@ class RecoveryControllerTest @Autowired constructor(private val mvc: MockMvc, pr
     }
 
     @Test
+    fun `a lower resting heart rate renders as within norm`() {
+        repo.upsertHrv((0..28).map { GarminHrvDay(day.minusDays(it.toLong()), 50 + it % 2, 50 + it % 2, null, 40, 45, 60, null, "BALANCED", null, src) }, Instant.EPOCH)
+        repo.upsertRestingHr((0..28).map { GarminRestingHrDay(day.minusDays(it.toLong()), if (it == 0) 47 else 50 + it % 2, null, null, src) }, Instant.EPOCH)
+        val html = mvc.perform(get("/recovery?date=$day")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("Alleen een hogere rusthartslag dan je eigen norm telt als afwijkend; een lagere is geen signaal."))
+        assertTrue(html.contains("spectrum--lower-ok"), "the resting HR spectrum is one-sided")
+    }
+
+    @Test
     fun `every period of the page can be changed and the other choices are kept`() {
         repo.upsertHrv((0..40).map { GarminHrvDay(day.minusDays(it.toLong()), 50 + it % 2, 50 + it % 2, null, 40, 45, 60, null, "BALANCED", null, src) }, Instant.EPOCH)
         val html = mvc.perform(get("/recovery?date=$day&norm=14&chart=30&table=10&debt=14"))

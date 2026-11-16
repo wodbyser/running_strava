@@ -72,9 +72,18 @@ class RecoveryAnalysisTest {
     }
 
     @Test
-    fun `resting HR lower than the norm is reported as lower`() {
+    fun `resting HR lower than the norm is reported as lower and stays within norm`() {
         val r = RestingHrAnalysis.analyze((1..28).map { rhr(before(it), 50) } + rhr(d, 47), null, d)
         assertTrue(r.metric!!.primary.deviation!! < 0)
+        // One-sided norm (owner decision 2026-11-16): a lower resting heart rate is not a warning.
+        assertEquals(DeviationBand.WITHIN, r.metric!!.primary.band)
+    }
+
+    @Test
+    fun `resting HR above the norm still deviates`() {
+        val r = RestingHrAnalysis.analyze((1..28).map { rhr(before(it), 50) } + rhr(d, 53), null, d)
+        assertEquals(3.0, r.metric!!.primary.deviation!!, 1e-9) // flat series, floor SD 1
+        assertEquals(DeviationBand.STRONG, r.metric!!.primary.band)
     }
 
     @Test
@@ -371,6 +380,19 @@ class RecoveryAnalysisTest {
         assertEquals(ReadinessKind.RESTING_HR, r.summary.deviating[0].kind)
         assertTrue(r.summary.deviating[0].deviation > 0)
         assertEquals(3, r.summary.within)
+    }
+
+    @Test
+    fun `a lower resting heart rate never makes the readiness deviating`() {
+        // 48 bpm against a 50/51 norm is about -2.5 SD, but resting heart rate is one-sided (owner decision 2026-11-16).
+        val inputs = fullInputs()
+        val low = inputs.restingHr.filter { it.calendarDate != d } + rhr(d, 48)
+        val r = report(inputs.copy(restingHr = low)).readiness
+        val c = r.components.first { it.kind == ReadinessKind.RESTING_HR }
+        assertTrue(c.deviation!! < -1.0)
+        assertEquals(DeviationBand.WITHIN, c.band)
+        assertTrue(r.summary.deviating.isEmpty(), r.summary.deviating.toString())
+        assertEquals(4, r.summary.within)
     }
 
     @Test

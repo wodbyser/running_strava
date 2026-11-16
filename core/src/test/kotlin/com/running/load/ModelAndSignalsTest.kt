@@ -205,6 +205,22 @@ class SignalsTest {
     }
 
     @Test
+    fun `a lower resting heart rate is not a deviating morning value`() {
+        val today = LocalDate.of(2026, 10, 31)
+        val days = (1..35).map { today.minusDays(it.toLong()) }
+        fun flat(v: Double) = days.associateWith { v } + (today to v)
+        val lower = RecoverySeries(flat(50.0), flat(50.0) + (today to 47.0), flat(50.0), flat(50.0))
+        val within = DailyDeviation.forDay(lower, today, 28)
+        assertEquals(4, within.withData)
+        assertEquals(0, within.deviating)
+        assertFalse(within.strong)
+        val higher = RecoverySeries(flat(50.0), flat(50.0) + (today to 53.0), flat(50.0), flat(50.0))
+        val deviating = DailyDeviation.forDay(higher, today, 28)
+        assertEquals(1, deviating.deviating)
+        assertTrue(deviating.strong)
+    }
+
+    @Test
     fun `signals without data are not counted as inactive`() {
         val s = FatigueSignals.evaluate(input(hrv = SustainedDirection.INSUFFICIENT, ef = -5.0, efN = 2, load = null, mono = null))
         assertEquals(0, s.active)

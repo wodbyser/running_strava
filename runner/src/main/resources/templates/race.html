@@ -215,7 +215,7 @@
         <p class="note" th:if="${p.weekCheck == null && p.weekHidden != null}" th:text="${p.weekHidden}">-</p>
         <p class="note" th:if="${p.weekCheck == null && p.weekHidden == null}">De wedstrijdweek verschijnt in de week voor je wedstrijd (standaard 7 dagen ervoor). Voeg eerst een doel toe.</p>
         <th:block th:if="${p.weekCheck != null}">
-            <p class="lead">Elke herstelwaarde tegenover je eigen norm, met de belasting van de laatste dagen. Kleur zegt hoe ver je van je eigen norm zit, niet of het goed of slecht is.</p>
+            <p class="lead">Elke herstelwaarde tegenover je eigen norm, met de belasting van de laatste dagen. Kleur zegt hoe ver je van je eigen norm zit, niet of het goed of slecht is; bij rusthartslag telt alleen een waarde boven je norm.</p>
             <th:block th:replace="~{fragments :: windowForm(${ {'weekcheck'} }, 'wedstrijdweek')}"/>
             <p th:each="l : ${p.weekCheck.lines}" th:text="${l}">-</p>
             <ul class="type-parts mt-2">

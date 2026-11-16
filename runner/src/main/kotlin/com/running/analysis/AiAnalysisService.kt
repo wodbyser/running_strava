@@ -112,7 +112,7 @@ class AiAnalysisService(
             appendLine("- Het blok <herstel> bevat Garmin-herstelwaarden (HRV-nachtgemiddelde, rusthartslag, slaap, Body Battery, stress),")
             appendLine("  gelabeld met $TAG_MEASURED, $TAG_COMPUTED of $TAG_ESTIMATE. Slaapfasen, Body Battery, stress en HRV zijn Garmin-schattingen.")
             appendLine("  Conclusies over blessure, ziekte of trainingsgereedheid zijn niet bepaalbaar uit deze data; geef daar geen oordeel over.")
-            appendLine("  Rapporteer afwijkingen in beide richtingen zonder te zeggen dat hoger of lager 'beter' is.")
+            appendLine("  Rapporteer afwijkingen in beide richtingen zonder te zeggen dat hoger of lager 'beter' is; enige uitzondering: een lagere rusthartslag dan de norm is geen afwijking.")
         } else {
             appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, slaap, HRV, rusthartslag, ziekte, pijn/klachten,")
             appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")

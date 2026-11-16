@@ -89,7 +89,12 @@ Every page and prompt block with a readiness or trend statement carries: "Geen m
 ### #3 Resting heart rate analysis
 
 - **Source order (spec):** Garmin daily `restingHr` when recorded, else the manual `strava_tokens.resting_hr` (single value, no history, so no baseline for it), else `[onbeschikbaar]`. The page always shows the source. Garmin and manual values are never mixed in one series.
-- **Formula:** same baseline machinery on Garmin `restingHr` (bpm). Deviation in both directions. Method UNVERIFIED (not known whether it is sleep based): the legend says so.
+- **Formula:** same baseline machinery on Garmin `restingHr` (bpm). Method UNVERIFIED (not known whether it is sleep based): the legend says so.
+- **OWNER DECISION 2026-11-16: resting heart rate is one-sided.** Only a value above the own median counts as
+  `afwijkend`/`sterk afwijkend`; everything at or below the median stays within norm, however far below. Same rule for the
+  trend's sustained deviation (never `aanhoudend lager`), the daily table and charts, the period (week/month) readiness,
+  and the "herstelwaarden buiten je norm" counts on the load pages. Reason: a low resting heart rate is not a warning, it
+  is the normal sign of rest and fitness. The deviation in SD is still shown, so the direction stays visible.
 - **Abstain:** as section 2.1. With only the manual value: shows the value and `geen basislijn (alleen handmatige waarde)`.
 - Trend: same sustained rule as #2.
 

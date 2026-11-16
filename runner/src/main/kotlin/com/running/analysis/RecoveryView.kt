@@ -5,6 +5,7 @@ import com.running.garmin.recovery.DailySeries
 import com.running.garmin.recovery.DeviationBand
 import com.running.garmin.recovery.MetricAnalysis
 import com.running.garmin.recovery.NormPoint
+import com.running.garmin.recovery.NormSide
 import com.running.garmin.recovery.PeriodMetricKind
 import com.running.garmin.recovery.PeriodReport
 import com.running.garmin.recovery.ReadinessBasis
@@ -198,11 +199,12 @@ object RecoveryViewBuilder {
 
         val rr = r.restingHr
         cards += MetricCard(
-            "rhr", "Rusthartslag", null, Kind.MEASURED, rr.value?.let { "$it bpm" } ?: "geen meting",
+            "rhr", "Rusthartslag", "rusthartslag", Kind.MEASURED, rr.value?.let { "$it bpm" } ?: "geen meting",
             pill(rr.metric), normLine(rr.metric, bpm) ?: if (rr.source == RestingHrSource.MANUAL) "Handmatig ingevoerde waarde: zonder geschiedenis is er geen eigen norm." else null,
             trendLine(rr.metric, bpm, w),
             listOf("Bron" to when (rr.source) { RestingHrSource.GARMIN -> "Garmin"; RestingHrSource.MANUAL -> "handmatig ingevoerd"; RestingHrSource.NONE -> "geen" }),
             norms(rr.metric, bpm),
+            note = "Alleen een hogere rusthartslag dan je eigen norm telt als afwijkend; een lagere is geen signaal.",
         )
 
         val s = r.sleep
@@ -308,10 +310,16 @@ object RecoveryViewBuilder {
             p.median != null && p.sd != null && p.sd!! > 0 -> (v - p.median!!) / p.sd!!
             else -> null
         }
+        // Resting heart rate is one-sided: a value below the norm stays green, only higher can be coloured.
+        val outside = when {
+            dev == null -> null
+            p.side == NormSide.HIGHER_ONLY -> maxOf(dev, 0.0)
+            else -> abs(dev)
+        }
         val css = when {
-            dev == null -> "cell-none"
-            abs(dev) < 1 -> "cell-ok"
-            abs(dev) < 2 -> "cell-warn"
+            outside == null -> "cell-none"
+            outside < 1 -> "cell-ok"
+            outside < 2 -> "cell-warn"
             else -> "cell-alert"
         }
         return DayCell(fmt(v), css)
@@ -337,26 +345,25 @@ object RecoveryViewBuilder {
 
     private fun round1(v: Double?) = v?.let { Math.round(it * 10) / 10.0 }
 
-    private fun chartSeries(points: List<NormPoint>, scale: Double = 1.0) = mapOf(
-        "values" to points.map { round1(it.value?.div(scale)) },
-        "low" to points.map { p ->
-            val bandLow = p.bandLow
-            when {
-                bandLow != null -> round1(bandLow / scale)
-                p.median != null && p.sd != null -> round1((p.median!! - p.sd!!) / scale)
-                else -> null
-            }
-        },
-        "high" to points.map { p ->
-            val bandHigh = p.bandHigh
-            when {
-                bandHigh != null -> round1(bandHigh / scale)
-                p.median != null && p.sd != null -> round1((p.median!! + p.sd!!) / scale)
-                else -> null
-            }
-        },
-        "median" to points.map { round1(it.median?.div(scale)) },
-    )
+    private fun chartSeries(points: List<NormPoint>, scale: Double = 1.0): Map<String, Any?> {
+        fun bandLow(p: NormPoint): Double? = p.bandLow ?: p.median?.let { m -> p.sd?.let { m - it } }
+        fun bandHigh(p: NormPoint): Double? = p.bandHigh ?: p.median?.let { m -> p.sd?.let { m + it } }
+        // One-sided (resting heart rate): everything below the upper norm is within norm, so the green band runs down to
+        // just under the lowest point instead of stopping at median minus one SD.
+        val oneSided = points.firstOrNull()?.side == NormSide.HIGHER_ONLY
+        val floor = if (oneSided) (points.mapNotNull { it.value } + points.mapNotNull { bandLow(it) }).minOrNull()?.minus(1.0) else null
+        return mapOf(
+            "values" to points.map { round1(it.value?.div(scale)) },
+            "low" to points.map { round1(bandLow(it)?.div(scale)) },
+            "high" to points.map { round1(bandHigh(it)?.div(scale)) },
+            "fillLow" to points.map { p ->
+                val lo = bandLow(p)
+                if (lo == null) null else round1((floor ?: lo).div(scale))
+            },
+            "median" to points.map { round1(it.median?.div(scale)) },
+            "oneSided" to oneSided,
+        )
+    }
 
     private fun charts(daily: DailySeries, sleepTargetMinutes: Int, highlightLast: Boolean): Map<String, Any?> = mapOf(
         "labels" to daily.hrv.map { PerfDates.dayShort(it.date) },

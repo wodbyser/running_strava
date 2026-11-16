@@ -79,6 +79,31 @@ class BaselineTest {
     }
 
     @Test
+    fun `one-sided norm ignores everything below the norm`() {
+        // Resting heart rate: lower is not a warning (owner decision 2026-11-16).
+        assertEquals(DeviationBand.WITHIN, Baseline.band(-0.5, NormSide.HIGHER_ONLY))
+        assertEquals(DeviationBand.WITHIN, Baseline.band(-1.5, NormSide.HIGHER_ONLY))
+        assertEquals(DeviationBand.WITHIN, Baseline.band(-2.5, NormSide.HIGHER_ONLY))
+        assertEquals(DeviationBand.WITHIN, Baseline.band(0.99, NormSide.HIGHER_ONLY))
+        assertEquals(DeviationBand.DEVIATING, Baseline.band(1.0, NormSide.HIGHER_ONLY))
+        assertEquals(DeviationBand.STRONG, Baseline.band(2.0, NormSide.HIGHER_ONLY))
+    }
+
+    @Test
+    fun `a one-sided trend never reports a sustained lower value`() {
+        fun run(lastSeven: List<Double>, side: NormSide): TrendResult {
+            val history = (8..40).associate { d.minusDays(it.toLong()) to 50.0 }
+            val recent = lastSeven.reversed().mapIndexed { i, v -> d.minusDays(i.toLong()) to v }.toMap()
+            return Trend.evaluate(history + recent, d, side = side)
+        }
+        val lowerFiveOfSeven = listOf(48.0, 48.0, 48.0, 48.0, 48.0, 50.0, 50.0)
+        assertEquals(SustainedDirection.LOWER, run(lowerFiveOfSeven, NormSide.BOTH_SIDES).sustained)
+        assertEquals(SustainedDirection.NONE, run(lowerFiveOfSeven, NormSide.HIGHER_ONLY).sustained)
+        val higherFiveOfSeven = listOf(52.0, 52.0, 52.0, 52.0, 52.0, 50.0, 50.0)
+        assertEquals(SustainedDirection.HIGHER, run(higherFiveOfSeven, NormSide.HIGHER_ONLY).sustained)
+    }
+
+    @Test
     fun `a future spike changes nothing`() {
         val base = (1..40).associate { d.minusDays(it.toLong()) to 50.0 + it % 4 }
         val a = MetricAnalyzer.analyze(base + (d to 52.0), d)

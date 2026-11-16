@@ -42,8 +42,18 @@ enum class HeroLevel(val label: String, val css: String) {
     INSUFFICIENT("Onvoldoende data", "hero-na"),
 }
 
-/** One spectrum bar. `position` is 0 to 100 on a scale of -3 to +3 robust SD, null without data. */
-data class HeroComponent(val label: String, val value: String, val norm: String, val deviation: String, val css: String, val position: Double?, val aria: String, val axisMiddle: String = "eigen norm")
+/** One spectrum bar. `position` is 0 to 100 on a scale of -3 to +3 robust SD, null without data. `lowerIsWithin` marks a one-sided spectrum (resting heart rate): everything left of the norm stays green. */
+data class HeroComponent(
+    val label: String,
+    val value: String,
+    val norm: String,
+    val deviation: String,
+    val css: String,
+    val position: Double?,
+    val aria: String,
+    val axisMiddle: String = "eigen norm",
+    val lowerIsWithin: Boolean = false,
+)
 
 data class Hero(
     val level: HeroLevel,
@@ -69,7 +79,8 @@ data class RecoveryPage(
 
 /**
  * Dutch wording for the recovery page and the AI block. Deviations are reported in both directions; the text never says
- * higher or lower is better, and never says someone is ready or safe to train.
+ * higher or lower is better, and never says someone is ready or safe to train. One exception: resting heart rate is
+ * one-sided, only a value above the own norm counts as deviating (owner decision 2026-11-16).
  */
 object RecoveryText {
     const val SAFETY =
@@ -247,7 +258,7 @@ object RecoveryText {
             )
             RestingHrSource.NONE -> listOf(na("Rusthartslag", "geen Garmin-waarde en geen handmatige waarde"))
         }
-        sections += RecoverySection("rhr", "Rusthartslag", listOf("Meetmethode van Garmin (slaapgebaseerd of niet) is niet bevestigd. Hoger en lager worden beide gemeld, zonder oordeel."), rhrRows)
+        sections += RecoverySection("rhr", "Rusthartslag", listOf("Meetmethode van Garmin (slaapgebaseerd of niet) is niet bevestigd. Alleen een waarde boven je eigen norm telt als afwijkend; een lagere rusthartslag is geen signaal."), rhrRows)
 
         val s = r.sleep
         val n = s.night
@@ -380,9 +391,13 @@ object RecoveryText {
                 )
             } else {
                 val dev = c.deviation!!
+                val oneSided = c.kind == ReadinessKind.RESTING_HR
                 val words = if (c.band == DeviationBand.WITHIN) "binnen eigen norm" else "${bandText(c.band!!)}, ${directionText(dev)}"
                 val norm = "norm ${dayNorm(c.kind, c.median!!)}"
-                HeroComponent(label, value(c.kind), norm, "$words (${signed(dev)} SD)", bandCss(c.band), spectrumPosition(dev), "$label: ${value(c.kind)}, eigen $norm, $words")
+                HeroComponent(
+                    label, value(c.kind), norm, "$words (${signed(dev)} SD)", bandCss(c.band), spectrumPosition(dev),
+                    "$label: ${value(c.kind)}, eigen $norm, $words", lowerIsWithin = oneSided,
+                )
             }
         }.toMutableList()
 
@@ -404,7 +419,7 @@ object RecoveryText {
         }
         if (sustained.isNotEmpty()) conclusion += "Over de laatste dagen: ${sustained.joinToString("; ")}."
         debtLine?.let { conclusion += it }
-        conclusion += "Dit is een patroon in je eigen cijfers, geen diagnose. Een hogere of lagere waarde is op zich geen goed of slecht teken. Hoe je je voelt weegt zwaarder dan deze cijfers."
+        conclusion += "Dit is een patroon in je eigen cijfers, geen diagnose. Hoe je je voelt weegt zwaarder dan deze cijfers. Voor rusthartslag telt alleen een waarde boven je eigen norm; een lagere is geen afwijking."
 
         val method = listOf(
             scopeText,
@@ -441,7 +456,7 @@ object RecoveryText {
             r.readiness, { dayValue(r, it) },
             listOf("Dag" to PerfDates.dayLong(r.date) + if (r.isToday) " (vandaag)" else "", "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van ${r.windows.normDays} dagen (niet voor HRV)"),
             sustained, debtLine,
-            "Rusthartslag, slaapduur en Body Battery vergelijken de waarde van deze dag met de mediaan van je ${r.windows.normDays} vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
+            "Rusthartslag, slaapduur en Body Battery vergelijken de waarde van deze dag met de mediaan van je ${r.windows.normDays} vorige dagen. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend. Voor rusthartslag telt alleen een waarde boven je norm.",
             "Algoritme ${r.algorithmVersion}." + if (r.isToday) " Vandaag: stress en Body Battery van vandaag zijn onvolledig en tellen niet mee in normen." else "",
             "geen waarde voor deze dag",
         )
@@ -507,7 +522,7 @@ object RecoveryText {
             r.readiness, unit,
             listOf("Periode" to PerfDates.range(r.from, r.to), "Componenten met data" to "${r.readiness.summary.componentsWithData} van 4", "Eigen norm" to "mediaan van de ${r.windows.normDays} dagen vóór de periode (niet voor HRV)"),
             emptyList(), periodDebtLine,
-            "Rusthartslag, slaapduur en Body Battery vergelijken de mediaan van de dagen met data in deze periode met de mediaan van de ${r.windows.normDays} dagen vóór de periode. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend.",
+            "Rusthartslag, slaapduur en Body Battery vergelijken de mediaan van de dagen met data in deze periode met de mediaan van de ${r.windows.normDays} dagen vóór de periode. De afwijking wordt uitgedrukt in robuuste standaarddeviatie (SD): onder 1 SD is binnen je norm, 1 tot 2 SD afwijkend, vanaf 2 SD sterk afwijkend. Voor rusthartslag telt alleen een waarde boven je norm.",
             "Algoritme ${r.algorithmVersion}.",
             "te weinig dagen met data in deze periode",
         )

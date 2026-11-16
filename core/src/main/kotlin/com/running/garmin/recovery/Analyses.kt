@@ -47,7 +47,7 @@ object RestingHrAnalysis {
     fun analyze(days: List<GarminRestingHrDay>, manualRestingHr: Int?, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): RestingHrResult {
         val series = days.toSeries { it.restingHr }
         return when {
-            series.containsKey(date) -> RestingHrResult(date, RestingHrSource.GARMIN, series.getValue(date).toInt(), MetricAnalyzer.analyze(series, date, w = w))
+            series.containsKey(date) -> RestingHrResult(date, RestingHrSource.GARMIN, series.getValue(date).toInt(), MetricAnalyzer.analyze(series, date, w = w, side = NormSide.HIGHER_ONLY))
             manualRestingHr != null -> RestingHrResult(date, RestingHrSource.MANUAL, manualRestingHr, null)
             else -> RestingHrResult(date, RestingHrSource.NONE, null, null)
         }

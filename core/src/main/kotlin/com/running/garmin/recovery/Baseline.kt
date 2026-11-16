@@ -13,6 +13,13 @@ object RecoveryAlgorithm {
 enum class DeviationBand { WITHIN, DEVIATING, STRONG }
 
 /**
+ * Which side of the own norm counts as deviating. Most metrics use both sides. Resting heart rate is one-sided: only a
+ * value above the own norm is a signal, because a lower resting heart rate is not a warning (owner decision 2026-11-16:
+ * "lage hartslag is juist goed").
+ */
+enum class NormSide { BOTH_SIDES, HIGHER_ONLY }
+
+/**
  * Every period the recovery analysis uses. Defaults are the documented ones; the page lets the user change them.
  * Minimum counts scale with the window (70 % of the days, as [Baseline.minimumCount]).
  */
@@ -74,8 +81,8 @@ object Baseline {
     fun robustSd(values: List<Double>, median: Double = median(values)): Double =
         max(MAD_SCALE * median(values.map { abs(it - median) }), SD_FLOOR)
 
-    fun band(deviation: Double): DeviationBand {
-        val a = abs(deviation)
+    fun band(deviation: Double, side: NormSide = NormSide.BOTH_SIDES): DeviationBand {
+        val a = if (side == NormSide.HIGHER_ONLY) max(deviation, 0.0) else abs(deviation)
         return when {
             a < 1.0 -> DeviationBand.WITHIN
             a < 2.0 -> DeviationBand.DEVIATING
@@ -87,17 +94,22 @@ object Baseline {
     fun windowBefore(series: Map<LocalDate, Double>, date: LocalDate, days: Int): List<Double> =
         (1..days).mapNotNull { series[date.minusDays(it.toLong())] }
 
-    fun compute(series: Map<LocalDate, Double>, date: LocalDate, windowDays: Int, value: Double? = series[date]): BaselineResult =
-        fromValues(windowBefore(series, date, windowDays), windowDays, minimumCount(windowDays), value)
+    fun compute(
+        series: Map<LocalDate, Double>,
+        date: LocalDate,
+        windowDays: Int,
+        value: Double? = series[date],
+        side: NormSide = NormSide.BOTH_SIDES,
+    ): BaselineResult = fromValues(windowBefore(series, date, windowDays), windowDays, minimumCount(windowDays), value, side)
 
-    fun fromValues(values: List<Double>, windowDays: Int, needed: Int, value: Double?): BaselineResult {
+    fun fromValues(values: List<Double>, windowDays: Int, needed: Int, value: Double?, side: NormSide = NormSide.BOTH_SIDES): BaselineResult {
         if (values.size < needed) {
             return BaselineResult(windowDays, values.size, needed, BaselineStatus.INSUFFICIENT, null, null, value, null, null)
         }
         val median = median(values)
         val sd = robustSd(values, median)
         val deviation = value?.let { (it - median) / sd }
-        return BaselineResult(windowDays, values.size, needed, BaselineStatus.OK, median, sd, value, deviation, deviation?.let(::band))
+        return BaselineResult(windowDays, values.size, needed, BaselineStatus.OK, median, sd, value, deviation, deviation?.let { band(it, side) })
     }
 }
 
@@ -128,7 +140,7 @@ object Trend {
     const val BASELINE_DAYS = 60
     const val SUSTAINED_MIN = 5
 
-    fun evaluate(series: Map<LocalDate, Double>, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT): TrendResult {
+    fun evaluate(series: Map<LocalDate, Double>, date: LocalDate, w: RecoveryWindows = RecoveryWindows.DEFAULT, side: NormSide = NormSide.BOTH_SIDES): TrendResult {
         val recentDays = w.trendRecentDays
         // 5 of 7 for the defaults; scales with the chosen window.
         val recentMin = Baseline.minimumCount(recentDays)
@@ -148,7 +160,8 @@ object Trend {
             Baseline.compute(series, d, w.normDays, value).deviation
         }
         val higher = dailyDeviations.count { it >= 1.0 }
-        val lower = dailyDeviations.count { it <= -1.0 }
+        // One-sided metrics never count "lower" as a sustained deviation (resting heart rate: lower is not a warning).
+        val lower = if (side == NormSide.HIGHER_ONLY) 0 else dailyDeviations.count { it <= -1.0 }
         val sustainedMin = Baseline.minimumCount(recentDays)
         val sustained = when {
             dailyDeviations.size < sustainedMin -> SustainedDirection.INSUFFICIENT
@@ -180,9 +193,10 @@ object MetricAnalyzer {
         value: Double? = series[date],
         incomplete: Boolean = false,
         w: RecoveryWindows = RecoveryWindows.DEFAULT,
+        side: NormSide = NormSide.BOTH_SIDES,
     ): MetricAnalysis {
-        val windows = (Baseline.WINDOWS + w.normDays).distinct().sorted().map { Baseline.compute(series, date, it, value) }
-        return MetricAnalysis(value, incomplete, windows, windows.first { it.windowDays == w.normDays }, Trend.evaluate(series, date, w))
+        val windows = (Baseline.WINDOWS + w.normDays).distinct().sorted().map { Baseline.compute(series, date, it, value, side) }
+        return MetricAnalysis(value, incomplete, windows, windows.first { it.windowDays == w.normDays }, Trend.evaluate(series, date, w, side))
     }
 }
 

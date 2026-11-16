@@ -182,15 +182,21 @@ object RecoveryGlossary {
                 "verhogen het; het meet dus niet alleen mentale stress.", PAGE,
         ),
         Term(
+            "rusthartslag", "Rusthartslag",
+            "Je hartslag in rust, zoals Garmin die 's nachts meet. De app vergelijkt hem met je eigen mediaan van de dagen ervoor. " +
+                "Alleen een waarde boven die norm telt als afwijkend: een lagere rusthartslag is juist geen signaal.", PAGE,
+        ),
+        Term(
             "eigen-norm", "Eigen norm",
             "Wat normaal is voor jou: de mediaan van je eigen waarden over de dagen vóór de getoonde dag (standaard 28, aan te passen bovenaan de pagina). De groene band in de grafieken toont " +
-                "dat normale bereik. Zo word je met jezelf vergeleken, niet met een tabel. HRV is de uitzondering: daarvoor geldt Garmins eigen balansbereik, dat Garmin zelf aanpast.", PAGE,
+                "dat normale bereik. Zo word je met jezelf vergeleken, niet met een tabel. HRV is de uitzondering: daarvoor geldt Garmins eigen balansbereik, dat Garmin zelf aanpast. " +
+                "Bij rusthartslag telt alleen de bovenkant van de band: lager is geen afwijking.", PAGE,
         ),
         Term(
             "sd", "SD (afwijking)",
             "Hoe ver een waarde van je eigen norm ligt, gemeten in je gewone schommeling van dag tot dag. 0 = precies je norm, onder 1 = binnen je " +
                 "norm, 1 tot 2 = afwijkend, vanaf 2 = sterk afwijkend. Eén uitschieter in je geschiedenis verandert deze maat nauwelijks. " +
-                "Bij HRV staat er geen SD maar een afstand in ms tot Garmins bereik, met dezelfde twee stappen.", PAGE,
+                "Bij HRV staat er geen SD maar een afstand in ms tot Garmins bereik, met dezelfde twee stappen. Bij rusthartslag telt alleen een afwijking omhoog.", PAGE,
         ),
         Term(
             "slaaptekort", "Slaaptekort",

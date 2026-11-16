@@ -88,7 +88,7 @@
             <th:block th:fragment="chartGrid">
                 <div class="chart-grid">
                     <figure class="mini-chart"><figcaption>HRV <span class="unit">ms</span> <th:block th:replace="~{fragments :: help(${g['hrv']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cHrv" role="img" aria-label="HRV per nacht met Garmins balansbereik als band"></canvas></div></figure>
-                    <figure class="mini-chart"><figcaption>Rusthartslag <span class="unit">bpm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRhr" role="img" aria-label="Rusthartslag per dag met je eigen norm als band"></canvas></div></figure>
+                    <figure class="mini-chart"><figcaption>Rusthartslag <span class="unit">bpm</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cRhr" role="img" aria-label="Rusthartslag per dag; alles onder je eigen bovengrens is binnen je norm"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Slaap <span class="unit">uren per nacht</span></figcaption><div class="chart-box chart-box--sm"><canvas id="cSleep" role="img" aria-label="Slaapduur per nacht met je eigen norm en je doel"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Body Battery bij ontwaken <th:block th:replace="~{fragments :: help(${g['body-battery']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cBb" role="img" aria-label="Body Battery bij ontwaken per dag met je eigen norm als band"></canvas></div></figure>
                     <figure class="mini-chart"><figcaption>Stress <span class="unit">daggemiddelde</span> <th:block th:replace="~{fragments :: help(${g['stress']})}"/></figcaption><div class="chart-box chart-box--sm"><canvas id="cStress" role="img" aria-label="Gemiddeld stressniveau per dag met je eigen norm als band"></canvas></div></figure>
@@ -100,6 +100,7 @@
                     <span><span class="legend-dot dot-alert"></span>sterk afwijkend</span>
                     <span><span class="legend-line"></span>slaapdoel</span>
                 </div>
+                <p class="note-xs mt-2">Bij rusthartslag telt alleen een waarde boven je eigen norm: lager blijft binnen je norm.</p>
             </th:block>
         </section>
 
@@ -164,7 +165,7 @@
                     </tr>
                     </tbody>
                 </table></div>
-                <p class="note-xs mt-2">Gekleurd vak = anders dan de norm van die dag: bij HRV is dat Garmins balansbereik van die nacht, bij de andere kolommen je eigen norm. Oranje afwijkend, rood sterk afwijkend. Hoger of lager is op zich geen goed of slecht teken.</p>
+                <p class="note-xs mt-2">Gekleurd vak = anders dan de norm van die dag: bij HRV is dat Garmins balansbereik van die nacht, bij de andere kolommen je eigen norm. Oranje afwijkend, rood sterk afwijkend. Bij rusthartslag telt alleen een waarde boven je norm als afwijkend; lager is juist geen signaal.</p>
             </th:block>
         </section>
     </th:block>
@@ -188,7 +189,9 @@
             function color(s, i) {
                 var v = s.values[i], lo = s.low[i], hi = s.high[i];
                 if (v === null || lo === null || hi === null) return NONE;
-                var sd = (hi - lo) / 2, d = Math.abs(v - (hi + lo) / 2) / (sd || 1);
+                var sd = (hi - lo) / 2, d = (v - (hi + lo) / 2) / (sd || 1);
+                // Rusthartslag is one-sided: below the norm is not a deviation, only higher counts.
+                if (s.oneSided && d < 0) d = 0; else if (!s.oneSided) d = Math.abs(d);
                 return d < 1 ? OK : d < 2 ? WARN : ALERT;
             }
             function draw(id, s, opts) {
@@ -200,7 +203,7 @@
                 var cols = s.values.map(function (_, i) { return color(s, i); });
                 var radius = s.values.map(function (v, i) { return v === null ? 0 : (C.highlight && i === last ? 6 : (n > 40 ? 2.5 : 4)); });
                 var ds = [
-                    { label: 'low', data: s.low, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: false, spanGaps: true },
+                    { label: 'low', data: s.fillLow || s.low, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: false, spanGaps: true },
                     { label: opts.band || 'Eigen norm', data: s.high, borderWidth: 0, pointRadius: 0, pointHoverRadius: 0, fill: '-1', backgroundColor: 'rgba(47,143,91,0.14)', spanGaps: true },
                 ];
                 if (opts.bars) {
@@ -216,7 +219,10 @@
                             callbacks: {
                                 title: function (items) { return items.length ? C.titles[items[0].dataIndex] : ''; },
                                 label: function (c) {
-                                    if (c.dataset.label === (opts.band || 'Eigen norm')) { var lo = s.low[c.dataIndex]; return (opts.band || 'Eigen norm') + ': ' + fmt(lo) + ' tot ' + fmt(c.raw); }
+                                    if (c.dataset.label === (opts.band || 'Eigen norm')) {
+                                        if (s.oneSided) return (opts.band || 'Eigen norm') + ': tot ' + fmt(c.raw);
+                                        var lo = s.low[c.dataIndex]; return (opts.band || 'Eigen norm') + ': ' + fmt(lo) + ' tot ' + fmt(c.raw);
+                                    }
                                     return c.dataset.label + ': ' + fmt(c.raw);
                                 } } } },
                         scales: { x: { offset: !!opts.bars, ticks: { maxTicksLimit: 8, maxRotation: 0 } }, y: { ticks: { callback: function (v) { return opts.tick ? opts.tick(v) : v; } } } } } });

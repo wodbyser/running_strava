@@ -673,6 +673,8 @@ ul.plain li + li { margin-top: var(--sp-1); }
     background: linear-gradient(to right, #f4b8a8 0 16.67%, #ffe2a8 16.67% 33.33%, #cfe8d8 33.33% 66.67%, #ffe2a8 66.67% 83.33%, #f4b8a8 83.33% 100%);
 }
 .spectrum.is-empty { background: var(--surface-2); border-color: var(--line-strong); }
+/* One-sided spectrum (resting heart rate): below the norm is good, so the green zone runs to the left edge. */
+.spectrum--lower-ok { background: linear-gradient(to right, #cfe8d8 0 66.67%, #ffe2a8 66.67% 83.33%, #f4b8a8 83.33% 100%); }
 .spectrum-marker { position: absolute; top: -5px; width: 4px; height: 20px; background: var(--ink); border-radius: 3px; transform: translateX(-50%); box-shadow: 0 0 0 2px #fff; }
 .spectrum-axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); }
 .hero-dev { font-size: var(--fs-sm); color: var(--ink-2); }

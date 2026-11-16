@@ -181,6 +181,32 @@ class RecoveryTest {
         assertEquals(HeroLevel.INSUFFICIENT, RecoveryText.heroLevel(withRhr(51, sleepToo = false))) // 2 of 4 have data
     }
 
+    @Test
+    fun `a lower resting heart rate is never deviating on the page`() {
+        // Owner decision 2026-11-16: a low resting heart rate is good, only higher counts as deviating.
+        val r = withRhr(48)
+        assertEquals(HeroLevel.WITHIN, RecoveryText.heroLevel(r))
+        val hero = RecoveryText.hero(r, 450)
+        assertTrue(hero.conclusion.none { "Afwijkend" in it }, hero.conclusion.toString())
+        assertTrue(hero.conclusion.none { "rusthartslag aanhoudend lager" in it }, hero.conclusion.toString())
+        val rhr = hero.components.first { it.label == "Rusthartslag" }
+        assertEquals("hero-ok", rhr.css)
+        assertTrue(rhr.lowerIsWithin)
+
+        val view = RecoveryViewBuilder.day(r, 450)
+        val card = view.cards.first { it.id == "rhr" }
+        assertEquals("binnen je eigen norm", card.pill!!.text)
+        assertTrue(card.note!!.contains("lagere"), card.note)
+        assertEquals("cell-ok", view.dayRows.first().cells[2].css) // today's resting heart rate in the day table
+        val chart = view.charts["rhr"] as Map<*, *>
+        assertEquals(true, chart["oneSided"])
+        val lows = chart["fillLow"] as List<*>
+        val band = chart["low"] as List<*>
+        val i = band.indexOfFirst { it != null }
+        assertTrue(i >= 0)
+        assertTrue((lows[i] as Double) < (band[i] as Double)) // the green band runs down, not just median minus 1 SD
+    }
+
     /**
      * The owner's case of 15 November 2026: HRV 73 ms, own 28-day median 70 ms with a robust SD of 2.97 ms, so +1.0 SD
      * against the own norm, while Garmin's balanced range of that night was 70 to 79 ms. Garmin's range decides for HRV,
