@@ -67,7 +67,7 @@
             </div>
         </div>
         <div class="chart-box chart-box--tall mt-2"><canvas id="cLoad" role="img" aria-label="Dagelijkse belasting met de belasting van de laatste dagen en je gemiddelde week"></canvas></div>
-        <p class="legend"><span>Blauw: runs</span><span>Paars: andere sport met hartslag</span><span>Grijs: geen hartslagdata, dus onbekend (geen 0)</span><span>Gestippeld: je eigen norm voor de laatste dagen</span></p>
+        <p class="legend"><span>Blauw: runs</span><span>Paars: andere sport met hartslag</span><span>Grijs: geen hartslagdata, dus onbekend (geen 0)</span><span>Gestippeld: je eigen norm voor de laatste dagen</span><span>Klik op een dag om de trainingen te zien</span></p>
         <p class="note-xs">De vergelijking van de laatste dagen met je gemiddelde week is een gewone vergelijking, geen risicozone. <th:block th:replace="~{fragments :: help(${g['week-vergelijking']})}"/></p>
     </section>
 
@@ -87,7 +87,8 @@
             </div>
         </div>
         <div class="chart-box mt-2"><canvas id="cWeeks" role="img" aria-label="Belasting per week met het gemiddelde van de 4 weken ervoor"></canvas></div>
-        <p class="legend"><span>Grijsgroen: gewoon voor jou</span><span>Oranje: hoog voor jou</span><span>Geel: laag voor jou</span><span>Licht: de week loopt nog</span><span>Gestippeld: gemiddelde van de 4 weken ervoor</span></p>
+        <p class="legend"><span>Grijsgroen: gewoon voor jou</span><span>Oranje: hoog voor jou</span><span>Geel: laag voor jou</span><span>Licht: de week loopt nog</span><span>Gestippeld: gemiddelde van de 4 weken ervoor</span><span>Klik op een week om de trainingen te zien</span></p>
+        <p class="note-xs mt-2">Klik in de kleine grafieken op een staaf om de trainingen van die week te zien.</p>
         <div class="chart-grid mt-2">
             <figure class="mini-chart"><figcaption>Kilometers per week</figcaption><div class="chart-box chart-box--sm"><canvas id="cKm"></canvas></div></figure>
             <figure class="mini-chart"><figcaption>Uren per week</figcaption><div class="chart-box chart-box--sm"><canvas id="cHours"></canvas></div></figure>
@@ -130,7 +131,7 @@
         </div>
         <p class="lead" th:text="${p.monotonyText}">-</p>
         <div class="chart-box mt-2"><canvas id="cMono" role="img" aria-label="Weekbelasting met monotonie per week"></canvas></div>
-        <p class="note-xs">Een week met één korte training geeft rekenkundig een lage monotonie; kijk daarom ook naar de belasting zelf. Er zijn geen grenzen uit de literatuur gebruikt, alleen je eigen weken.</p>
+        <p class="note-xs">Klik op een week om de trainingen te zien. Een week met één korte training geeft rekenkundig een lage monotonie; kijk daarom ook naar de belasting zelf. Er zijn geen grenzen uit de literatuur gebruikt, alleen je eigen weken.</p>
     </section>
 
     <!--/* 6. Load and recovery */-->
@@ -141,6 +142,7 @@
         </div>
         <p class="lead">Boven de belasting per dag, eronder hoeveel van je herstelwaarden die ochtend afweken van je eigen norm. Zo zie je naast elkaar wat je deed en hoe je lichaam er die dag voorstond. De twee worden <strong>niet</strong> samengevoegd tot één getal.</p>
         <th:block th:replace="~{fragments :: windowForm(${ {'norm'} }, 'herstel')}"/>
+        <p class="note-xs">Klik op een staaf in de belasting om de trainingen van die dag te zien.</p>
         <div class="chart-box chart-box--sm mt-2"><canvas id="cTlLoad" role="img" aria-label="Belasting per dag"></canvas></div>
         <div class="chart-box chart-box--sm"><canvas id="cTlDev" role="img" aria-label="Aantal herstelwaarden buiten je norm per ochtend"></canvas></div>
         <div class="chart-box chart-box--sm"><canvas id="cTlSleep" role="img" aria-label="Minuten onder je slaapdoel per nacht"></canvas></div>
@@ -249,14 +251,14 @@
                     { type: 'line', label: 'Eigen norm laatste dagen', data: L.labels.map(function () { return L.bandHigh; }), borderColor: 'rgba(47,143,91,0.5)', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, yAxisID: 'y2', fill: '-1', backgroundColor: 'rgba(47,143,91,0.12)', order: 1 },
                     { type: 'line', label: 'Laatste ' + L.acuteDays + ' dagen', data: L.acute, borderColor: '#c2410c', borderWidth: 2, pointRadius: 0, tension: 0, yAxisID: 'y2', spanGaps: false, order: 0 },
                     { type: 'line', label: 'Gemiddelde week (laatste ' + L.chronicDays + ' dagen)', data: L.chronic, borderColor: '#15202b', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, tension: 0, yAxisID: 'y2', spanGaps: false, order: 0 }
-                ] }, options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+                ] }, options: Object.assign({ maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
                     scales: { x: { stacked: true, ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(L.labels) } },
                         y: { stacked: true, position: 'left', title: RC.axisTitle('Belasting per dag (punten)', 'dag') },
                         y2: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: RC.axisTitle('Belasting per week (punten)', 'week') } },
                     plugins: { legend: { labels: { filter: function (i) { return i.text.indexOf('(laag)') < 0; } } }, tooltip: { callbacks: {
                         title: function (items) { return items.length ? RC.fullDate(L.labels[items[0].dataIndex]) + (L.labels[items[0].dataIndex] === L.today ? ' (loopt nog)' : '') : ''; },
                         afterTitle: function (items) { return items.length ? L.names[items[0].dataIndex] : ''; },
-                        label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw) + (c.dataset.label === 'Geen hartslagdata' ? '' : ' punten'); } } } } } });
+                        label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw) + (c.dataset.label === 'Geen hartslagdata' ? '' : ' punten'); } } } } }, RC.link(function (i) { return RC.rangeUrl(L.labels[i], L.labels[i]); })) });
             }
 
             var W = C.weeks, c2 = document.getElementById('cWeeks');
@@ -265,24 +267,24 @@
                 new Chart(c2, { data: { labels: W.labels, datasets: [
                     { type: 'bar', label: 'Belasting per week', data: W.trimp, backgroundColor: cols },
                     { type: 'line', label: 'Gemiddelde van de 4 weken ervoor', data: W.mean4, borderColor: '#15202b', borderDash: [6, 3], borderWidth: 2, pointRadius: 0, spanGaps: false }
-                ] }, options: { maintainAspectRatio: false,
+                ] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(W.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') } },
-                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw); } } } } } });
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.dataset.label + ': ' + fmt(c.raw); } } } } }, RC.link(function (i) { return RC.rangeUrl(W.labels[i], RC.addDays(W.labels[i], 6)); })) });
             }
             function mini(id, data, color, unit, digits) {
                 var el = document.getElementById(id); if (!el || !W) return;
-                new Chart(el, { type: 'bar', data: { labels: W.labels, datasets: [{ label: unit, data: data, backgroundColor: color }] }, options: { maintainAspectRatio: false,
+                new Chart(el, { type: 'bar', data: { labels: W.labels, datasets: [{ label: unit, data: data, backgroundColor: color }] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 6, callback: tickLabel(W.labels) } }, y: { beginAtZero: true } },
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.raw.toFixed(digits) + ' ' + unit; } } } } } });
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(W.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : c.raw.toFixed(digits) + ' ' + unit; } } } } }, RC.link(function (i) { return RC.rangeUrl(W.labels[i], RC.addDays(W.labels[i], 6)); })) });
             }
             if (W) { mini('cKm', W.km, '#2f6db0', 'km', 1); mini('cHours', W.hours, '#0e6655', 'uur', 1); mini('cHard', W.hard, '#c2410c', 'min', 0); }
 
             var T = C.timeline;
             if (T) {
                 var tl = document.getElementById('cTlLoad');
-                if (tl) new Chart(tl, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Belasting', data: T.load, backgroundColor: '#2f6db0' }] }, options: { maintainAspectRatio: false,
+                if (tl) new Chart(tl, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Belasting', data: T.load, backgroundColor: '#2f6db0' }] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10, callback: tickLabel(T.labels) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting (punten)', 'punten') } },
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(T.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : fmt(c.raw) + ' punten'; } } } } } });
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { title: function (items) { return items.length ? RC.fullDate(T.labels[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? null : fmt(c.raw) + ' punten'; } } } } }, RC.link(function (i) { return RC.rangeUrl(T.labels[i], T.labels[i]); })) });
                 var td = document.getElementById('cTlDev');
                 if (td) new Chart(td, { type: 'bar', data: { labels: T.labels, datasets: [{ label: 'Herstelwaarden buiten je norm', data: T.deviating.map(function (v) { return v === null ? 0.3 : Math.max(v, 0.08); }),
                     backgroundColor: T.deviating.map(function (v, i) { return v === null ? '#c9d1d8' : T.strong[i] ? '#7a1d10' : v === 0 ? '#2f8f5b' : v === 1 ? '#d99a1c' : '#c2410c'; }) }] }, options: { maintainAspectRatio: false,
@@ -302,9 +304,9 @@
                 new Chart(m, { data: { labels: lab, datasets: [
                     { type: 'bar', label: 'Belasting per week', data: wk.map(function (i) { return W.trimp[i]; }), backgroundColor: '#8aa6a0', yAxisID: 'y' },
                     { type: 'line', label: 'Monotonie', data: wk.map(function (i) { return W.monotony[i]; }), borderColor: '#c2410c', borderWidth: 2, pointRadius: 3, yAxisID: 'y2', spanGaps: false }
-                ] }, options: { maintainAspectRatio: false,
+                ] }, options: Object.assign({ maintainAspectRatio: false,
                     scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, callback: tickLabel(lab) } }, y: { beginAtZero: true, title: RC.axisTitle('Belasting per week (punten)', 'punten') }, y2: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: RC.axisTitle('Monotonie', 'mon.') } },
-                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(lab[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? c.dataset.label + ': niet te berekenen' : c.dataset.label + ': ' + (c.dataset.yAxisID === 'y2' ? c.raw.toFixed(2) : fmt(c.raw)); } } } } } });
+                    plugins: { tooltip: { callbacks: { title: function (items) { return items.length ? 'Week van ' + RC.fullDate(lab[items[0].dataIndex]) : ''; }, label: function (c) { return c.raw == null ? c.dataset.label + ': niet te berekenen' : c.dataset.label + ': ' + (c.dataset.yAxisID === 'y2' ? c.raw.toFixed(2) : fmt(c.raw)); } } } } }, RC.link(function (i) { return RC.rangeUrl(lab[i], RC.addDays(lab[i], 6)); })) });
             }
 
             var M = C.model, cm = document.getElementById('cModel');

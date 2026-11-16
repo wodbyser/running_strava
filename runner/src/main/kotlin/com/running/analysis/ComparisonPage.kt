@@ -87,6 +87,8 @@ object ComparisonPage {
         val months: List<String>,
         val easyEfByMonth: List<Double?>,
         val intervalEfByMonth: List<Double?>,
+        val easyIdsByMonth: List<List<Long>>,
+        val intervalIdsByMonth: List<List<Long>>,
     )
 
     data class View(
@@ -114,6 +116,8 @@ object ComparisonPage {
         val intervalEf: Double?,
         val intervalReps: Int,
         val intervalSessions: Int,
+        val easyIds: List<Long> = emptyList(),
+        val intervalIds: List<Long> = emptyList(),
     )
 
     fun of(r: ComparisonResult): View {
@@ -158,6 +162,8 @@ object ComparisonPage {
                 months = months.map { PerfDates.month(it.month) },
                 easyEfByMonth = months.map { metresValue(it.easyEf) },
                 intervalEfByMonth = months.map { metresValue(it.intervalEf) },
+                easyIdsByMonth = months.map { it.easyIds },
+                intervalIdsByMonth = months.map { it.intervalIds },
             ),
             hasEasyEf = a.easyEf != null || b.easyEf != null,
             hasIntervalEf = a.intervalEf != null || b.intervalEf != null,
@@ -347,6 +353,8 @@ object ComparisonPage {
                 intervalEf = p?.intervalEf,
                 intervalReps = p?.intervalRepCount ?: 0,
                 intervalSessions = p?.intervalSessionCount ?: 0,
+                easyIds = p?.easyRunIds.orEmpty(),
+                intervalIds = p?.intervalSessionIds.orEmpty(),
             )
             month = month.plusMonths(1)
         }

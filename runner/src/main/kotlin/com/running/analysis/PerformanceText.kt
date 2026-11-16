@@ -375,6 +375,7 @@ object PerformancePageBuilder {
         val sum = totals.sum()
         val shares = (0 until 5).map { z -> ZoneShare(z + 1, if (sum > 0) totals[z] / sum * 100 else 0.0, "%.0f min".format(ROOT, totals[z]), ranges[z]) }
         charts["zoneLabels"] = r.weeks.map { PerfDates.shortIso(it.label) }
+        charts["zoneStarts"] = r.weeks.map { it.label }
         charts["zoneTitles"] = r.weeks.map { PerfDates.weekOf(it.label) + " (${it.runs} runs)" }
         charts["zoneSeries"] = (0 until 5).map { z -> r.weeks.map { round1(it.minutes[z]) } }
         charts["zoneRanges"] = ranges
@@ -403,6 +404,7 @@ object PerformancePageBuilder {
         )
         val chrono = r.driftRows.sortedBy { it.date }
         charts["driftLabels"] = chrono.map { PerfDates.dayShort(it.date) }
+        charts["driftIds"] = chrono.map { it.id }
         charts["driftTitles"] = chrono.map { PerfDates.day(it.date) + " · " + it.name }
         charts["driftValues"] = chrono.map { if (it.drift.driftAvailable) round1(it.drift.driftPct) else null }
         charts["decouplingValues"] = chrono.map { round1(it.drift.decouplingPct) }
@@ -458,11 +460,13 @@ object PerformancePageBuilder {
     private fun intensity(r: PerformanceReport, charts: MutableMap<String, Any?>) {
         val months = r.months
         charts["intLabels"] = months.map { PerfDates.month(it.label) }
+        charts["intMonths"] = months.map { it.label }
         charts["intRuns"] = months.map { it.runs }
         charts["intEasy"] = months.map { round1(it.easyPct) }
         charts["intModerate"] = months.map { round1(it.moderatePct) }
         charts["intHard"] = months.map { round1(it.hardPct) }
         charts["mixLabels"] = r.mix4Weeks.map { PerfDates.shortIso(it.label) }
+        charts["mixStarts"] = r.mix4Weeks.map { it.label }
         charts["mixTitles"] = r.mix4Weeks.map { m -> runCatching { val d = LocalDate.parse(m.label); PerfDates.range(d, d.plusDays(27)) }.getOrDefault(m.label) }
         charts["mixSeries"] = SessionType.entries.reversed().map { t -> mapOf("label" to PerformanceText.typeText(t), "type" to t.name, "data" to r.mix4Weeks.map { it.counts[t] ?: 0 }) }
     }
@@ -487,6 +491,7 @@ object PerformancePageBuilder {
             ConsistencyRow("Schommeling weekafstand", "schommeling", a.weeklyDistanceCv?.let { pctOf(it) } ?: "-", b.weeklyDistanceCv?.let { pctOf(it) } ?: "-"),
         )
         charts["weekLabels"] = c.weeks.map { PerfDates.dayShort(it.start) }
+        charts["weekStarts"] = c.weeks.map { it.start.toString() }
         charts["weekTitles"] = c.weeks.map { "week van " + PerfDates.day(it.start) }
         charts["weekKm"] = c.weeks.map { round1(it.km) }
         charts["weekRuns"] = c.weeks.map { it.runs }
@@ -544,6 +549,7 @@ object PerformancePageBuilder {
         )
         val chrono = r.longRuns.take(20).sortedBy { it.date }
         charts["lrLabels"] = chrono.map { PerfDates.dayShort(it.date) }
+        charts["lrIds"] = chrono.map { it.id }
         charts["lrTitles"] = chrono.map { PerfDates.day(it.date) + " · " + it.name + " · " + "%.0f min".format(ROOT, it.minutes) }
         charts["lrEf"] = chrono.map { round1(it.thirds.efChangePct) }
         charts["lrHr"] = chrono.map { round1(it.thirds.hrChangeBpm) }

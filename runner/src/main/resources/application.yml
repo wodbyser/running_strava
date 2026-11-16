@@ -26,6 +26,12 @@ spring:
   web:
     locale: en
     locale-resolver: fixed
+    resources:
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: /css/**,/js/**
 
 server:
   port: ${PORT:8080}

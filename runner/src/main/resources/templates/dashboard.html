@@ -123,7 +123,7 @@
             <div class="card-head">
                 <div>
                     <h2 id="h-evolution">Evolutie loopniveau <span class="badge badge-est" title="Efficiëntiefactor op automatisch herkende trainingstypes: een trend-indicator, geen meting.">indicatie</span></h2>
-                    <p class="note">Efficiëntiefactor per maand: hoger = sneller bij dezelfde hartslag.</p>
+                    <p class="note">Efficiëntiefactor per maand: hoger = sneller bij dezelfde hartslag. Klik op een punt of staaf om de trainingen van die maand te zien.</p>
                 </div>
                 <div class="filter-row">
                     <th:block th:replace="~{fragments :: chartRange('evolution', ${filterEvolution}, ${filterEvolutionFrom}, ${filterEvolutionTill})}"/>
@@ -212,6 +212,8 @@
         const evolutionEasyRunCount = /*[[${evolutionEasyRunCount}]]*/ [];
         const evolutionIntervalRepCount = /*[[${evolutionIntervalRepCount}]]*/ [];
         const evolutionIntervalSessionCount = /*[[${evolutionIntervalSessionCount}]]*/ [];
+        const evolutionEasyIds = /*[[${evolutionEasyIds}]]*/ [];
+        const evolutionIntervalIds = /*[[${evolutionIntervalIds}]]*/ [];
         const evoCanvas = document.getElementById('evolutionChart');
         if (evolutionMonths.length > 0) {
             // Low-data months get a hollow point (shape + fill, not colour alone).
@@ -253,6 +255,13 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
+                    ...RC.link(function (i, ds) {
+                        const month = RC.monthYear(evolutionMonths[i] + '-01');
+                        // Datasets 0 and 2 are the easy runs (line, bars); 1 and 3 the interval sessions.
+                        return ds % 2 === 0
+                            ? RC.idsUrl(evolutionEasyIds[i], 'rustige lopen ' + month)
+                            : RC.idsUrl(evolutionIntervalIds[i], 'intervaltrainingen ' + month);
+                    }, { intersect: true }),
                     plugins: {
                         legend: { display: true, position: RC.narrow() ? 'bottom' : 'top' },
                         tooltip: {

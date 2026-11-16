@@ -84,6 +84,9 @@ class PeriodComparisonService(
         val easyRunCount: Int,
         val intervalRepCount: Int,
         val intervalSessionCount: Int,
+        /** The trainings behind the easy / interval points, so a chart click can open exactly those. */
+        val easyRunIds: List<Long> = emptyList(),
+        val intervalSessionIds: List<Long> = emptyList(),
     )
 
     data class ComparisonResult(
@@ -102,6 +105,8 @@ class PeriodComparisonService(
         val stats: PeriodStats,
         val easyPerRunEf: List<Double>,
         val intervalPerSessionEf: List<Double>,
+        val easyRunIds: List<Long> = emptyList(),
+        val intervalSessionIds: List<Long> = emptyList(),
     )
 
     fun compare(rangeA: DateRange, rangeB: DateRange, labelA: String = "Periode A", labelB: String = "Periode B"): ComparisonResult {
@@ -150,6 +155,8 @@ class PeriodComparisonService(
                 easyRunCount = c.stats.easyRunCount,
                 intervalRepCount = c.stats.intervalRepCount,
                 intervalSessionCount = c.stats.intervalSessionCount,
+                easyRunIds = c.easyRunIds,
+                intervalSessionIds = c.intervalSessionIds,
             )
         }
 
@@ -203,7 +210,7 @@ class PeriodComparisonService(
             intervalEf = EfficiencyFactor.pooled(allRepSamples),
             intervalEfSd = EfVerdict.sd(intervalPerSession),
         )
-        return Classified(stats, easyPerRun, intervalPerSession)
+        return Classified(stats, easyPerRun, intervalPerSession, easyWithHr.map { it.id }, repSamplesPerSession.keys.map { it.id })
     }
 
     private fun describe(kind: String, r: EfVerdict.Result, minN: Int): String {

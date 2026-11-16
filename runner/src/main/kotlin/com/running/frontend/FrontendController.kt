@@ -119,6 +119,8 @@ class FrontendController(
         model.addAttribute("evolutionEasyRunCount", monthlyTrend.map { it.easyRunCount })
         model.addAttribute("evolutionIntervalRepCount", monthlyTrend.map { it.intervalRepCount })
         model.addAttribute("evolutionIntervalSessionCount", monthlyTrend.map { it.intervalSessionCount })
+        model.addAttribute("evolutionEasyIds", monthlyTrend.map { it.easyRunIds })
+        model.addAttribute("evolutionIntervalIds", monthlyTrend.map { it.intervalSessionIds })
         model.addAttribute("filterEvolution", evolutionPeriod ?: "all")
         model.addAttribute("filterEvolutionFrom", evolutionFrom ?: "")
         model.addAttribute("filterEvolutionTill", evolutionTill ?: "")
@@ -168,10 +170,17 @@ class FrontendController(
         @RequestParam(name = "distanceMax") distanceMax: String? = null,
         @RequestParam(name = "durationMin") durationMin: String? = null,
         @RequestParam(name = "durationMax") durationMax: String? = null,
+        @RequestParam(name = "ids") ids: String? = null,
+        @RequestParam(name = "label") label: String? = null,
     ): String {
         val allActivities = activityRepository.findAll()
-        var filtered = filterActivities(allActivities, period, from, till, type)
-        filtered = filterByDistanceAndDuration(filtered, distanceMin, distanceMax, durationMin, durationMax)
+        // `ids` (from a clicked chart point) selects exactly those trainings and bypasses the other filters.
+        val idSet = ids?.split(',')?.mapNotNull { it.trim().toLongOrNull() }?.toSet()?.takeIf { it.isNotEmpty() }
+        var filtered = if (idSet != null) {
+            allActivities.filter { it.id in idSet }
+        } else {
+            filterByDistanceAndDuration(filterActivities(allActivities, period, from, till, type), distanceMin, distanceMax, durationMin, durationMax)
+        }
 
         val effectiveSort = sort ?: "date"
         val effectiveOrder = order ?: "desc"
@@ -205,6 +214,8 @@ class FrontendController(
         model.addAttribute("filterDistanceMax", distanceMax ?: "")
         model.addAttribute("filterDurationMin", durationMin ?: "")
         model.addAttribute("filterDurationMax", durationMax ?: "")
+        model.addAttribute("filterIds", idSet?.joinToString(","))
+        model.addAttribute("filterLabel", label?.takeIf { it.isNotBlank() }?.take(120))
         addFilterAttributes(model, period, from, till, type)
         return "activities"
     }

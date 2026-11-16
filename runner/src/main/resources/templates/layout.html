@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
         /* Shared chart defaults: labelled axes, readable ticks, series told apart by shape and dash, not colour only. */
@@ -24,6 +24,33 @@
             fullDate: function (iso) {
                 var d = new Date(iso + 'T00:00:00');
                 return isNaN(d) ? iso : d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' });
+            },
+            addDays: function (iso, n) {
+                var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+                return d.toISOString().split('T')[0];
+            },
+            /* Link targets for clicking a chart point: the trainings that belong to it. */
+            rangeUrl: function (from, till, type) {
+                return '/activities?period=custom&from=' + from + '&till=' + till + '&type=' + (type || 'all');
+            },
+            monthUrl: function (ym, type) {
+                var p = ym.split('-'), last = new Date(Number(p[0]), Number(p[1]), 0).getDate();
+                return RC.rangeUrl(ym + '-01', ym + '-' + String(last).padStart(2, '0'), type);
+            },
+            idsUrl: function (ids, label) {
+                return ids && ids.length ? '/activities?ids=' + ids.join(',') + '&label=' + encodeURIComponent(label || '') : null;
+            },
+            /* Chart options that make points/bars clickable. urlFor(index, datasetIndex) returns a URL or null. */
+            link: function (urlFor, opts) {
+                var intersect = !!(opts && opts.intersect);
+                function hit(chart, e) {
+                    var els = chart.getElementsAtEventForMode(e, 'nearest', { intersect: intersect, axis: 'x' }, false);
+                    return els.length ? urlFor(els[0].index, els[0].datasetIndex) : null;
+                }
+                return {
+                    onHover: function (e, els) { e.native.target.style.cursor = hit(this, e) ? 'pointer' : 'default'; },
+                    onClick: function (e) { var u = hit(this, e); if (u) window.location.href = u; }
+                };
             },
             monthYear: function (iso) {
                 var d = new Date(iso + 'T00:00:00');

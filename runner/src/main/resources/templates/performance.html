@@ -238,6 +238,7 @@
             </div>
         </div>
         <p class="note mt-2" th:text="${p.drift.summary}">-</p>
+        <p class="note-xs mt-2">Klik op een punt om die run te openen.</p>
         <div class="chart-box mt-2" th:if="${!p.drift.rows.isEmpty()}"><canvas id="driftChart" role="img" aria-label="Drift en ontkoppeling per stabiele run"></canvas></div>
         <p class="note-xs mt-2" th:if="${!p.drift.rows.isEmpty()}">Elk punt is een run. De gestreepte lijn is de vuistregel van 5 % voor ontkoppeling (niet gevalideerd): punten eronder wijzen op een stevige duurbasis.</p>
         <details class="more" th:if="${!p.drift.rows.isEmpty()}">
@@ -283,6 +284,7 @@
             </div>
         </div>
         <p class="note mt-2" th:text="${p.durability.summary}">-</p>
+        <p class="note-xs mt-2">Klik op een lijn om die run te openen.</p>
         <div class="chart-box mt-2" th:if="${!p.durability.rows.isEmpty()}"><canvas id="durChart" role="img" aria-label="Efficiëntie per blok van 10 minuten voor de laatste lange runs"></canvas></div>
         <p class="note-xs mt-2" th:if="${!p.durability.rows.isEmpty()}">Elke lijn is een run (de laatste 6). De gestreepte lijn op 100 % = even efficiënt als in het begin. Zakt een lijn weg, dan verloor je efficiëntie naarmate de run vorderde.</p>
         <details class="more" th:if="${!p.durability.rows.isEmpty()}">
@@ -316,6 +318,7 @@
             </div>
         </div>
         <p class="note mt-2" th:text="${p.longRuns.summary}">-</p>
+        <p class="note-xs mt-2">Klik op een staaf om die lange run te openen.</p>
         <div class="chart-box mt-2" th:if="${!p.longRuns.rows.isEmpty()}"><canvas id="lrChart" role="img" aria-label="Verandering van efficiëntie en hartslag tussen eerste en laatste derde per lange run"></canvas></div>
         <p class="note-xs mt-2" th:if="${!p.longRuns.rows.isEmpty()}">Elk balkje is een lange run: hoeveel % efficiënter (boven 0) of minder efficiënt (onder 0) je in het laatste derde liep dan in het eerste derde. Oranje = meer dan 5 % verlies.</p>
         <details class="more" th:if="${!p.longRuns.rows.isEmpty()}">
@@ -357,6 +360,7 @@
                     <div th:each="z : ${p.zones.recentShares}"><strong><span class="zone-chip" th:classappend="'zone-bg-' + ${z.zone}"></span><span th:text="'Zone ' + ${z.zone} + ': ' + ${#numbers.formatDecimal(z.pct, 1, 0)} + ' %'">-</span></strong><span th:text="${z.range} + ' · ' + ${z.minutes}">-</span></div>
                 </div>
             </th:block>
+            <p class="note-xs mt-2">Klik op een staaf om de runs van die week te zien.</p>
             <div class="chart-box mt-2"><canvas id="zoneChart" role="img" aria-label="Minuten per hartslagzone per week"></canvas></div>
             <details class="more">
                 <summary>Toon als tabel</summary>
@@ -382,8 +386,10 @@
         </div>
         <p class="lead">Welk deel van je looptijd was makkelijk, matig of zwaar, per maand? En welke soort trainingen deed je, per blok van 4 weken?</p>
         <th:block th:replace="~{fragments :: windowForm(${ {'months', 'mixWeeks'} }, 'intensity')}"/>
+        <p class="note-xs mt-2">Klik op een staaf om de runs van die maand te zien.</p>
         <div class="chart-box" th:if="${!p.charts['intLabels'].isEmpty()}"><canvas id="intensityChart" role="img" aria-label="Aandeel makkelijk, matig en zwaar per maand"></canvas></div>
         <h3 class="sub-head" th:if="${!p.charts['mixLabels'].isEmpty()}">Soort trainingen per 4 weken <th:block th:replace="~{fragments :: help(${g['sessietype']})}"/></h3>
+        <p class="note-xs mt-2">Klik op een staaf om de trainingen van die 4 weken te zien.</p>
         <div class="chart-box" th:if="${!p.charts['mixLabels'].isEmpty()}"><canvas id="mixChart" role="img" aria-label="Aantal trainingen per soort per 4 weken"></canvas></div>
         <details class="explain">
             <summary>Meer uitleg</summary>
@@ -403,6 +409,7 @@
         <th:block th:replace="~{fragments :: windowForm(${ {'consShort', 'consLong'} }, 'consistency')}"/>
         <p class="callout" th:if="${!p.consistency.available}" th:text="${p.consistency.message}">-</p>
         <th:block th:if="${p.consistency.available}">
+            <p class="note-xs mt-2">Klik op een week om de runs van die week te zien.</p>
             <div class="chart-box"><canvas id="weekChart" role="img" th:aria-label="'Kilometer en aantal runs per week, laatste ' + ${p.consistency.longWeeks} + ' weken'"></canvas></div>
             <p class="note-xs mt-2">Balkjes = kilometer per week, lijn = aantal runs. Een week zonder balkje is een week zonder run.</p>
             <div class="table-wrap mt-2"><table class="compare-table">
@@ -545,8 +552,9 @@
             var z = document.getElementById('zoneChart');
             if (z) {
                 new Chart(z, { type: 'bar', data: { labels: C.zoneLabels, datasets: C.zoneSeries.map(function (v, i) { return { label: 'Zone ' + (i + 1), data: v, backgroundColor: zoneCols[i] }; }) },
-                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Minuten per week', 'min') } },
-                        plugins: { tooltip: { callbacks: Object.assign(titles(C.zoneTitles), { label: function (c) { return c.dataset.label + ' (' + C.zoneRanges[c.datasetIndex] + '): ' + Math.round(c.raw) + ' min'; } }) } } } });
+                    options: Object.assign({ maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Minuten per week', 'min') } },
+                        plugins: { tooltip: { callbacks: Object.assign(titles(C.zoneTitles), { label: function (c) { return c.dataset.label + ' (' + C.zoneRanges[c.datasetIndex] + '): ' + Math.round(c.raw) + ' min'; } }) } } },
+                        RC.link(function (i) { return RC.rangeUrl(C.zoneStarts[i], RC.addDays(C.zoneStarts[i], 6), 'run'); })) });
             }
 
             var dr = document.getElementById('driftChart');
@@ -555,8 +563,9 @@
                     { label: 'Ontkoppeling', data: C.decouplingValues, showLine: false, pointRadius: 4, pointStyle: 'circle', borderColor: palette[0], backgroundColor: palette[0] },
                     { label: 'Hartslagdrift', data: C.driftValues, showLine: false, pointRadius: 4, pointStyle: 'triangle', borderColor: palette[1], backgroundColor: palette[1] },
                     { label: 'Vuistregel 5 %', data: C.driftLabels.map(function () { return 5; }), borderColor: '#5b6875', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 }
-                ] }, options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 12 } }, y: { title: RC.axisTitle('% (lager = beter)', '%') } },
-                    plugins: { tooltip: { filter: function (c) { return c.datasetIndex < 2; }, callbacks: Object.assign(titles(C.driftTitles), { label: function (c) { return c.dataset.label + ': ' + (c.raw > 0 ? '+' : '') + c.raw + ' %'; } }) } } } });
+                ] }, options: Object.assign({ maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 12 } }, y: { title: RC.axisTitle('% (lager = beter)', '%') } },
+                    plugins: { tooltip: { filter: function (c) { return c.datasetIndex < 2; }, callbacks: Object.assign(titles(C.driftTitles), { label: function (c) { return c.dataset.label + ': ' + (c.raw > 0 ? '+' : '') + c.raw + ' %'; } }) } } },
+                    RC.link(function (i, d) { return d < 2 ? '/performance/run/' + C.driftIds[i] : null; }, { intersect: true })) });
             }
 
             var it = document.getElementById('intensityChart');
@@ -565,16 +574,18 @@
                     { label: 'Makkelijk (zone 1-2)', data: C.intEasy, backgroundColor: '#26764a' },
                     { label: 'Matig (zone 3)', data: C.intModerate, backgroundColor: '#d99a1c' },
                     { label: 'Zwaar (zone 4-5)', data: C.intHard, backgroundColor: '#c2410c' }
-                ] }, options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100, title: RC.axisTitle('% van de looptijd', '%') } },
-                    plugins: { tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + Math.round(c.raw) + ' %'; }, afterTitle: function (items) { return items.length ? C.intRuns[items[0].dataIndex] + ' runs' : ''; } } } } } });
+                ] }, options: Object.assign({ maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100, title: RC.axisTitle('% van de looptijd', '%') } },
+                    plugins: { tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + Math.round(c.raw) + ' %'; }, afterTitle: function (items) { return items.length ? C.intRuns[items[0].dataIndex] + ' runs' : ''; } } } } },
+                    RC.link(function (i) { return RC.monthUrl(C.intMonths[i], 'run'); })) });
             }
 
             var mx = document.getElementById('mixChart');
             if (mx) {
                 var typeCols = { STEADY: '#26764a', STRIDES: '#7fc8b8', TEMPO: '#8a6500', INTERVAL: '#c2410c', RACE: '#2f6db0' };
                 new Chart(mx, { type: 'bar', data: { labels: C.mixLabels, datasets: C.mixSeries.map(function (s) { return { label: s.label, data: s.data, backgroundColor: typeCols[s.type] }; }) },
-                    options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Aantal trainingen', 'aantal'), ticks: { precision: 0 } } },
-                        plugins: { tooltip: { callbacks: titles(C.mixTitles) } } } });
+                    options: Object.assign({ maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, title: RC.axisTitle('Aantal trainingen', 'aantal'), ticks: { precision: 0 } } },
+                        plugins: { tooltip: { callbacks: titles(C.mixTitles) } } },
+                        RC.link(function (i) { return RC.rangeUrl(C.mixStarts[i], RC.addDays(C.mixStarts[i], 27), 'run'); })) });
             }
 
             var wk = document.getElementById('weekChart');
@@ -582,8 +593,9 @@
                 new Chart(wk, { data: { labels: C.weekLabels, datasets: [
                     { type: 'bar', label: 'Kilometer', data: C.weekKm, backgroundColor: '#0e6655', yAxisID: 'y', order: 2 },
                     { type: 'line', label: 'Aantal runs', data: C.weekRuns, borderColor: '#c2410c', backgroundColor: '#c2410c', pointRadius: 2, borderWidth: 2, tension: 0, yAxisID: 'y2', order: 1 }
-                ] }, options: { maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 13 } }, y: { title: RC.axisTitle('Kilometer per week', 'km') }, y2: { position: 'right', grid: { display: false }, ticks: { precision: 0 }, title: RC.axisTitle('Runs per week', 'runs') } },
-                    plugins: { tooltip: { callbacks: titles(C.weekTitles) } } } });
+                ] }, options: Object.assign({ maintainAspectRatio: false, scales: { x: { ticks: { maxTicksLimit: 13 } }, y: { title: RC.axisTitle('Kilometer per week', 'km') }, y2: { position: 'right', grid: { display: false }, ticks: { precision: 0 }, title: RC.axisTitle('Runs per week', 'runs') } },
+                    plugins: { tooltip: { callbacks: titles(C.weekTitles) } } },
+                    RC.link(function (i) { return RC.rangeUrl(C.weekStarts[i], RC.addDays(C.weekStarts[i], 6), 'run'); })) });
             }
 
             var du = document.getElementById('durChart');
@@ -600,8 +612,9 @@
             if (lr) {
                 new Chart(lr, { type: 'bar', data: { labels: C.lrLabels, datasets: [
                     { label: 'Efficiëntie laatste derde tegenover eerste derde', data: C.lrEf, backgroundColor: C.lrEf.map(function (v) { return v < -5 ? '#d99a1c' : '#0e6655'; }) }
-                ] }, options: { maintainAspectRatio: false, scales: { y: { title: RC.axisTitle('Efficiëntie, verandering in %', '%') } },
-                    plugins: { legend: { display: false }, tooltip: { callbacks: Object.assign(titles(C.lrTitles), { label: function (c) { return 'Efficiëntie: ' + (c.raw > 0 ? '+' : '') + c.raw + ' %, hartslag: ' + (C.lrHr[c.dataIndex] > 0 ? '+' : '') + C.lrHr[c.dataIndex] + ' bpm'; } }) } } } });
+                ] }, options: Object.assign({ maintainAspectRatio: false, scales: { y: { title: RC.axisTitle('Efficiëntie, verandering in %', '%') } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: Object.assign(titles(C.lrTitles), { label: function (c) { return 'Efficiëntie: ' + (c.raw > 0 ? '+' : '') + c.raw + ' %, hartslag: ' + (C.lrHr[c.dataIndex] > 0 ? '+' : '') + C.lrHr[c.dataIndex] + ' bpm'; } }) } } },
+                    RC.link(function (i) { return '/performance/run/' + C.lrIds[i]; })) });
             }
 
             var iv = document.getElementById('intervalChart');

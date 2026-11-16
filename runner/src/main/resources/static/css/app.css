@@ -226,7 +226,7 @@ small { font-size: var(--fs-xs); color: var(--muted); }
 }
 
 /* ---------- Layout ---------- */
-.container { max-width: 1180px; margin: 0 auto; padding: var(--sp-6) var(--sp-5) var(--sp-6); }
+.container { width: 100%; max-width: 1180px; margin: 0 auto; padding: var(--sp-6) var(--sp-5) var(--sp-6); }
 .page-head {
     margin-bottom: var(--sp-5); display: flex; justify-content: space-between;
     align-items: flex-start; gap: var(--sp-3) var(--sp-5); flex-wrap: wrap;

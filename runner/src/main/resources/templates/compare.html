@@ -243,6 +243,7 @@
                 <span><span class="legend-dot dot-series-a"></span>rustige lopen (doorlopende lijn)</span>
                 <span><span class="legend-dot dot-series-b"></span>intervallen (stippellijn)</span>
                 <span>De as begint niet bij 0: kleine verschillen lijken groter.</span>
+                <span>Klik op een punt om de trainingen van die maand te zien.</span>
             </div>
             <details class="more" th:if="${v.hasMonths}">
                 <summary>Toon als tabel</summary>
@@ -287,6 +288,8 @@
                 var months = /*[[${v.chart.months}]]*/ [];
                 var easyEfMonth = /*[[${v.chart.easyEfByMonth}]]*/ [];
                 var intervalEfMonth = /*[[${v.chart.intervalEfByMonth}]]*/ [];
+                var easyIds = /*[[${v.chart.easyIdsByMonth}]]*/ [];
+                var intervalIds = /*[[${v.chart.intervalIdsByMonth}]]*/ [];
                 var efEasyA = /*[[${v.chart.easyEfA}]]*/ null;
                 var efEasyB = /*[[${v.chart.easyEfB}]]*/ null;
                 var efIntervalA = /*[[${v.chart.intervalEfA}]]*/ null;
@@ -426,7 +429,9 @@
                                 }
                             ]
                         },
-                        options: {
+                        options: Object.assign(RC.link(function (i, ds) {
+                            return ds === 0 ? RC.idsUrl(easyIds[i], 'rustige lopen ' + months[i]) : RC.idsUrl(intervalIds[i], 'intervaltrainingen ' + months[i]);
+                        }, { intersect: true }), {
                             responsive: true,
                             maintainAspectRatio: false,
                             interaction: { mode: 'index', intersect: false },
@@ -438,7 +443,7 @@
                                 y: { beginAtZero: false, title: RC.axisTitle('Meter per hartslag', 'm'), grid: { color: RC.line } },
                                 x: { title: RC.axisTitle('Maand'), grid: { display: false }, ticks: { autoSkip: true, maxTicksLimit: RC.narrow() ? 4 : 14, maxRotation: 0 } }
                             }
-                        }
+                        })
                     });
                 }
             })();
