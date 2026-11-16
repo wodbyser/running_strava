@@ -80,7 +80,7 @@
         <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est" title="Een selectie van de app.">app-schatting</span></h2>
         <p class="lead">Runs die op deze run lijken, zodat je ze naast elkaar kunt leggen. Bovenaan staat deze run zelf. De vinkjes tonen op welke punten een run extra goed overeenkomt; runs met meer vinkjes staan hoger.</p>
         <p class="callout" th:if="${v.cmpMessage != null}" th:text="${v.cmpMessage}">-</p>
-        <div class="table-wrap" th:if="${!v.cmpRows.isEmpty()}"><table>
+        <div class="table-wrap" data-paginate th:if="${!v.cmpRows.isEmpty()}"><table>
             <thead><tr>
                 <th>Datum</th><th>Run</th><th class="num">Afstand</th><th class="num">Tempo</th>
                 <th class="num">GAP <th:block th:replace="~{fragments :: help(${g['gap']})}"/></th>

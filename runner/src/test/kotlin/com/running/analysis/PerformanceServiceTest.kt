@@ -84,11 +84,11 @@ class PerformanceServiceTest {
     }
 
     @Test
-    fun `run report lists at most 10 comparable runs and an unknown id gives null`() {
+    fun `run report lists all comparable runs and an unknown id gives null`() {
         val (s, _) = service()
         val r = s.runReport(1)!!
         assertTrue(r.comparable.enough)
-        assertEquals(10, r.comparable.matches.size)
+        assertEquals(11, r.comparable.matches.size)
         assertTrue(r.run.steady)
         assertNull(s.runReport(424242))
     }
@@ -98,7 +98,7 @@ class PerformanceServiceTest {
         val (s, _) = service()
         val page = RunPageBuilder.build(s.runReport(1)!!)
         assertTrue(page.cmpRows.first().self)
-        assertEquals(11, page.cmpRows.size)
+        assertEquals(12, page.cmpRows.size)
         assertTrue(page.cmpRows.drop(1).all { it.name.isNotBlank() })
         assertTrue(page.cmpHeads.none { it.short.startsWith("Temp") }, "no temperature in any stream, so no column")
         assertTrue(page.hiddenCriteria.any { it.startsWith("temperatuur") })

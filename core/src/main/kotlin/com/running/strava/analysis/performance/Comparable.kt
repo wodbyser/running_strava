@@ -55,7 +55,6 @@ enum class ExclusionReason(val text: String) {
 
 object ComparableRuns {
     const val MIN_MATCHES = 3
-    const val MAX_RESULTS = 10
     const val MIN_DISTANCE_RATIO = 0.8
     const val MAX_DISTANCE_RATIO = 1.25
 
@@ -116,7 +115,7 @@ object ComparableRuns {
         val top = excluded.maxByOrNull { it.value }?.key
         val message = if (enough) null
         else "te weinig vergelijkbare runs (n = ${ordered.size})" + (top?.let { "; meeste runs vielen af op: ${it.text}" } ?: "")
-        return Result(ordered.take(MAX_RESULTS), others.size, excluded, enough, message)
+        return Result(ordered, others.size, excluded, enough, message)
     }
 
     fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

@@ -182,8 +182,8 @@
             </table></div>
         </th:block>
         <th:block th:if="${!p.intervals.rows.isEmpty()}">
-            <h3 class="sub-head">Laatste intervaltrainingen</h3>
-            <div class="table-wrap"><table>
+            <h3 class="sub-head">Alle intervaltrainingen (nieuwste eerst)</h3>
+            <div class="table-wrap" data-paginate><table>
                 <thead><tr>
                     <th>Datum</th><th>Run</th><th>Opbouw</th><th class="num">Gem. reptempo</th><th>Reps (hoger = sneller)</th>
                     <th class="num">Laatste rep tegenover eerste <th:block th:replace="~{fragments :: help(${g['verval']})}"/></th>

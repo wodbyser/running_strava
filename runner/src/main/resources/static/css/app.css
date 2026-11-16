@@ -568,6 +568,9 @@ input:user-invalid, textarea:user-invalid, select:user-invalid { border-color: v
 .note-xs { font-size: var(--fs-xs); color: var(--muted); }
 .text-muted { color: var(--muted); font-size: var(--fs-sm); }
 .text-warn { color: var(--est); font-style: normal; display: block; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-3); }
+.pager button:disabled { opacity: 0.45; cursor: default; }
+tr[hidden] { display: none; }
 .legend { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-xs); color: var(--muted); margin-top: var(--sp-3); align-items: center; }
 .empty-state { text-align: center; padding: var(--sp-7) var(--sp-5); }
 .empty-state h2 { justify-content: center; margin-bottom: var(--sp-2); }

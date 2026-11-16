@@ -601,7 +601,7 @@ object PerformancePageBuilder {
                 avgSpeed(row.session)?.let { mapOf("x" to row.date.toString(), "y" to Math.round(1000 / it), "t" to PerfDates.day(row.date) + " · " + row.name, "id" to row.id) }
             })
         }
-        val rows = r.intervals.take(20).map { i ->
+        val rows = r.intervals.map { i ->
             val s = i.session
             val speeds = s.reps.map { it.speed }
             val lo = speeds.minOrNull() ?: 0.0
