@@ -5,8 +5,8 @@
     <div class="page-head">
         <h1>Training beoordelen</h1>
         <p>
-            Kies een training hieronder om een AI-prompt te genereren die die specifieke training beoordeelt:
-            was ze nuttig en optimaal voor je ontwikkeling, gebaseerd op intervallen, hartslag, afstand en tempo?
+            Kies een training: de app beoordeelt meteen hoe je ze uitvoerde, op basis van je rondes, tempo en hartslag.
+            Wil je dieper gaan, dan genereer je met één klik een AI-prompt met alle details voor ChatGPT of Claude.
         </p>
     </div>
 
@@ -42,8 +42,10 @@
                         <td class="num" data-label="HR gem" th:text="${a.avgHr}">-</td>
                         <td class="num" data-label="Duur" th:text="${a.duration}">-</td>
                         <td class="num stack-action">
-                            <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="row-action"
-                               th:attr="aria-label='Beoordeel ' + ${a.name} + ' van ' + ${a.date}">Beoordelen &rarr;</a>
+                            <a th:href="@{'/rate-training/' + ${a.id}}" class="row-action"
+                               th:attr="aria-label='Beoordeling van ' + ${a.name} + ' van ' + ${a.date}">Beoordeling &rarr;</a>
+                            <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="row-action row-action--quiet"
+                               th:attr="aria-label='AI-prompt voor ' + ${a.name} + ' van ' + ${a.date}">AI-prompt</a>
                         </td>
                     </tr>
                 </tbody>

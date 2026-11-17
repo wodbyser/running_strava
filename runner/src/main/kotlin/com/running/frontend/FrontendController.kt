@@ -12,6 +12,9 @@ import com.running.analysis.LoadService
 import com.running.analysis.NextTrainingParams
 import com.running.analysis.PerfDates
 import com.running.analysis.PeriodComparisonService
+import com.running.analysis.TrainingRatingGlossary
+import com.running.analysis.TrainingRatingPageBuilder
+import com.running.analysis.TrainingRatingService
 import com.running.strava.domain.Activity
 import com.running.strava.domain.ActivityStream
 import com.running.strava.domain.Lap
@@ -62,6 +65,7 @@ class FrontendController(
     private val periodComparisonService: PeriodComparisonService,
     private val bestEffortService: BestEffortService,
     private val loadService: LoadService,
+    private val trainingRatingService: TrainingRatingService,
     private val garminSync: com.running.garmin.web.GarminSyncView,
 ) {
 
@@ -661,6 +665,31 @@ class FrontendController(
         model.addAttribute("backUrl", "/rate-training")
         model.addAttribute("downloadUrl", "/rate-training/prompt/download?activityId=$activityId")
         return "ai"
+    }
+
+    @GetMapping("/rate-training/{activityId}")
+    fun rateTrainingAssessment(model: Model, @PathVariable activityId: Long): String {
+        val rated = trainingRatingService.assess(activityId) ?: return "redirect:/rate-training"
+        val a = rated.activity
+        val view = TrainingRatingPageBuilder.build(a, rated.assessment)
+        model.addAttribute("title", "Training beoordelen")
+        model.addAttribute("v", view)
+        model.addAttribute("activityId", a.id)
+        model.addAttribute("activityName", a.name)
+        model.addAttribute(
+            "activityMeta",
+            buildList {
+                add(PerfDates.day(ActivityTime.localDate(a)))
+                if (a.distance > 0) add(Format.km(a.distance))
+                if (a.movingTime > 0) add(Format.duration(a.movingTime))
+                if (a.speedMs() > 0) add("${Format.pace(a.speedMs())} gemiddeld")
+                a.averageHeartrate?.let { add("${Format.hr(it)} gemiddeld") }
+            }.joinToString(" · "),
+        )
+        val glossary = TrainingRatingGlossary.all.map { it.copy(page = "/rate-training/${a.id}") }
+        model.addAttribute("glossary", glossary)
+        model.addAttribute("g", glossary.associateBy { it.key })
+        return "rate-training-detail"
     }
 
     @GetMapping("/rate-training/prompt/download")

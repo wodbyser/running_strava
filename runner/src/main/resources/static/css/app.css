@@ -343,6 +343,10 @@ th a { color: inherit; }
     color: var(--accent); font-weight: 600; font-size: var(--fs-sm); text-decoration: none;
 }
 .row-action:hover { color: var(--accent-hover); text-decoration: underline; }
+/* Secondary row action: the AI prompt sits next to the assessment, one step quieter. */
+.row-action + .row-action { margin-left: var(--sp-3); }
+.row-action--quiet { color: var(--muted); font-weight: 500; }
+.row-action--quiet:hover { color: var(--ink); }
 tr.row-highlight { background: #fdf4ec; }
 tr.row-highlight td { font-weight: 600; }
 tr.row-muted td { color: var(--muted); }
@@ -406,6 +410,7 @@ tr.row-muted td { color: var(--muted); }
     .table-stack td.stack-action { grid-column: 1 / -1; }
     .table-stack td.stack-action .btn { width: 100%; }
     .table-stack td.stack-action .row-action { width: 100%; }
+    .table-stack td.stack-action .row-action + .row-action { margin-left: 0; }
     .table-stack .table-empty td { grid-column: 1 / -1; text-align: center !important; }
 }
 
@@ -684,6 +689,19 @@ ul.plain li + li { margin-top: var(--sp-1); }
 .hero-conclusion p { max-width: 80ch; }
 .hero-conclusion p + p { margin-top: var(--sp-2); }
 .hero-conclusion h3 { font-size: var(--fs-md); margin-bottom: var(--sp-1); }
+/* Training assessment: one tile per judged aspect, with the judgement as a rule above it. */
+.rating-grid { margin: var(--sp-2) 0 var(--sp-5); }
+.rating-point { border-top: 3px solid var(--tone-line, var(--line-strong)); padding-top: var(--sp-2); }
+.rating-point.tone-uncertain, .rating-point.tone-none { border-top-style: dashed; }
+.rating-point.tone-good .hero-comp-value { color: var(--ok); }
+.rating-point.tone-bad .hero-comp-value { color: var(--bad); }
+.rating-point.tone-uncertain .hero-comp-value { color: var(--warn); }
+.rating-point .hero-dev { margin-top: 2px; }
+/* Two compact tiles per row on a phone: five full-width tiles would make the card endless. */
+@media (max-width: 640px) {
+    .rating-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3) var(--sp-4); }
+    .rating-point:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 
 /* ---------- Help popover ---------- */
 .help { display: inline-flex; vertical-align: middle; position: static; }
