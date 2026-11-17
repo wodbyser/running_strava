@@ -5,6 +5,7 @@ This folder holds the project's documentation that isn't code: architecture, dat
 | Document | Content |
 |---|---|
 | [audit/phase-1-report.md](audit/phase-1-report.md) | Phase 1 correctness/trust audit: issues, trust table, decisions |
+| [multi-user-design.md](multi-user-design.md) | Multi-user plan: one database per user, tenant routing, data modes (`STRAVA`/`GARMIN`/`BOTH`), phases, owner-safety rules. Progress: `MULTI_USER_PROGRESS.md` |
 
 ## Modules
 

@@ -72,7 +72,20 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
 
 - **prod**: PostgreSQL 17 via `docker-compose.yml` (Hibernate `update` DDL)
 - **dev**: H2 file `data/running.mv.db` with PostgreSQL compatibility mode (`MODE=PostgreSQL`)
-- Reset: `docker compose down -v`
+- Reset (dev only, and only when the deploy stack is not on the same machine): `docker compose down -v`. The root
+  compose and `deploy/docker-compose.yml` share the volume `running_pgdata`, so on the server this deletes the
+  production database. Never run it there.
+
+## Multi-user (planned, not built yet)
+
+The owner's app is single-user today. A plan exists to let other people log in with their own Strava/Garmin
+credentials, with **one database per user** (the owner's `running` DB is never migrated or reused).
+
+- Design, phases and owner-safety rules: `docs/multi-user-design.md`
+- Progress and next action: `MULTI_USER_PROGRESS.md`
+- Reusable prompt for a fresh implementing agent (any phase): `MULTI_USER_PROMPT.md`
+- Read both before changing anything in `SecurityConfig`, the datasource/JPA setup (`ddl-auto`, any `DataSource`
+  bean), or the schedulers. Do not add Flyway (decision D8).
 
 ## Deployment
 
