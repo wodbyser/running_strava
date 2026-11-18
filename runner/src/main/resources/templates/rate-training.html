@@ -5,7 +5,7 @@
     <div class="page-head">
         <h1>Training beoordelen</h1>
         <p>
-            Kies een training: de app beoordeelt meteen hoe je ze uitvoerde, op basis van je rondes, tempo en hartslag.
+            Klik op een training: de app beoordeelt meteen hoe je ze uitvoerde, op basis van je rondes, tempo en hartslag.
             Wil je dieper gaan, dan genereer je met één klik een AI-prompt met alle details voor ChatGPT of Claude.
             Vink 2 tot 6 trainingen aan om ze <strong>naast elkaar te vergelijken</strong>.
         </p>
@@ -30,7 +30,7 @@
                         <th scope="col" class="stack-hide pick-cell"><span class="sr-only">Vergelijken</span></th>
                         <th scope="col">Datum</th>
                         <th scope="col">Naam</th>
-                        <th scope="col">Type</th>
+                        <th scope="col" title="Herkend uit je rondes, niet uit de naam in Strava.">Soort</th>
                         <th scope="col" class="num">Afstand</th>
                         <th scope="col" class="num">Tempo</th>
                         <th scope="col" class="num">HR gem</th>
@@ -39,18 +39,17 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="a : ${recentRuns}">
+                    <tr th:each="a : ${recentRuns}" class="row-click" th:attr="data-href=@{'/rate-training/' + ${a.id}}">
                         <td class="pick-cell"><label class="pick-check" th:title="'Kies ' + ${a.name} + ' om te vergelijken'"><input type="checkbox" name="ids" th:value="${a.id}" th:attr="aria-label='Vergelijk ' + ${a.name} + ' van ' + ${a.date}"></label></td>
                         <td class="nowrap stack-meta" th:text="${a.date}">-</td>
-                        <td class="stack-title"><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
-                        <td class="stack-meta"><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
+                        <td class="stack-title"><a class="row-link" th:href="@{'/rate-training/' + ${a.id}}" th:text="${a.name}" th:attr="aria-label='Beoordeling van ' + ${a.name} + ' van ' + ${a.date}">-</a></td>
+                        <td class="stack-meta"><span class="lap-tag" th:with="k=${kinds.get(a.id)}" th:classappend="${k.second}" th:text="${k.first}" title="Herkend uit je rondes, niet uit de naam in Strava.">-</span></td>
                         <td class="num" data-label="Afstand" th:text="${a.distance}">-</td>
                         <td class="num" data-label="Tempo" th:text="${a.pace}">-</td>
                         <td class="num" data-label="HR gem" th:text="${a.avgHr}">-</td>
                         <td class="num" data-label="Duur" th:text="${a.duration}">-</td>
                         <td class="num stack-action">
-                            <a th:href="@{'/rate-training/' + ${a.id}}" class="row-action"
-                               th:attr="aria-label='Beoordeling van ' + ${a.name} + ' van ' + ${a.date}">Beoordeling &rarr;</a>
+                            <a th:href="@{'/rate-training/' + ${a.id}}" class="row-action" tabindex="-1" aria-hidden="true">Beoordeling &rarr;</a>
                             <a th:href="@{/rate-training/prompt(activityId=${a.id})}" class="row-action row-action--quiet"
                                th:attr="aria-label='AI-prompt voor ' + ${a.name} + ' van ' + ${a.date}">AI-prompt</a>
                         </td>

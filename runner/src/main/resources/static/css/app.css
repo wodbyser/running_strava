@@ -347,6 +347,8 @@ th a { color: inherit; }
 .row-action + .row-action { margin-left: var(--sp-3); }
 .row-action--quiet { color: var(--muted); font-weight: 500; }
 .row-action--quiet:hover { color: var(--ink); }
+tr.row-click { cursor: pointer; }
+tr.row-click:hover .row-link { color: var(--accent); text-decoration: underline; }
 tr.row-highlight { background: #fdf4ec; }
 tr.row-highlight td { font-weight: 600; }
 tr.row-muted td { color: var(--muted); }

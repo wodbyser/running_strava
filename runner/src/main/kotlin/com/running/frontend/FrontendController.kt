@@ -1,5 +1,6 @@
 package com.running.frontend
 
+import com.running.analysis.RunComparisonPage
 import com.running.strava.analysis.performance.TerrainClass
 import com.running.analysis.AiAnalysisService
 import java.util.Locale
@@ -650,8 +651,20 @@ class FrontendController(
             .filter { it.type in runTypes }
             .sortedByDescending { it.startDate }
             .take(50)
+        // The kind of session, recognised from the laps the same way as on the performance and comparison pages.
+        val laps = activityRepository.findLapsForActivities(runs.map { it.id })
+        val kinds = runs.associate { a ->
+            val type = SessionClassifier.classify(laps[a.id].orEmpty(), a.workoutType, TerrainClass.elevationPerKm(a))
+            a.id to (RunComparisonPage.typeLabel(type) to when (type) {
+                SessionType.INTERVAL -> "lap-rep"
+                SessionType.TEMPO -> "lap-tempo"
+                SessionType.RACE -> "lap-race"
+                SessionType.STEADY, SessionType.STRIDES -> "lap-easy"
+            })
+        }
         model.addAttribute("title", "Training beoordelen")
         model.addAttribute("recentRuns", runs.map { toActivityRow(it) })
+        model.addAttribute("kinds", kinds)
         return "rate-training"
     }
 

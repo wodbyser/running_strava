@@ -277,6 +277,17 @@
             render();
         });
 
+        // Clickable rows: <tr data-href> opens its page, except when the click is on a link, button, checkbox or label
+        // inside it. The row also keeps a real link (usually its name), so keyboard and screen readers lose nothing.
+        document.querySelectorAll('tr[data-href]').forEach(function (row) {
+            row.addEventListener('click', function (e) {
+                if (e.target.closest('a, button, input, label, select, summary, details')) return;
+                if (window.getSelection && String(window.getSelection()).length) return;
+                var url = row.getAttribute('data-href');
+                if (e.ctrlKey || e.metaKey || e.button === 1) window.open(url, '_blank'); else window.location.href = url;
+            });
+        });
+
         // Choosing runs to compare: <form data-pick="6"> with checkboxes name="ids" (and optional fixed hidden ids).
         // Keeps the count, blocks more than the maximum, enables the button from two runs on, and filters on [data-pick-search].
         document.querySelectorAll('form[data-pick]').forEach(function (form) {
