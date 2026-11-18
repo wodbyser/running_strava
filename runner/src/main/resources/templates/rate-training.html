@@ -7,6 +7,7 @@
         <p>
             Kies een training: de app beoordeelt meteen hoe je ze uitvoerde, op basis van je rondes, tempo en hartslag.
             Wil je dieper gaan, dan genereer je met één klik een AI-prompt met alle details voor ChatGPT of Claude.
+            Vink 2 tot 6 trainingen aan om ze <strong>naast elkaar te vergelijken</strong>.
         </p>
     </div>
 
@@ -16,12 +17,17 @@
         <div class="actions"><a href="/" class="btn btn-primary">Naar Dashboard</a></div>
     </div>
 
-    <section class="card" th:if="${!#lists.isEmpty(recentRuns)}" aria-labelledby="h-runs">
-        <h2 id="h-runs">Laatste 50 trainingen</h2>
+    <form method="get" action="/compare-runs" data-pick="6" th:if="${!#lists.isEmpty(recentRuns)}" aria-label="Trainingen kiezen om te vergelijken">
+    <section class="card" aria-labelledby="h-runs">
+        <div class="card-head">
+            <h2 id="h-runs">Laatste 50 trainingen</h2>
+            <a class="btn btn-ghost btn-sm" href="/compare-runs">Trainingen vergelijken &rarr;</a>
+        </div>
         <div class="table-wrap table-stack">
             <table>
                 <thead>
                     <tr>
+                        <th scope="col" class="stack-hide pick-cell"><span class="sr-only">Vergelijken</span></th>
                         <th scope="col">Datum</th>
                         <th scope="col">Naam</th>
                         <th scope="col">Type</th>
@@ -34,6 +40,7 @@
                 </thead>
                 <tbody>
                     <tr th:each="a : ${recentRuns}">
+                        <td class="pick-cell"><label class="pick-check" th:title="'Kies ' + ${a.name} + ' om te vergelijken'"><input type="checkbox" name="ids" th:value="${a.id}" th:attr="aria-label='Vergelijk ' + ${a.name} + ' van ' + ${a.date}"></label></td>
                         <td class="nowrap stack-meta" th:text="${a.date}">-</td>
                         <td class="stack-title"><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
                         <td class="stack-meta"><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>
@@ -51,6 +58,11 @@
                 </tbody>
             </table>
         </div>
+        <div class="compare-dock" data-pick-dock hidden>
+            <span><span class="pick-count" data-pick-count aria-live="polite">-</span><br><span class="note-xs">Vergelijk runs van dezelfde soort en afstand voor de duidelijkste uitkomst.</span></span>
+            <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk de gekozen trainingen</button>
+        </div>
     </section>
+    </form>
 </th:block>
 </html>

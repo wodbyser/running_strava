@@ -78,10 +78,13 @@
 
     <section class="card" aria-labelledby="h-cmp">
         <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est" title="Een selectie van de app.">app-schatting</span></h2>
-        <p class="lead">Runs die op deze run lijken, zodat je ze naast elkaar kunt leggen. Bovenaan staat deze run zelf. De vinkjes tonen op welke punten een run extra goed overeenkomt; runs met meer vinkjes staan hoger.</p>
+        <p class="lead">Runs die op deze run lijken. Bovenaan staat deze run zelf. De ✓ en ✗ tonen op welke punten een run extra goed overeenkomt; runs met meer ✓ staan hoger. <strong>Vink runs aan en kies "Vergelijk geselecteerde runs"</strong> om te zien welke het snelst, het zuinigst en het best uitgevoerd was.</p>
         <p class="callout" th:if="${v.cmpMessage != null}" th:text="${v.cmpMessage}">-</p>
-        <div class="table-wrap" data-paginate th:if="${!v.cmpRows.isEmpty()}"><table>
+        <form method="get" action="/compare-runs" data-pick="6" th:if="${!v.cmpRows.isEmpty()}" aria-label="Runs kiezen om naast deze run te leggen">
+        <input type="hidden" name="ids" th:value="${a.id}">
+        <div class="table-wrap" data-paginate><table>
             <thead><tr>
+                <th class="pick-cell"><span class="sr-only">Vergelijken</span></th>
                 <th>Datum</th><th>Run</th><th class="num">Afstand</th><th class="num">Tempo</th>
                 <th class="num">GAP <th:block th:replace="~{fragments :: help(${g['gap']})}"/></th>
                 <th class="num">Hartslag</th>
@@ -91,6 +94,10 @@
             </tr></thead>
             <tbody>
             <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'">
+                <td class="pick-cell">
+                    <label class="pick-check" th:unless="${m.self}" th:title="'Naast deze run leggen: ' + ${m.name}"><input type="checkbox" name="ids" th:value="${m.id}" th:checked="${m.checked}" th:attr="aria-label='Vergelijk met ' + ${m.name} + ' van ' + ${m.date}"></label>
+                    <span class="pick-check" th:if="${m.self}" title="Deze run zit altijd in de vergelijking" aria-hidden="true">&#10003;</span>
+                </td>
                 <td class="nowrap"><a th:unless="${m.self}" th:href="@{/performance/run/{id}(id=${m.id})}" th:text="${m.date}">-</a><span th:if="${m.self}" th:text="${m.date}">-</span></td>
                 <td th:text="${m.self} ? ${m.name} + ' (deze run)' : ${m.name}">-</td>
                 <td class="num" th:text="${m.km}">-</td>
@@ -103,6 +110,11 @@
             </tr>
             </tbody>
         </table></div>
+        <div class="compare-bar">
+            <span><span class="pick-count" data-pick-count aria-live="polite">-</span><br><span class="note-xs">Vink aan welke runs je echt naast deze wil leggen. De (maximaal drie) runs die het best overeenkomen staan al aangevinkt.</span></span>
+            <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk geselecteerde runs</button>
+        </div>
+        </form>
         <div class="legend" th:if="${!v.cmpRows.isEmpty()}">
             <span><span class="crit-yes">✓</span> komt overeen</span>
             <span><span class="crit-no">✗</span> verschilt</span>

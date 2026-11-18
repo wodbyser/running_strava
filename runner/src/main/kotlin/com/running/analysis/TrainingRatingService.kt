@@ -20,8 +20,20 @@ class TrainingRatingService(private val activityRepository: ActivityRepository) 
 
     fun assess(activityId: Long): Rated? {
         val activity = activityRepository.findById(activityId) ?: return null
-        val laps = activityRepository.findLaps(activityId)
+        return assess(activity, activityRepository.findAll().filter { it.isRun() })
+    }
+
+    /** Several trainings at once, reading the run history only once. Unknown ids are left out. */
+    fun assessMany(activityIds: List<Long>): Map<Long, Rated> {
         val allRuns = activityRepository.findAll().filter { it.isRun() }
+        return activityIds.distinct().mapNotNull { id ->
+            val activity = allRuns.firstOrNull { it.id == id } ?: activityRepository.findById(id) ?: return@mapNotNull null
+            id to assess(activity, allRuns)
+        }.toMap()
+    }
+
+    private fun assess(activity: Activity, allRuns: List<Activity>): Rated {
+        val laps = activityRepository.findLaps(activity.id)
         val date = ActivityTime.localDate(activity)
         val windowStart = date.minusDays((TrainingAssessment.LOAD_DAYS + TrainingAssessment.LOAD_COMPARE_DAYS).toLong())
         val contextRuns = allRuns.filter {

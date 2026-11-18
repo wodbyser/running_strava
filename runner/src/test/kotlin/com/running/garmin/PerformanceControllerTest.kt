@@ -21,6 +21,15 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 class PerformanceControllerTest @Autowired constructor(private val mvc: MockMvc) {
 
     @Test
+    fun `run comparison page renders without data and explains how to choose`() {
+        val html = mvc.perform(get("/compare-runs").param("ids", "1,2,x")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("Trainingen vergelijken"))
+        assertTrue(html.contains("Kies 2 tot 6 trainingen"))
+        assertTrue(html.contains("Nog geen loopsessies"))
+        assertTrue(html.contains("href=\"/compare-runs\""))
+    }
+
+    @Test
     fun `overview renders without any data and shows the safety line and abstain texts`() {
         val html = mvc.perform(get("/performance")).andExpect(status().isOk).andReturn().response.contentAsString
         assertTrue(html.contains("Geen medische beoordeling."))

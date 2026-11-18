@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+
+    <div class="page-head">
+        <div>
+            <h1>Trainingen vergelijken</h1>
+            <p>
+                Zet 2 tot 6 runs naast elkaar en zie per onderdeel welke het best was: snelheid, conditie (meter per hartslag),
+                hoe je je hartslag en tempo vasthield, je reps en de uitvoering. Er is geen totaalscore; verschillen die kleiner
+                zijn dan de meetruis tellen niet.
+            </p>
+        </div>
+    </div>
+
+    <p class="callout mb-2" th:if="${tooMany}" th:text="'Je koos meer dan ' + ${maxRuns} + ' runs. De eerste ' + ${maxRuns} + ' worden vergeleken.'">-</p>
+    <p class="callout mb-2" th:if="${unknown > 0}">Een gekozen training bestaat niet (meer) of is geen loopsessie. Ze is weggelaten.</p>
+
+    <!--/* ============================== choice ============================== */-->
+    <section class="card run-select" aria-labelledby="h-select">
+        <div class="card-head">
+            <h2 id="h-select" th:text="${v != null} ? 'Je keuze' : 'Kies 2 tot ' + ${maxRuns} + ' trainingen'">Je keuze</h2>
+        </div>
+        <ul class="run-chips" th:if="${v != null}">
+            <li class="run-chip" th:each="r : ${v.runs}" th:classappend="'run-' + ${r.index}">
+                <span class="run-letter" aria-hidden="true" th:text="${r.letter}">A</span>
+                <span class="run-chip-body">
+                    <a class="run-chip-name" th:href="@{/performance/run/{id}(id=${r.id})}" th:text="${r.name}" th:title="'Prestatie-analyse van ' + ${r.name}">-</a>
+                    <span class="run-chip-meta"><span th:text="${r.date}">-</span> · <span th:text="${r.type}">-</span></span>
+                    <span class="run-chip-meta" th:text="${r.meta}">-</span>
+                </span>
+                <a class="run-chip-remove" th:href="${r.removeUrl}" th:attr="aria-label=${r.letter} + ' (' + ${r.name} + ') weghalen uit de vergelijking'" title="Weghalen">&times;</a>
+            </li>
+        </ul>
+        <p class="lead" th:if="${v == null && selectedCount == 1}">Je koos één training. Vink er minstens nog één aan; bovenaan staan runs die erop lijken.</p>
+        <p class="lead" th:if="${v == null && selectedCount != 1}">Vink de trainingen aan die je naast elkaar wil zien. Tip: vergelijk runs van dezelfde soort en ongeveer dezelfde afstand, dan zegt de vergelijking het meest.</p>
+
+        <th:block th:if="${#lists.isEmpty(pick)}">
+            <p class="note">Nog geen loopsessies. Synchroniseer eerst je Strava-trainingen via het <a href="/">Dashboard</a>.</p>
+        </th:block>
+
+        <details class="picker" th:open="${v == null}" th:unless="${#lists.isEmpty(pick)}">
+            <summary th:text="${v != null} ? 'Runs toevoegen of wijzigen' : 'Lijst van trainingen'">Runs toevoegen of wijzigen</summary>
+            <form method="get" action="/compare-runs" class="picker-form" th:attr="data-pick=${maxRuns}" aria-label="Trainingen kiezen om te vergelijken">
+                <div class="picker-tools">
+                    <label class="sr-only" for="pick-search">Zoek een training</label>
+                    <input type="search" id="pick-search" placeholder="Zoek op naam of datum" autocomplete="off" data-pick-search>
+                    <span class="field-hint" th:if="${hasSimilar}">Met <span class="badge badge-est">lijkt erop</span>: zelfde soort training, afstand en terrein als je eerste keuze.</span>
+                </div>
+                <ul class="pick-list">
+                    <li th:each="p : ${pick}" th:attr="data-search=${p.search}">
+                        <label class="pick-row">
+                            <input type="checkbox" name="ids" th:value="${p.id}" th:checked="${p.checked}">
+                            <span class="pick-main">
+                                <span class="pick-name" th:text="${p.name}">-</span>
+                                <span class="badge badge-est" th:if="${p.similar}" title="Zelfde soort training, afstand en terrein als je eerste keuze.">lijkt erop</span>
+                            </span>
+                            <span class="pick-meta"><span th:text="${p.date}">-</span><span th:text="${p.meta}">-</span></span>
+                        </label>
+                    </li>
+                    <li class="pick-empty" data-pick-empty hidden>Geen training gevonden voor deze zoekterm.</li>
+                </ul>
+                <div class="pick-foot">
+                    <span class="pick-count" data-pick-count aria-live="polite">-</span>
+                    <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk</button>
+                </div>
+            </form>
+        </details>
+    </section>
+
+    <th:block th:if="${v != null}">
+        <nav class="toc" aria-label="Spring naar">
+            <a href="#conclusie">Conclusie</a>
+            <a href="#onderdelen">Per onderdeel</a>
+            <a href="#verloop" th:if="${v.hasCurves || v.hasReps}">Verloop</a>
+            <a href="#zones" th:if="${!v.zoneRows.isEmpty()}">Hartslagzones</a>
+            <a href="#cijfers">Alle cijfers</a>
+            <a href="#begrippen">Begrippen</a>
+        </nav>
+
+        <!--/* ============================== conclusion ============================== */-->
+        <section class="card hero cmp-hero perf-section" id="conclusie" th:classappend="${v.hero.css}" aria-labelledby="h-hero">
+            <div class="hero-top">
+                <h2 id="h-hero" class="hero-label" th:text="${v.hero.headline}">-</h2>
+                <span class="pill" th:classappend="${v.hero.levelTone.css}" th:text="${v.hero.levelLabel}">Goed vergelijkbaar</span>
+                <span class="badge badge-est" title="Conclusie van de app uit je gemeten en berekende waarden. Geen meting en geen medisch oordeel.">app-schatting</span>
+                <th:block th:replace="~{fragments :: help(${g['telling']})}"/>
+            </div>
+            <p class="hero-sub" th:text="${v.hero.sub}">-</p>
+
+            <div class="win-grid">
+                <div class="win-card" th:each="h : ${v.hero.highlights}"
+                     th:classappend="(${h.caution} ? 'is-caution ' : '') + (${h.runs.isEmpty()} ? 'is-empty' : 'run-' + ${h.runs[0].index})">
+                    <span class="win-label"><span th:text="${h.label}">Snelste</span><th:block th:replace="~{fragments :: help(${h.tip == null ? null : g[h.tip]})}"/></span>
+                    <span class="win-who" th:if="${!h.runs.isEmpty()}">
+                        <span class="run-letter" th:each="r : ${h.runs}" th:classappend="'run-' + ${r.index}" th:text="${r.letter}">A</span>
+                        <span class="win-name" th:text="${h.runs.size() == 1} ? ${h.runs[0].name} + ' · ' + ${h.runs[0].dateShort} : 'Gedeeld'">-</span>
+                    </span>
+                    <span class="win-value" th:text="${h.value}">-</span>
+                    <span class="win-sub" th:text="${h.sub}">-</span>
+                </div>
+            </div>
+
+            <div class="tally" th:if="${v.hero.compared > 0}">
+                <h3 class="tally-title">Hoe vaak bij de besten <span class="note-xs" th:text="'op de ' + ${v.hero.compared} + ' onderdelen die te vergelijken waren'">-</span></h3>
+                <div class="tally-row" th:each="t : ${v.hero.tally}" th:classappend="'run-' + ${t.run.index}">
+                    <span class="run-letter" aria-hidden="true" th:text="${t.run.letter}">A</span>
+                    <span class="tally-name" th:text="${t.run.name} + ' · ' + ${t.run.dateShort}">-</span>
+                    <span class="pips" role="img" th:attr="aria-label=${t.run.letter} + ': ' + ${t.wins} + ' keer alleen de beste, ' + ${t.shared} + ' keer gedeeld, van ' + ${v.hero.compared}">
+                        <span class="pip" th:each="p : ${t.pips}" th:classappend="${p}"></span>
+                    </span>
+                    <span class="tally-count"><strong th:text="${t.wins + t.shared}">0</strong><span th:if="${t.shared > 0}" th:text="'waarvan ' + ${t.shared} + ' gedeeld'">-</span></span>
+                </div>
+                <p class="legend"><span><span class="pip is-win run-1 pip-legend"></span> alleen de beste</span><span><span class="pip is-shared run-1 pip-legend"></span> gedeeld: even goed als een andere run</span><span><span class="pip pip-legend"></span> niet de beste</span></p>
+            </div>
+
+            <h3 class="check-title">Hoe vergelijkbaar zijn deze runs?</h3>
+            <ul class="check-list">
+                <li th:each="c : ${v.hero.checks}" th:classappend="${c.ok == null} ? 'check-unknown' : (${c.ok} ? 'check-ok' : 'check-no')">
+                    <span aria-hidden="true" th:text="${c.ok == null} ? '?' : (${c.ok} ? '✓' : '≠')">✓</span>
+                    <span class="sr-only" th:text="${c.ok == null} ? 'onbekend: ' : (${c.ok} ? 'klopt: ' : 'verschilt: ')">-</span>
+                    <span th:text="${c.text}">-</span>
+                </li>
+            </ul>
+
+            <div class="hero-conclusion">
+                <h3>Conclusie</h3>
+                <p th:each="line : ${v.hero.conclusion}" th:text="${line}">-</p>
+            </div>
+
+            <details class="explain">
+                <summary>Hoe vergelijkt de app?</summary>
+                <div>
+                    <p><strong>Per onderdeel, geen totaalscore.</strong> Voor elk onderdeel kijkt de app welke run het best was. Liggen twee runs binnen de meetruis, dan delen ze de eerste plaats. De titel noemt de run die het vaakst bij de besten was (alleen of gedeeld); bij een gelijke stand beslist wie het vaakst alleen de beste was. Elk onderdeel weegt even zwaar. GAP wordt getoond maar telt niet apart mee, want het is dezelfde snelheid gecorrigeerd voor hellingen.</p>
+                    <p><strong>Meetruis.</strong> Een verschil telt pas boven 1 % voor tempo, 3 % voor meter per hartslag, 1 procentpunt voor ontkoppeling, temposchommeling, spreiding en verval, en 3 bpm voor hartslagherstel. Daaronder zijn runs even goed. Een ontkoppeling of verval onder 0 % telt als 0 %: niets verliezen is het beste wat kan, een sterk negatief cijfer wijst eerder op een trage start.</p>
+                    <p><strong>Onder voorbehoud.</strong> Verschillen de runs in soort training, afstand (meer dan 25 %), terrein, ondergrond, temperatuur (meer dan 5 °C) of hartslag (meer dan 10 bpm in het stabiele deel, 5 bpm over de hele run), dan blijft de beste run vermeld maar met een waarschuwing. Reps met een andere opbouw en hartslagherstel met een andere manier van herstellen krijgen geen winnaar.</p>
+                    <p><strong>Waar de cijfers vandaan komen.</strong> Snelheid uit je Strava-samenvatting (bewegingstijd); meter per hartslag, ontkoppeling, temposchommeling, GAP en reps uit dezelfde berekening als de Prestatie-analyse; de uitvoering uit Training beoordelen. Een onderdeel verschijnt alleen als minstens twee runs er een waarde voor hebben.</p>
+                </div>
+            </details>
+        </section>
+
+        <!--/* ============================== aspects ============================== */-->
+        <section class="card perf-section" id="onderdelen" aria-labelledby="h-aspects">
+            <div class="card-head">
+                <h2 id="h-aspects">Per onderdeel</h2>
+                <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span>
+            </div>
+            <p class="lead">Elke run staat op dezelfde as: <strong>hoe verder naar rechts, hoe beter</strong>. De lichtgroene band naast de beste waarde is de meetruis: wie daarin valt, is even goed. <th:block th:replace="~{fragments :: help(${g['meetruis']})}"/> Een gestippelde rand betekent onder voorbehoud. <th:block th:replace="~{fragments :: help(${g['voorbehoud']})}"/></p>
+            <div class="aspect-grid">
+                <article class="aspect" th:each="a : ${v.aspects}" th:id="'a-' + ${a.key}" th:classappend="${a.caution} ? 'is-caution'" th:attr="aria-labelledby='h-a-' + ${a.key}">
+                    <header class="aspect-head">
+                        <h3 th:id="'h-a-' + ${a.key}"><span th:text="${a.title}">Snelheid</span><th:block th:replace="~{fragments :: help(${a.tip == null ? null : g[a.tip]})}"/></h3>
+                        <span class="pill" th:classappend="${a.statusTone.css}" th:text="${a.statusLabel}">Best: A</span>
+                    </header>
+                    <p class="aspect-lead" th:text="${a.lead}">-</p>
+
+                    <div class="dotplot" th:unless="${a.discrete}">
+                        <div class="dot-row" th:each="row : ${a.rows}" th:classappend="'run-' + ${row.run.index} + (${row.best} ? ' is-best' : '')">
+                            <span class="run-letter" th:text="${row.run.letter}" th:title="${row.run.name} + ', ' + ${row.run.date}">A</span>
+                            <div class="dot-track" th:if="${row.pos != null}" aria-hidden="true">
+                                <span class="dot-band" th:if="${a.bandFrom != null}" th:style="'left:' + ${#numbers.formatDecimal(a.bandFrom < a.bandTo ? a.bandFrom : a.bandTo, 1, 'POINT', 1, 'POINT')} + '%;width:' + ${#numbers.formatDecimal(a.bandFrom < a.bandTo ? a.bandTo - a.bandFrom : a.bandFrom - a.bandTo, 1, 'POINT', 1, 'POINT')} + '%'"></span>
+                                <span class="dot" th:style="'left:' + ${#numbers.formatDecimal(row.pos, 1, 'POINT', 1, 'POINT')} + '%'"></span>
+                            </div>
+                            <div class="dot-track is-empty" th:if="${row.pos == null}"><span class="dot-missing" th:text="'niet beschikbaar: ' + ${row.note}">-</span></div>
+                            <span class="dot-value" th:if="${row.pos != null}">
+                                <strong th:text="${row.value}">-</strong>
+                                <span class="dot-note" th:if="${row.note != null}" th:text="${row.note}">-</span>
+                            </span>
+                            <span class="dot-value" th:if="${row.pos == null}"><strong class="is-na">-</strong></span>
+                        </div>
+                        <div class="dot-axis" aria-hidden="true">
+                            <span></span>
+                            <span class="dot-axis-scale"><span th:text="${a.axisLeft}">-</span><span class="dot-axis-caption" th:text="${a.axisCaption}">beter</span><span th:text="${a.axisRight}">-</span></span>
+                            <span></span>
+                        </div>
+                    </div>
+
+                    <ul class="verdict-list" th:if="${a.discrete}">
+                        <li th:each="row : ${a.rows}" th:classappend="'run-' + ${row.run.index}">
+                            <span class="run-letter" th:text="${row.run.letter}">A</span>
+                            <span class="verdict-name" th:text="${row.run.name} + ' · ' + ${row.run.dateShort}">-</span>
+                            <span class="pill" th:classappend="${row.tone.css}" th:text="${row.value}" th:title="${row.note}">-</span>
+                            <span class="verdict-note" th:if="${row.note != null}" th:text="${row.note}">-</span>
+                            <a class="row-action row-action--quiet" th:href="@{/rate-training/{id}(id=${row.run.id})}" th:attr="aria-label='Beoordeling van ' + ${row.run.name}">Beoordeling</a>
+                        </li>
+                    </ul>
+
+                    <p class="aspect-verdict" th:text="${a.verdict}">-</p>
+                    <p class="aspect-caution" th:if="${a.caution}"><strong>Onder voorbehoud:</strong> <span th:text="${#strings.listJoin(a.cautions, '; ')} + '.'">-</span></p>
+                </article>
+            </div>
+            <p class="note-xs mt-2" th:if="${!v.skipped.isEmpty()}" th:text="'Niet vergeleken, omdat minder dan twee runs een waarde hebben: ' + ${#strings.listJoin(v.skipped, '; ')} + '.'">-</p>
+        </section>
+
+        <!--/* ============================== curves ============================== */-->
+        <section class="card perf-section" id="verloop" th:if="${v.hasCurves || v.hasReps}" aria-labelledby="h-curves">
+            <div class="card-head">
+                <h2 id="h-curves">Verloop</h2>
+                <span class="badge badge-calc" title="Rechtstreeks uit je detailmetingen, per blok gemiddeld.">berekend</span>
+            </div>
+            <p class="lead" th:if="${v.hasCurves}">Tempo en hartslag over de afstand, gemiddeld per blok van <span th:text="${v.blockText}">250 m</span>. Pauzes tellen niet mee. Zo zie je waar een run sneller of trager werd en waar je hartslag opliep. Klik op een run in de legende om ze te verbergen.</p>
+            <div class="chart-grid" th:if="${v.hasCurves}">
+                <figure class="mini-chart">
+                    <figcaption>Tempo <span class="unit">min/km, sneller = hoger</span></figcaption>
+                    <div class="chart-box"><canvas id="cPace" role="img" aria-label="Tempo per blok over de afstand, per run"></canvas></div>
+                </figure>
+                <figure class="mini-chart" th:if="${v.hasHrCurves}">
+                    <figcaption>Hartslag <span class="unit">bpm</span></figcaption>
+                    <div class="chart-box"><canvas id="cHr" role="img" aria-label="Hartslag per blok over de afstand, per run"></canvas></div>
+                </figure>
+            </div>
+            <th:block th:if="${v.hasReps}">
+                <h3 class="sub-head">Rep per rep</h3>
+                <p class="lead">Tempo en gemiddelde hartslag van elke herkende rep. Een vlakke lijn = gelijkmatig gelopen; een dalende tempolijn = je zakte weg.</p>
+                <div class="chart-grid">
+                    <figure class="mini-chart">
+                        <figcaption>Tempo per rep <span class="unit">min/km</span></figcaption>
+                        <div class="chart-box chart-box--sm"><canvas id="cRepPace" role="img" aria-label="Tempo per rep, per run"></canvas></div>
+                    </figure>
+                    <figure class="mini-chart">
+                        <figcaption>Hartslag per rep <span class="unit">bpm</span></figcaption>
+                        <div class="chart-box chart-box--sm"><canvas id="cRepHr" role="img" aria-label="Gemiddelde hartslag per rep, per run"></canvas></div>
+                    </figure>
+                </div>
+            </th:block>
+        </section>
+
+        <!--/* ============================== zones ============================== */-->
+        <section class="card perf-section" id="zones" th:if="${!v.zoneRows.isEmpty()}" aria-labelledby="h-zones">
+            <div class="card-head">
+                <h2 id="h-zones">Tijd in hartslagzones <th:block th:replace="~{fragments :: help(${g['zones']})}"/></h2>
+                <span class="badge badge-calc" title="Uit je hartslagmetingen en je zones.">berekend</span>
+            </div>
+            <p class="lead">Hoe hard elke run was. Runs met een andere verdeling zijn een andere training, ook als de afstand gelijk is.</p>
+            <div class="zone-rows">
+                <div class="zone-row" th:each="z : ${v.zoneRows}" th:classappend="'run-' + ${z.run.index}">
+                    <span class="run-letter" th:text="${z.run.letter}" th:title="${z.run.name}">A</span>
+                    <div class="zone-bar" th:if="${z.shares != null}" role="img" th:attr="aria-label=${z.aria}">
+                        <div th:each="s : ${z.shares}" th:if="${s.pct > 0}" th:class="'zone-bg-' + ${s.zone}" th:style="'flex:' + ${#numbers.formatDecimal(s.pct, 1, 'POINT', 2, 'POINT')}" th:text="${s.pct >= 8} ? ${#numbers.formatDecimal(s.pct, 1, 0)} + '%' : ''" th:title="'Zone ' + ${s.zone} + ': ' + ${s.minutes} + ' (' + ${#numbers.formatDecimal(s.pct, 1, 0)} + ' %)'">-</div>
+                    </div>
+                    <p class="note-xs" th:if="${z.shares == null}" th:text="${z.note}">-</p>
+                </div>
+            </div>
+            <div class="legend">
+                <span th:each="z : ${v.zoneLegend}"><span class="zone-chip" th:classappend="'zone-bg-' + ${z.first}"></span><strong th:text="'Zone ' + ${z.first}">Zone 1</strong> <span th:text="${z.second}">-</span></span>
+            </div>
+            <p class="note-xs mt-2" th:text="${v.zoneNote}">-</p>
+        </section>
+
+        <!--/* ============================== table ============================== */-->
+        <section class="card perf-section" id="cijfers" aria-labelledby="h-table">
+            <h2 id="h-table">Alle cijfers</h2>
+            <p class="lead">Alle waarden naast elkaar. Groen = beste op dat onderdeel (alleen als het verschil groter is dan de meetruis).</p>
+            <details class="more">
+                <summary>Toon als tabel</summary>
+                <div class="table-wrap">
+                    <table class="cmp-runs-table">
+                        <thead>
+                        <tr>
+                            <th scope="col"><span class="sr-only">Meting</span></th>
+                            <th scope="col" class="num" th:each="r : ${v.runs}" th:classappend="'run-' + ${r.index}">
+                                <span class="th-run"><span class="run-letter" th:text="${r.letter}">A</span><span class="th-run-name" th:text="${r.name}">-</span></span>
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="row : ${v.table}" th:classappend="${row.groupStart} ? 'row-group'">
+                            <th scope="row"><span th:text="${row.label}">-</span><th:block th:replace="~{fragments :: help(${row.tip == null ? null : g[row.tip]})}"/></th>
+                            <td class="num" th:each="val, s : ${row.values}" th:classappend="${row.best[s.index]} ? 'cell-best'" th:text="${val}">-</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="note-xs mt-2" th:if="${!v.hiddenRows.isEmpty()}" th:text="'Niet getoond omdat geen enkele run een waarde heeft: ' + ${#strings.listJoin(v.hiddenRows, ', ')} + '.'">-</p>
+            </details>
+        </section>
+
+        <details class="explain card" id="begrippen">
+            <summary>Begrippen op deze pagina</summary>
+            <div>
+                <dl class="glossary">
+                    <div th:each="t : ${glossary}" th:id="'term-' + ${t.key}"><dt th:text="${t.title}">-</dt><dd th:text="${t.text}">-</dd></div>
+                </dl>
+            </div>
+        </details>
+
+        <script th:inline="javascript">
+            (function () {
+                var C = /*[[${chart}]]*/ null;
+                if (!C || !window.Chart) return;
+                var narrow = RC.narrow();
+                function mmss(s) {
+                    if (s == null || !isFinite(s)) return '-';
+                    s = Math.round(s);
+                    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+                }
+                /* Cap the pace axis so one standing block does not flatten every line; the tooltip still shows the real value. */
+                function paceCap(values) {
+                    var v = values.filter(function (x) { return x != null; }).sort(function (a, b) { return a - b; });
+                    if (!v.length) return undefined;
+                    var p95 = v[Math.floor((v.length - 1) * 0.95)];
+                    var max = v[v.length - 1];
+                    return max > p95 * 1.25 ? Math.ceil(p95 * 1.2 / 15) * 15 : undefined;
+                }
+                function sets(key, idx, opts) {
+                    return C.runs.map(function (r) {
+                        var pts = r[key].filter(function (p) { return p[idx] != null; }).map(function (p) { return { x: p[0], y: p[idx] }; });
+                        if (!pts.length) return null;
+                        return Object.assign({
+                            label: r.letter + ' · ' + r.date, data: pts, borderColor: r.color, backgroundColor: r.color,
+                            borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.25
+                        }, opts || {});
+                    }).filter(Boolean);
+                }
+                function lineChart(id, ds, cfg) {
+                    var el = document.getElementById(id);
+                    if (!el || !ds.length) return;
+                    new Chart(el, {
+                        type: 'line',
+                        data: { datasets: ds },
+                        options: {
+                            maintainAspectRatio: false,
+                            parsing: false,
+                            interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+                            scales: { x: cfg.x, y: cfg.y },
+                            plugins: {
+                                legend: { position: 'bottom', labels: { boxWidth: 10 } },
+                                tooltip: { callbacks: { title: cfg.title, label: cfg.label } }
+                            }
+                        }
+                    });
+                }
+                var kmAxis = { type: 'linear', min: 0, title: RC.axisTitle('Afstand (km)', 'km'), ticks: { callback: function (v) { return v + ' km'; } } };
+                var paces = [];
+                C.runs.forEach(function (r) { r.curve.forEach(function (p) { paces.push(p[1]); }); });
+                lineChart('cPace', sets('curve', 1), {
+                    x: kmAxis,
+                    y: { reverse: true, max: paceCap(paces), title: RC.axisTitle('Tempo (min/km)', 'min/km'), ticks: { callback: function (v) { return mmss(v); } } },
+                    title: function (items) { return items.length ? 'Na ' + items[0].parsed.x.toFixed(2).replace(/\.?0+$/, '') + ' km' : ''; },
+                    label: function (c) { return c.dataset.label.split(' · ')[0] + ': ' + mmss(c.parsed.y) + ' /km'; }
+                });
+                lineChart('cHr', sets('curve', 2), {
+                    x: kmAxis,
+                    y: { grace: '5%', title: RC.axisTitle('Hartslag (bpm)', 'bpm') },
+                    title: function (items) { return items.length ? 'Na ' + items[0].parsed.x.toFixed(2).replace(/\.?0+$/, '') + ' km' : ''; },
+                    label: function (c) { return c.dataset.label.split(' · ')[0] + ': ' + Math.round(c.parsed.y) + ' bpm'; }
+                });
+                var repOpts = { pointRadius: narrow ? 3 : 4, pointHoverRadius: 6, tension: 0 };
+                var repAxis = { type: 'linear', min: 1, ticks: { stepSize: 1, precision: 0, callback: function (v) { return 'rep ' + v; } }, title: RC.axisTitle('Rep', 'rep') };
+                var repSets = function (idx) {
+                    return sets('reps', idx, repOpts).map(function (d) {
+                        var run = C.runs.filter(function (r) { return d.label.indexOf(r.letter + ' · ') === 0; })[0];
+                        if (run && run.signature) d.label += ' · ' + run.signature;
+                        return d;
+                    });
+                };
+                lineChart('cRepPace', repSets(1), {
+                    x: repAxis,
+                    y: { reverse: true, grace: '5%', title: RC.axisTitle('Tempo (min/km)', 'min/km'), ticks: { callback: function (v) { return mmss(v); } } },
+                    title: function (items) { return items.length ? 'Rep ' + items[0].parsed.x : ''; },
+                    label: function (c) { return c.dataset.label.split(' · ')[0] + ': ' + mmss(c.parsed.y) + ' /km'; }
+                });
+                lineChart('cRepHr', repSets(2), {
+                    x: repAxis,
+                    y: { grace: '5%', title: RC.axisTitle('Hartslag (bpm)', 'bpm') },
+                    title: function (items) { return items.length ? 'Rep ' + items[0].parsed.x : ''; },
+                    label: function (c) { return c.dataset.label.split(' · ')[0] + ': ' + Math.round(c.parsed.y) + ' bpm'; }
+                });
+            })();
+        </script>
+    </th:block>
+</th:block>
+</html>

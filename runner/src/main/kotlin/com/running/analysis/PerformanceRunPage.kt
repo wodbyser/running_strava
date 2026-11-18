@@ -33,6 +33,8 @@ data class CmpRow(
     val cells: List<CriterionCell>,
     val agree: String,
     val self: Boolean,
+    /** Ticked by default for "Vergelijk geselecteerde runs": the closest matches. */
+    val checked: Boolean = false,
 )
 
 data class RepRow(val number: Int, val distance: String, val time: String, val pace: String, val hr: String, val rest: String, val hrr: String)
@@ -54,6 +56,8 @@ data class RunPage(
 object RunPageBuilder {
     private val ROOT = Locale.ROOT
     private const val DECOUPLING_RULE = 5.0
+    /** How many of the closest comparable runs are ticked for the side-by-side comparison. */
+    const val PRESELECTED = 3
 
     private val SHORT = mapOf(
         Criterion.HR to CriterionHead("HR ±5", "Gemiddelde hartslag binnen 5 bpm van deze run"),
@@ -159,7 +163,7 @@ object RunPageBuilder {
         val hidden = Criterion.entries.filter { it !in shown }.map { it.text }
         val rows = buildList {
             report.reference?.takeIf { c.matches.isNotEmpty() }?.let { add(row(it, null, shown, a.name, true)) }
-            c.matches.forEach { m -> add(row(m.run, m, shown, report.names[m.run.activityId] ?: "", false)) }
+            c.matches.forEachIndexed { i, m -> add(row(m.run, m, shown, report.names[m.run.activityId] ?: "", false).copy(checked = i < PRESELECTED)) }
         }
         return RunPage(
             PerfDates.dayLong(a.date), facts, metrics, shares, report.zoneNote,

@@ -139,6 +139,15 @@ data class RunReport(
     val names: Map<Long, String> = emptyMap(),
 )
 
+/** The analysis of a few chosen runs, for the side-by-side comparison. */
+data class RunSet(
+    val runs: List<RunAnalysis>,
+    val zoneSet: HrZoneSet?,
+    val zoneNote: String,
+    /** Seconds per heart rate zone, by run id; only runs with enough heart rate data. */
+    val zoneSeconds: Map<Long, List<Double>>,
+)
+
 /** Loads runs, streams and laps, runs the pure analysis, caches per-run results in memory. Logs counts only. */
 @Service
 class PerformanceService(
@@ -372,6 +381,22 @@ class PerformanceService(
         val d = diff("EF-verandering op minuut 60", "durability", FitnessView.Favourable.WHEN_HIGHER, "minder EF-verlies na een uur = steviger", "procentpunt",
             dur60.filter { inPrev(it.date) }.map { it.run.efChangeAt60Pct!! }, dur60.filter { inLast(it.date) }.map { it.run.efChangeAt60Pct!! }, cfg.minRunsDurability, EfVerdict.THRESHOLD_PCT)
         return listOf(a, b, c, d)
+    }
+
+    /**
+     * The per-run analysis of a few chosen runs, in the given order, with the same max-HR estimate and zones as the
+     * rest of the performance pages. Unknown ids and activities that are not runs are left out.
+     */
+    fun analyses(ids: List<Long>, zonePref: String? = null): RunSet {
+        val runs = eligibleRuns()
+        val targets = ids.distinct().mapNotNull { id -> runs.firstOrNull { it.id == id } ?: activityRepository.findById(id)?.takeIf { it.isRun() } }
+        if (targets.isEmpty()) return RunSet(emptyList(), null, "", emptyMap())
+        val laps = activityRepository.findLapsForActivities(targets.map { it.id })
+        val maxHr = HrZones.estimateMaxHrForRuns(runs.ifEmpty { targets }, ZonedDateTime.now(clock))
+        val (set, note) = zoneSet(zonePref, maxHr)
+        val analyses = targets.map { analyze(it, laps[it.id].orEmpty(), maxHr) }
+        val zones = if (set == null) emptyMap() else analyses.filter { it.histogram != null }.associate { it.id to ZoneDistribution.seconds(it.histogram!!, set) }
+        return RunSet(analyses, set, note, zones)
     }
 
     fun runReport(id: Long, zonePref: String? = null, typicalDays: Int = DEFAULT_TYPICAL_DAYS): RunReport? {

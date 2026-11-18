@@ -91,6 +91,10 @@
                         <span class="nav-item-title">Alle trainingen</span>
                         <span class="nav-item-desc">Elke run met rondetijden en details</span>
                     </a>
+                    <a href="/compare-runs" data-match="/compare-runs">
+                        <span class="nav-item-title">Trainingen vergelijken</span>
+                        <span class="nav-item-desc">2 tot 6 runs naast elkaar: wie was het best?</span>
+                    </a>
                     <a href="/pbs" data-match="/pbs">
                         <span class="nav-item-title">Persoonlijke records</span>
                         <span class="nav-item-desc">Je snelste tijden per afstand</span>
@@ -116,7 +120,7 @@
                         <span class="nav-item-title">Wedstrijd</span>
                         <span class="nav-item-desc">Voorspelling, doeltijd en pacing</span>
                     </a>
-                    <a href="/compare" data-match="/compare">
+                    <a href="/compare" data-match="=/compare /compare/">
                         <span class="nav-item-title">Periodes vergelijken</span>
                         <span class="nav-item-desc">Twee periodes naast elkaar</span>
                     </a>
@@ -273,6 +277,42 @@
             render();
         });
 
+        // Choosing runs to compare: <form data-pick="6"> with checkboxes name="ids" (and optional fixed hidden ids).
+        // Keeps the count, blocks more than the maximum, enables the button from two runs on, and filters on [data-pick-search].
+        document.querySelectorAll('form[data-pick]').forEach(function (form) {
+            var max = parseInt(form.getAttribute('data-pick'), 10) || 6, min = 2;
+            var boxes = Array.prototype.slice.call(form.querySelectorAll('input[type="checkbox"][name="ids"]'));
+            var fixed = form.querySelectorAll('input[type="hidden"][name="ids"]').length;
+            var dock = form.querySelector('[data-pick-dock]');
+            function sync() {
+                var n = fixed + boxes.filter(function (b) { return b.checked; }).length;
+                boxes.forEach(function (b) { b.disabled = !b.checked && n >= max; });
+                var text = n < min ? (n === 0 ? 'Kies minstens 2 trainingen' : 'Kies er nog ' + (min - n))
+                    : n + ' gekozen' + (n >= max ? ' · maximum bereikt' : ' · nog ' + (max - n) + ' mogelijk');
+                form.querySelectorAll('[data-pick-count]').forEach(function (c) { c.textContent = text; });
+                form.querySelectorAll('[data-pick-submit]').forEach(function (s) { s.disabled = n < min; });
+                if (dock) dock.hidden = n - fixed < 1;
+            }
+            boxes.forEach(function (b) { b.addEventListener('change', sync); });
+            var search = form.querySelector('[data-pick-search]');
+            if (search) {
+                var empty = form.querySelector('[data-pick-empty]');
+                search.addEventListener('input', function () {
+                    var q = search.value.trim().toLowerCase(), shown = 0;
+                    form.querySelectorAll('[data-search]').forEach(function (li) {
+                        var hit = !q || li.getAttribute('data-search').indexOf(q) >= 0 || li.querySelector('input:checked');
+                        li.hidden = !hit; if (hit) shown++;
+                    });
+                    if (empty) empty.hidden = shown > 0;
+                });
+                // Enter in the search box must not submit a half-made choice.
+                search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+            }
+            sync();
+            // Back/forward restores ticked boxes without a change event.
+            window.addEventListener('pageshow', sync);
+        });
+
         // A table wider than the screen scrolls sideways. Say so instead of leaving columns silently cut off,
         // and keep the swipe inside the table so it cannot trigger the browser's back gesture.
         // Wide tables usually sit folded away in a <details>, so watch the wrapper instead of the window:
@@ -397,7 +437,8 @@
         var path = window.location.pathname;
         nav.querySelectorAll('a').forEach(function (a) {
             var match = a.getAttribute('data-match') || a.getAttribute('href');
-            var active = match === 'exact' ? path === '/' : match.split(' ').some(function (m) { return path.indexOf(m) === 0; });
+            // "=/x" matches that path only; other tokens match as a prefix.
+            var active = match === 'exact' ? path === '/' : match.split(' ').some(function (m) { return m.charAt(0) === '=' ? path === m.slice(1) : path.indexOf(m) === 0; });
             if (active) a.setAttribute('aria-current', 'page');
         });
         // A dropdown holding the current page is marked as the current section too.
