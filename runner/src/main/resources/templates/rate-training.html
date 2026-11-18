@@ -58,8 +58,17 @@
             </table>
         </div>
         <div class="compare-dock" data-pick-dock hidden>
-            <span><span class="pick-count" data-pick-count aria-live="polite">-</span><br><span class="note-xs">Vergelijk runs van dezelfde soort en afstand voor de duidelijkste uitkomst.</span></span>
-            <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk de gekozen trainingen</button>
+            <div class="dock-status">
+                <span class="dock-meter" data-pick-meter aria-hidden="true"></span>
+                <span class="dock-text">
+                    <span class="pick-count" data-pick-count aria-live="polite">-</span>
+                    <span class="note-xs">Vergelijk runs van dezelfde soort en afstand voor de duidelijkste uitkomst.</span>
+                </span>
+            </div>
+            <div class="dock-actions">
+                <button type="button" class="btn btn-ghost btn-sm" data-pick-clear>Wis keuze</button>
+                <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk trainingen <span aria-hidden="true">&rarr;</span></button>
+            </div>
         </div>
     </section>
     </form>

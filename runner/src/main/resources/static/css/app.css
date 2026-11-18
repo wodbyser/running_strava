@@ -1021,19 +1021,43 @@ details.picker[open] > summary { margin-bottom: var(--sp-3); }
 .pick-check input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 td.pick-cell { width: 1%; padding-right: 0; vertical-align: middle; }
 tr:has(.pick-check input:checked) { background: var(--accent-soft); }
-/* Compare action that follows the reader down a long list once something is ticked. */
+/* Compare action that follows the reader down a long list once something is ticked: a light, frosted dock with a
+   slot meter (one pip per run you can pick) so the state reads at a glance, and a button that is clearly off or on. */
 .compare-dock {
-    position: sticky; bottom: var(--sp-3); z-index: 30; margin-top: var(--sp-4);
-    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap;
-    padding: var(--sp-3) var(--sp-4); border-radius: var(--radius); background: #101b24; color: #e6edf1;
-    box-shadow: var(--shadow-lg);
+    position: sticky; bottom: var(--sp-4); z-index: 30; margin-top: var(--sp-4);
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-5); flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); border-radius: 14px;
+    background: rgba(255, 255, 255, 0.88); color: var(--ink);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
+    border: 1px solid rgba(200, 209, 216, 0.7);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 18px 40px -14px rgba(10, 18, 26, 0.26), 0 3px 10px rgba(10, 18, 26, 0.06);
+    animation: dock-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.compare-dock::before {
+    content: ""; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent-line), transparent); opacity: 0; transition: opacity 0.2s ease;
+}
+.compare-dock.is-ready::before { opacity: 1; }
 .compare-dock[hidden] { display: none; }
-.compare-dock .pick-count { color: #e6edf1; }
-.compare-dock .note-xs { color: #9fb0bd; }
-.compare-dock .btn-primary { background: var(--accent-line); color: #0b2a24; }
-.compare-dock .btn-primary:hover { background: #9fd8cb; color: #0b2a24; }
-.compare-dock .btn[disabled] { opacity: 0.45; }
+@keyframes dock-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.dock-status { display: flex; align-items: center; gap: var(--sp-4); min-width: 0; flex: 1 1 18rem; }
+.dock-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.compare-dock .pick-count { color: var(--ink); font-weight: 600; font-size: var(--fs-md); }
+.compare-dock .note-xs { color: var(--muted); }
+.dock-meter { display: inline-flex; gap: 4px; flex: none; padding: 7px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.dock-meter i { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); opacity: 0.55; transition: background-color 0.18s ease, transform 0.18s ease, opacity 0.18s ease; }
+.dock-meter i.is-need { background: transparent; opacity: 1; box-shadow: inset 0 0 0 1.5px var(--accent-line); }
+.dock-meter i.is-on { background: var(--accent); opacity: 1; transform: scale(1.12); box-shadow: 0 0 0 2px var(--accent-soft); }
+.dock-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.compare-dock .btn-primary { min-height: 42px; padding: 0 var(--sp-5); border-radius: 10px; }
+.compare-dock .btn-primary span { transition: transform 0.16s ease; }
+.compare-dock .btn-primary:not([disabled]):hover span { transform: translateX(3px); }
+.compare-dock .btn-primary[disabled] {
+    opacity: 1; cursor: not-allowed; background: var(--surface-2); color: var(--muted);
+    border: 1px dashed var(--line-strong); box-shadow: none;
+}
+.compare-dock .btn-ghost { color: var(--muted); }
+.compare-dock .btn-ghost:hover { color: var(--ink); background: rgba(21, 32, 43, 0.05); }
 .compare-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
 
 /* Conclusion: who was fastest, fittest and best executed, then the tally and the comparability checks. */
@@ -1144,7 +1168,9 @@ tr:has(.pick-check input:checked) { background: var(--accent-soft); }
     .table-stack td.pick-cell { position: absolute; top: var(--sp-2); right: 0; width: auto; padding: 0; }
     .table-stack tbody tr:has(td.pick-cell) td.stack-title { padding-right: 48px; }
     .compare-dock { bottom: var(--sp-2); padding: var(--sp-3); }
-    .compare-dock .btn { flex: 1 1 100%; }
+    .dock-status { gap: var(--sp-3); flex-basis: 100%; }
+    .dock-actions { flex: 1 1 100%; }
+    .compare-dock .btn-primary { flex: 1 1 auto; }
     .tally-row { grid-template-columns: auto minmax(0, 1fr) auto; }
     .tally-row .pips { grid-column: 2 / -1; grid-row: 2; }
     .dot-row, .dot-axis { grid-template-columns: 24px minmax(0, 1fr) minmax(6.5rem, auto); gap: var(--sp-2); }

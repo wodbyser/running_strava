@@ -295,6 +295,8 @@
             var boxes = Array.prototype.slice.call(form.querySelectorAll('input[type="checkbox"][name="ids"]'));
             var fixed = form.querySelectorAll('input[type="hidden"][name="ids"]').length;
             var dock = form.querySelector('[data-pick-dock]');
+            var meter = form.querySelector('[data-pick-meter]');
+            if (meter) for (var i = 0; i < max; i++) meter.appendChild(document.createElement('i'));
             function sync() {
                 var n = fixed + boxes.filter(function (b) { return b.checked; }).length;
                 boxes.forEach(function (b) { b.disabled = !b.checked && n >= max; });
@@ -302,9 +304,15 @@
                     : n + ' gekozen' + (n >= max ? ' · maximum bereikt' : ' · nog ' + (max - n) + ' mogelijk');
                 form.querySelectorAll('[data-pick-count]').forEach(function (c) { c.textContent = text; });
                 form.querySelectorAll('[data-pick-submit]').forEach(function (s) { s.disabled = n < min; });
-                if (dock) dock.hidden = n - fixed < 1;
+                if (meter) Array.prototype.forEach.call(meter.children, function (s, i) {
+                    s.className = i < n ? 'is-on' : (i < min ? 'is-need' : '');
+                });
+                if (dock) { dock.hidden = n - fixed < 1; dock.classList.toggle('is-ready', n >= min); }
             }
             boxes.forEach(function (b) { b.addEventListener('change', sync); });
+            form.querySelectorAll('[data-pick-clear]').forEach(function (c) {
+                c.addEventListener('click', function () { boxes.forEach(function (b) { b.checked = false; }); sync(); });
+            });
             // Filters: search text, date range, kind of session and kind of run. A ticked run always stays visible,
             // so a choice is never lost or hidden by a filter.
             var search = form.querySelector('[data-pick-search]');
