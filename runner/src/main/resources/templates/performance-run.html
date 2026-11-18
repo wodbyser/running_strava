@@ -95,7 +95,7 @@
             <tbody>
             <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'">
                 <td class="pick-cell">
-                    <label class="pick-check" th:unless="${m.self}" th:title="'Naast deze run leggen: ' + ${m.name}"><input type="checkbox" name="ids" th:value="${m.id}" th:checked="${m.checked}" th:attr="aria-label='Vergelijk met ' + ${m.name} + ' van ' + ${m.date}"></label>
+                    <label class="pick-check" th:unless="${m.self}" th:title="'Naast deze run leggen: ' + ${m.name}"><input type="checkbox" name="ids" th:value="${m.id}" th:attr="aria-label='Vergelijk met ' + ${m.name} + ' van ' + ${m.date}"></label>
                     <span class="pick-check" th:if="${m.self}" title="Deze run zit altijd in de vergelijking" aria-hidden="true">&#10003;</span>
                 </td>
                 <td class="nowrap"><a th:unless="${m.self}" th:href="@{/performance/run/{id}(id=${m.id})}" th:text="${m.date}">-</a><span th:if="${m.self}" th:text="${m.date}">-</span></td>
@@ -111,7 +111,7 @@
             </tbody>
         </table></div>
         <div class="compare-bar">
-            <span><span class="pick-count" data-pick-count aria-live="polite">-</span><br><span class="note-xs">Vink aan welke runs je echt naast deze wil leggen. De (maximaal drie) runs die het best overeenkomen staan al aangevinkt.</span></span>
+            <span><span class="pick-count" data-pick-count aria-live="polite">-</span><br><span class="note-xs">Vink aan welke runs je naast deze wil leggen (maximaal 5).</span></span>
             <button type="submit" class="btn btn-primary" data-pick-submit>Vergelijk geselecteerde runs</button>
         </div>
         </form>
