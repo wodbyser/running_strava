@@ -980,8 +980,16 @@ details.picker { margin-top: var(--sp-4); }
 details.picker > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-sm); color: var(--accent); min-height: 36px; display: inline-flex; align-items: center; }
 details.picker[open] > summary { margin-bottom: var(--sp-3); }
 .picker-form { display: flex; flex-direction: column; gap: var(--sp-3); }
-.picker-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); }
-.picker-tools input[type="search"] { flex: 1 1 18rem; max-width: 28rem; }
+.pick-filters {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3) var(--sp-4);
+    padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--radius-sm);
+}
+.pick-filters .filter-group label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.pick-search { flex: 1 1 14rem; }
+.pick-search input { width: 100%; }
+.pick-filters select { min-width: 10rem; }
+.pick-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4); min-height: 34px; }
+.pick-status [data-pick-shown] { font-weight: 600; color: var(--ink-2); }
 .pick-list {
     list-style: none; max-height: 26rem; overflow-y: auto; overscroll-behavior: contain;
     border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
@@ -1123,6 +1131,11 @@ tr:has(.pick-check input:checked) { background: var(--accent-soft); }
     .pick-row { grid-template-columns: auto minmax(0, 1fr); min-height: 56px; }
     .pick-meta { grid-column: 2; flex-direction: row; flex-wrap: wrap; gap: 0 var(--sp-2); align-items: flex-start; white-space: normal; }
     .pick-foot .btn { flex: 1 1 auto; }
+    .pick-filters { padding: var(--sp-3); }
+    .pick-filters > .filter-group { flex: 1 1 9rem; }
+    .pick-filters > .pick-search { flex-basis: 100%; }
+    .pick-filters select, .pick-filters .date-field { width: 100%; }
+    .pick-hint { display: none; }
     .pick-check { min-width: 44px; min-height: 44px; }
     /* Stacked rows: the checkbox sits in the top-right corner, next to the run name. */
     .table-stack tbody tr:has(td.pick-cell) { position: relative; }

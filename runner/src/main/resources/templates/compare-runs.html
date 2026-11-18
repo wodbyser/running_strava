@@ -42,23 +42,52 @@
         <details class="picker" th:open="${v == null}" th:unless="${#lists.isEmpty(pick)}">
             <summary th:text="${v != null} ? 'Runs toevoegen of wijzigen' : 'Lijst van trainingen'">Runs toevoegen of wijzigen</summary>
             <form method="get" action="/compare-runs" class="picker-form" th:attr="data-pick=${maxRuns}" aria-label="Trainingen kiezen om te vergelijken">
-                <div class="picker-tools">
-                    <label class="sr-only" for="pick-search">Zoek een training</label>
-                    <input type="search" id="pick-search" placeholder="Zoek op naam of datum" autocomplete="off" data-pick-search>
+                <div class="pick-filters" role="group" aria-label="Lijst filteren">
+                    <span class="filter-group pick-search">
+                        <label for="pick-search">Zoeken</label>
+                        <input type="search" id="pick-search" placeholder="Naam of datum" autocomplete="off" data-pick-search>
+                    </span>
+                    <span class="filter-group">
+                        <label for="pick-from">Van</label>
+                        <input type="date" id="pick-from" th:min="${pickFrom}" th:max="${pickTill}" data-pick-filter="from" aria-label="Trainingen vanaf">
+                    </span>
+                    <span class="filter-group">
+                        <label for="pick-till">Tot en met</label>
+                        <input type="date" id="pick-till" th:min="${pickFrom}" th:max="${pickTill}" data-pick-filter="till" aria-label="Trainingen tot en met">
+                    </span>
+                    <span class="filter-group">
+                        <label for="pick-kind">Soort training <th:block th:replace="~{fragments :: help(${g['sessietype']})}"/></label>
+                        <select id="pick-kind" data-pick-filter="kind">
+                            <option value="">Alle soorten</option>
+                            <option th:each="o : ${kinds}" th:value="${o.value}" th:text="${#strings.capitalize(o.label)} + ' (' + ${o.count} + ')'">Rustig</option>
+                        </select>
+                    </span>
+                    <span class="filter-group" th:if="${sports.size() > 1}">
+                        <label for="pick-sport">Soort loop</label>
+                        <select id="pick-sport" data-pick-filter="sport">
+                            <option value="">Alles</option>
+                            <option th:each="o : ${sports}" th:value="${o.value}" th:text="${o.label} + ' (' + ${o.count} + ')'">Weg</option>
+                        </select>
+                    </span>
+                </div>
+                <div class="pick-status">
+                    <span class="note-xs" data-pick-shown aria-live="polite" th:text="${pickTotal} + ' trainingen'">-</span>
+                    <button type="button" class="btn btn-ghost btn-sm" data-pick-reset hidden>Filters wissen</button>
+                    <span class="field-hint pick-hint">Aangevinkte trainingen blijven altijd zichtbaar en gekozen.</span>
                     <span class="field-hint" th:if="${hasSimilar}">Met <span class="badge badge-est">lijkt erop</span>: zelfde soort training, afstand en terrein als je eerste keuze.</span>
                 </div>
                 <ul class="pick-list">
-                    <li th:each="p : ${pick}" th:attr="data-search=${p.search}">
+                    <li th:each="p : ${pick}" th:attr="data-search=${p.search},data-date=${p.iso},data-kind=${p.kind},data-sport=${p.sport}">
                         <label class="pick-row">
                             <input type="checkbox" name="ids" th:value="${p.id}" th:checked="${p.checked}">
                             <span class="pick-main">
                                 <span class="pick-name" th:text="${p.name}">-</span>
                                 <span class="badge badge-est" th:if="${p.similar}" title="Zelfde soort training, afstand en terrein als je eerste keuze.">lijkt erop</span>
                             </span>
-                            <span class="pick-meta"><span th:text="${p.date}">-</span><span th:text="${p.meta}">-</span></span>
+                            <span class="pick-meta"><span th:text="${p.date} + ' · ' + ${p.kindLabel}">-</span><span th:text="${p.meta}">-</span></span>
                         </label>
                     </li>
-                    <li class="pick-empty" data-pick-empty hidden>Geen training gevonden voor deze zoekterm.</li>
+                    <li class="pick-empty" data-pick-empty hidden>Geen training gevonden met deze filters.</li>
                 </ul>
                 <div class="pick-foot">
                     <span class="pick-count" data-pick-count aria-live="polite">-</span>

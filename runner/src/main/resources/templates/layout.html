@@ -294,23 +294,53 @@
                 if (dock) dock.hidden = n - fixed < 1;
             }
             boxes.forEach(function (b) { b.addEventListener('change', sync); });
+            // Filters: search text, date range, kind of session and kind of run. A ticked run always stays visible,
+            // so a choice is never lost or hidden by a filter.
             var search = form.querySelector('[data-pick-search]');
-            if (search) {
-                var empty = form.querySelector('[data-pick-empty]');
-                search.addEventListener('input', function () {
-                    var q = search.value.trim().toLowerCase(), shown = 0;
-                    form.querySelectorAll('[data-search]').forEach(function (li) {
-                        var hit = !q || li.getAttribute('data-search').indexOf(q) >= 0 || li.querySelector('input:checked');
-                        li.hidden = !hit; if (hit) shown++;
-                    });
-                    if (empty) empty.hidden = shown > 0;
+            var filters = Array.prototype.slice.call(form.querySelectorAll('[data-pick-filter]'));
+            var rows = Array.prototype.slice.call(form.querySelectorAll('[data-search]'));
+            var empty = form.querySelector('[data-pick-empty]');
+            var shownLabel = form.querySelector('[data-pick-shown]');
+            var reset = form.querySelector('[data-pick-reset]');
+            function value(key) {
+                var el = filters.filter(function (f) { return f.getAttribute('data-pick-filter') === key; })[0];
+                return el ? el.value : '';
+            }
+            function applyFilters() {
+                if (!rows.length) return;
+                var q = search ? search.value.trim().toLowerCase() : '';
+                var from = value('from'), till = value('till'), kind = value('kind'), sport = value('sport');
+                var active = !!(q || from || till || kind || sport), shown = 0, matching = 0;
+                rows.forEach(function (li) {
+                    var d = li.getAttribute('data-date') || '';
+                    var hit = (!q || li.getAttribute('data-search').indexOf(q) >= 0)
+                        && (!from || d >= from) && (!till || d <= till)
+                        && (!kind || li.getAttribute('data-kind') === kind)
+                        && (!sport || li.getAttribute('data-sport') === sport);
+                    if (hit) matching++;
+                    var visible = hit || !!li.querySelector('input:checked');
+                    li.hidden = !visible;
+                    if (visible) shown++;
                 });
+                if (empty) empty.hidden = matching > 0;
+                if (shownLabel) shownLabel.textContent = active ? matching + ' van ' + rows.length + ' trainingen' : rows.length + ' trainingen';
+                if (reset) reset.hidden = !active;
+            }
+            if (search) {
+                search.addEventListener('input', applyFilters);
                 // Enter in the search box must not submit a half-made choice.
                 search.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
             }
+            filters.forEach(function (f) { f.addEventListener('change', applyFilters); f.addEventListener('input', applyFilters); });
+            if (reset) reset.addEventListener('click', function () {
+                if (search) search.value = '';
+                filters.forEach(function (f) { f.value = ''; f.dispatchEvent(new Event('input')); });
+                applyFilters();
+            });
+            applyFilters();
             sync();
-            // Back/forward restores ticked boxes without a change event.
-            window.addEventListener('pageshow', sync);
+            // Back/forward restores ticked boxes and filters without a change event.
+            window.addEventListener('pageshow', function () { sync(); applyFilters(); });
         });
 
         // A table wider than the screen scrolls sideways. Say so instead of leaving columns silently cut off,

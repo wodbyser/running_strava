@@ -8,6 +8,8 @@ import com.running.strava.analysis.ActivityTime
 import com.running.strava.analysis.Format
 import com.running.strava.analysis.performance.RunComparison
 import com.running.strava.analysis.speedMs
+import com.running.strava.domain.Activity
+import com.running.strava.domain.SessionType
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
@@ -26,7 +28,14 @@ class RunComparisonController(private val service: RunComparisonService) {
         val checked: Boolean,
         /** Lower-case text the search box filters on. */
         val search: String,
+        /** ISO date for the date filter (never shown). */
+        val iso: String,
+        val kind: String,
+        val kindLabel: String,
+        val sport: String,
     )
+
+    data class Option(val value: String, val label: String, val count: Int)
 
     @GetMapping("/compare-runs")
     fun compareRuns(model: Model, @RequestParam(required = false) ids: List<String>?): String {
@@ -47,16 +56,37 @@ class RunComparisonController(private val service: RunComparisonService) {
         model.addAttribute("tooMany", asked.size > RunComparison.MAX_RUNS)
         model.addAttribute("unknown", chosen.count { it !in known })
         model.addAttribute("hasSimilar", candidates.any { it.similar })
-        model.addAttribute("pick", candidates.map { c ->
+        val rows = candidates.map { c ->
             val a = c.activity
-            val date = PerfDates.day(ActivityTime.localDate(a))
+            val day = ActivityTime.localDate(a)
+            val date = PerfDates.day(day)
             val meta = listOf(Format.km(a.distance), Format.pace(a.speedMs()), Format.hr(a.averageHeartrate), Format.duration(a.movingTime))
                 .filter { it != "-" }.joinToString(" · ")
-            PickRow(a.id, a.name, date, meta, c.similar, a.id in shownIds, "${a.name} $date".lowercase())
-        })
+            val kindLabel = RunComparisonPage.typeLabel(c.sessionType)
+            PickRow(a.id, a.name, date, meta, c.similar, a.id in shownIds, "${a.name} $date".lowercase(), day.toString(),
+                c.sessionType.name.lowercase(), kindLabel, sport(a))
+        }
+        model.addAttribute("pick", rows)
+        model.addAttribute("pickTotal", rows.size)
+        model.addAttribute("pickFrom", rows.minOfOrNull { it.iso })
+        model.addAttribute("pickTill", rows.maxOfOrNull { it.iso })
+        model.addAttribute("kinds", SessionType.entries.map { t -> t.name.lowercase() to RunComparisonPage.typeLabel(t) }
+            .map { (v, label) -> Option(v, label, rows.count { it.kind == v }) }.filter { it.count > 0 })
+        model.addAttribute("sports", SPORTS.map { (v, label) -> Option(v, label, rows.count { it.sport == v }) }.filter { it.count > 0 })
         val glossary = RunComparisonGlossary.all
         model.addAttribute("glossary", glossary)
         model.addAttribute("g", RunComparisonGlossary.terms)
         return "compare-runs"
+    }
+
+    /** Where the run took place: trail and treadmill/virtual runs are a different kind of running than the road. */
+    private fun sport(a: Activity) = when {
+        a.isTrainer || a.type == "VirtualRun" -> "loopband"
+        a.type == "TrailRun" -> "trail"
+        else -> "weg"
+    }
+
+    companion object {
+        private val SPORTS = listOf("weg" to "Weg", "trail" to "Trail", "loopband" to "Loopband of virtueel")
     }
 }
