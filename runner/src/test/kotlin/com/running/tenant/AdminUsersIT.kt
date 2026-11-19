@@ -39,8 +39,14 @@ class AdminUsersIT @Autowired constructor(
     private fun owner() = login("wout", "owner-test-pw")
 
     private fun newInvite(owner: MockHttpSession): String {
-        val html = mvc.perform(post("/admin/users/invites").session(owner)).andReturn().response.contentAsString
-        return Regex("<code id=\"newCode\">([^<]+)</code>").find(html)!!.groupValues[1]
+        val created = mvc.perform(post("/admin/users/invites").session(owner)).andReturn()
+        assertEquals(302, created.response.status)
+        // Earlier POSTs of a test that nobody followed leave their flash message queued; a browser follows each redirect, so drain them.
+        repeat(8) {
+            val html = mvc.perform(get("/admin/users").session(owner)).andReturn().response.contentAsString
+            Regex("<code id=\"newCode\">([^<]+)</code>").find(html)?.let { return it.groupValues[1] }
+        }
+        error("no new code shown after the redirect")
     }
 
     private fun register(name: String, code: String, ip: String): MvcResult = mvc.perform(
@@ -175,6 +181,26 @@ class AdminUsersIT @Autowired constructor(
         assertEquals(302, mvc.perform(post("/admin/users/invites/$id/revoke").session(admin)).andReturn().response.status)
         assertEquals(403, register("ad_dead", revoked, "198.51.100.28").response.status)
         assertEquals(null, users.findByUsername("ad_dead"))
+    }
+
+    @Test
+    fun `only an unused revoked or expired invite can be deleted`() {
+        val admin = owner()
+        val valid = newInvite(admin)
+        val validId = users.listInvites().first { it.usedAt == null }.shortId
+        mvc.perform(post("/admin/users/invites/$validId/delete").session(admin))
+        assertTrue(users.listInvites().any { it.shortId == validId }, "a valid code is not deleted, revoke it first")
+
+        mvc.perform(post("/admin/users/invites/$validId/revoke").session(admin))
+        assertEquals(302, mvc.perform(post("/admin/users/invites/$validId/delete").session(admin)).andReturn().response.status)
+        assertTrue(users.listInvites().none { it.shortId == validId }, "a revoked unused code is gone")
+
+        val used = newInvite(admin)
+        assertEquals(302, register("ad_usedkeep", used, "198.51.100.30").response.status)
+        val usedId = users.listInvites().first { it.usedBy == "ad_usedkeep" }.shortId
+        mvc.perform(post("/admin/users/invites/$usedId/delete").session(admin))
+        assertTrue(users.listInvites().any { it.shortId == usedId }, "a used code stays as the trace of who joined")
+
     }
 
     @Test

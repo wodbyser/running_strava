@@ -96,6 +96,9 @@
                             <form th:if="${i.usable}" method="post" th:action="@{/admin/users/invites/{id}/revoke(id=${i.shortId})}">
                                 <button type="submit" class="btn btn-secondary btn-sm">Intrekken</button>
                             </form>
+                            <form th:if="${i.deletable}" method="post" th:action="@{/admin/users/invites/{id}/delete(id=${i.shortId})}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Verwijderen</button>
+                            </form>
                         </td>
                     </tr>
                 </tbody>

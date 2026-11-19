@@ -34,13 +34,14 @@ class AdminUsersController(
         return page(model, null)
     }
 
-    /** Rendered directly (no redirect, no flash): the code lives in this one response and nowhere else. */
+    /** Post-redirect-get: the code travels as a one-time flash attribute, so a refresh of the page does not make a new code. */
     @PostMapping("/admin/users/invites")
-    fun createInvite(model: Model): String {
+    fun createInvite(ra: RedirectAttributes): String {
         val owner = ownerOnly()
         val code = invites.create()
         users.audit(owner, "INVITE_CREATED", "single-use")
-        return page(model, code)
+        ra.addFlashAttribute("newCode", code)
+        return "redirect:/admin/users"
     }
 
     @PostMapping("/admin/users/invites/{id}/revoke")
@@ -51,6 +52,18 @@ class AdminUsersController(
             flash(ra, "De uitnodigingscode is ingetrokken.")
         } else {
             flash(ra, "Die uitnodigingscode kon niet worden ingetrokken.", "error")
+        }
+        return "redirect:/admin/users"
+    }
+
+    @PostMapping("/admin/users/invites/{id}/delete")
+    fun deleteInvite(@PathVariable id: String, ra: RedirectAttributes): String {
+        val owner = ownerOnly()
+        if (id.matches(HEX) && users.deleteDeadInvite(id)) {
+            users.audit(owner, "INVITE_DELETED", id)
+            flash(ra, "De ongebruikte code is verwijderd.")
+        } else {
+            flash(ra, "Die code kon niet worden verwijderd. Alleen verlopen of ingetrokken codes die niet gebruikt zijn kunnen weg.", "error")
         }
         return "redirect:/admin/users"
     }
@@ -104,7 +117,7 @@ class AdminUsersController(
         model.addAttribute("title", "Gebruikers")
         model.addAttribute("rows", rows)
         model.addAttribute("invites", admin.invites())
-        model.addAttribute("newCode", newCode)
+        if (!model.containsAttribute("newCode")) model.addAttribute("newCode", newCode)
         model.addAttribute("activeCount", rows.count { it.status == "ACTIVE" })
         model.addAttribute("totalCount", rows.size)
         return "admin-users"

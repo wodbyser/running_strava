@@ -49,7 +49,7 @@ data class UserOverview(
     val canDelete: Boolean,
 )
 
-data class InviteOverview(val shortId: String, val created: String, val state: String, val usable: Boolean, val usedBy: String?)
+data class InviteOverview(val shortId: String, val created: String, val state: String, val usable: Boolean, val usedBy: String?, val deletable: Boolean)
 
 /**
  * The owner's view of the users (design §6.2, D13). Only [AppUserRepository] and a few counts per tenant are read; the key is
@@ -81,7 +81,7 @@ class AdminUsers(
         val now = OffsetDateTime.now()
         return users.listInvites().map { invite ->
             val usable = invite.usedAt == null && (invite.expiresAt == null || invite.expiresAt.isAfter(now))
-            InviteOverview(invite.shortId, stamp(invite.createdAt), inviteState(invite, usable), usable, invite.usedBy)
+            InviteOverview(invite.shortId, stamp(invite.createdAt), inviteState(invite, usable), usable, invite.usedBy, !usable && invite.usedAt == null)
         }
     }
 

@@ -49,7 +49,7 @@ Terug naar het oude gedrag: zet `APP_MULTI_USER_ENABLED=false` en herstart. Er w
 
 1. `/admin/users` → **Nieuwe code maken** (geldt 7 dagen, één keer). Stuur die privé door.
 2. De vriend gaat naar `https://<jouw-link>/register`, kiest een gebruikersnaam (kleine letters, cijfers, `_`)
-   en een wachtwoord van minstens 10 tekens.
+   en een wachtwoord naar keuze.
 3. De vriend kiest **Strava** (knop "Koppel Strava") of **Garmin** (eigen API-sleutel). De keuze staat daarna vast;
    wisselen kan alleen via "opnieuw beginnen" in `/settings` (de oude gegevens worden gearchiveerd, niet gewist).
 4. Strava-gegevens worden rustig in de achtergrond opgehaald. Dat kan even duren.

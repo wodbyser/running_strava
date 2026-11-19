@@ -120,6 +120,12 @@ class AppUserRepository(private val jdbc: JdbcTemplate) {
         shortId.replace("%", "").replace("_", "") + "%",
     ) == 1
 
+    /** Only an unused invite that is already expired or revoked can be deleted; a used one stays as the trace of who joined. */
+    fun deleteDeadInvite(shortId: String): Boolean = jdbc.update(
+        "DELETE FROM invite_code WHERE code_hash LIKE ? AND used_at IS NULL AND used_by IS NULL AND expires_at IS NOT NULL AND expires_at <= now()",
+        shortId.replace("%", "").replace("_", "") + "%",
+    ) == 1
+
     fun listInvites(): List<InviteListing> = jdbc.query(
         "SELECT i.code_hash, i.created_at, i.expires_at, i.used_at, u.username AS used_by FROM invite_code i LEFT JOIN app_user u ON u.id = i.used_by ORDER BY i.created_at DESC LIMIT 50",
         { rs, _ ->

@@ -28,11 +28,12 @@
             <label for="code">Uitnodigingscode</label>
             <input id="code" name="code" type="password" autocomplete="off" required autofocus>
             <label for="username">Gebruikersnaam</label>
-            <input id="username" name="username" type="text" autocomplete="username" th:value="${username}" pattern="[a-z][a-z0-9_]{2,30}" required>
-            <label for="password">Wachtwoord (minstens 10 tekens)</label>
-            <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+            <input id="username" name="username" type="text" autocomplete="username" th:value="${username}" pattern="[a-z][a-z0-9_]{2,30}" title="3 tot 31 tekens: kleine letters, cijfers of _, beginnend met een letter (geen spaties, punten of streepjes)" required>
+            <p class="note-xs">3 tot 31 tekens: kleine letters, cijfers of _, beginnend met een letter. Geen spaties, punten of streepjes.</p>
+            <label for="password">Wachtwoord</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" required>
             <label for="password2">Wachtwoord nog eens</label>
-            <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="10" required>
+            <input id="password2" name="password2" type="password" autocomplete="new-password" required>
             <button type="submit" class="btn btn-primary">Account maken</button>
         </form>
         <p class="auth-alt"><a href="/login">Ik heb al een account</a></p>

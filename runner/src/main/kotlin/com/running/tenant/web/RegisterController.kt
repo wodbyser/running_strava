@@ -69,7 +69,7 @@ class RegisterController(
             return refuse(HttpStatus.BAD_REQUEST, "Kies een gebruikersnaam van 3 tot 31 tekens: kleine letters, cijfers of _, beginnend met een letter.", "SIGNUP_INVALID")
         }
         if (password.length < MIN_PASSWORD) {
-            return refuse(HttpStatus.BAD_REQUEST, "Kies een wachtwoord van minstens 10 tekens.", "SIGNUP_INVALID")
+            return refuse(HttpStatus.BAD_REQUEST, "Kies een wachtwoord.", "SIGNUP_INVALID")
         }
         if (password.toByteArray().size > MAX_PASSWORD_BYTES) {
             return refuse(HttpStatus.BAD_REQUEST, "Dat wachtwoord is te lang. Kies er een van hoogstens 72 tekens.", "SIGNUP_INVALID")
@@ -105,7 +105,7 @@ class RegisterController(
     private companion object {
         const val MAX_ATTEMPTS = 5
         val WINDOW: Duration = Duration.ofMinutes(15)
-        const val MIN_PASSWORD = 10
+        const val MIN_PASSWORD = 1
         const val MAX_PASSWORD_BYTES = 72
     }
 }

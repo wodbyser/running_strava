@@ -74,7 +74,7 @@ class OnboardingIT @Autowired constructor(
 
     @Test
     fun `signup is limited to five tries per address and a bad password or name is refused`() {
-        assertEquals(400, mvc.perform(post("/register").header("X-Forwarded-For", "203.0.113.11").param("code", inviteCode).param("username", "ob_short").param("password", "short").param("password2", "short")).andReturn().response.status)
+        assertEquals(400, mvc.perform(post("/register").header("X-Forwarded-For", "203.0.113.11").param("code", inviteCode).param("username", "ob_short").param("password", "").param("password2", "")).andReturn().response.status)
         assertEquals(400, mvc.perform(post("/register").header("X-Forwarded-For", "203.0.113.11").param("code", inviteCode).param("username", "Bad Name!").param("password", password).param("password2", password)).andReturn().response.status)
         repeat(3) { register("ob_limit$it", "203.0.113.11", "wrong-code-wrong-code-1") }
         assertEquals(429, register("ob_limit9", "203.0.113.11").response.status)
