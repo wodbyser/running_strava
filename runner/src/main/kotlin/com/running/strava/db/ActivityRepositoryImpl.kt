@@ -167,6 +167,7 @@ class ActivityRepositoryImpl(
         bestEffortsJson = activity.bestEfforts?.let { toJson(it) } ?: existing?.bestEffortsJson,
         externalId = activity.externalId ?: existing?.externalId,
         deviceName = activity.deviceName ?: existing?.deviceName,
+        source = activity.source ?: existing?.source,
     )
 
     private fun toDomain(entity: ActivityEntity) = Activity(
@@ -212,6 +213,7 @@ class ActivityRepositoryImpl(
         },
         externalId = entity.externalId,
         deviceName = entity.deviceName,
+        source = entity.source,
     )
 
     private fun toDomainStream(entity: ActivityStreamEntity) = ActivityStream(

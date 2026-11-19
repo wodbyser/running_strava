@@ -53,4 +53,26 @@ class FlagOffContextTest @Autowired constructor(private val context: Application
         assertTrue(context.getBeansOfType(TenantSettings::class.java).isEmpty())
         assertFalse(context.getBean(com.running.garmin.web.GarminKeyBanner::class.java).expired())
     }
+
+    @Test
+    fun `flag off has no signup, wizard, settings, state or login limiter, and the single-user Strava flow is still there`() {
+        for (type in listOf(
+            com.running.tenant.web.RegisterController::class.java, com.running.tenant.web.SetupController::class.java,
+            com.running.tenant.web.SettingsController::class.java, com.running.tenant.web.BackfillController::class.java,
+            com.running.tenant.web.TenantStravaOAuthController::class.java, com.running.tenant.web.LoginAttemptFilter::class.java,
+            TenantModes::class.java, DataModeGuard::class.java, InviteCodes::class.java, OAuthState::class.java, TenantBackfill::class.java, TenantReset::class.java,
+        )) {
+            assertTrue(context.getBeansOfType(type).isEmpty(), type.simpleName)
+        }
+        assertEquals(1, context.getBeansOfType(com.running.strava.adapter.StravaOAuthController::class.java).size)
+        assertFalse(context.getBean(com.running.tenant.web.TenantUi::class.java).showSettings())
+    }
+
+    @Test
+    fun `the owner's database only gets the two additive changes (a settings table and a nullable column)`() {
+        val ddl = com.running.settings.db.AppSettingEntity::class.java.getAnnotation(jakarta.persistence.Table::class.java)
+        assertEquals("app_settings", ddl.name)
+        val column = com.running.strava.db.ActivityEntity::class.java.getDeclaredField("source").getAnnotation(jakarta.persistence.Column::class.java)
+        assertTrue(column.nullable, "activities.source must stay nullable: null means STRAVA and the owner's rows are never rewritten")
+    }
 }

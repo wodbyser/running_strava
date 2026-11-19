@@ -1,6 +1,26 @@
 package com.running.tenant
 
+import com.running.analysis.BestEffortService
+import com.running.analysis.LoadService
+import com.running.analysis.PerformanceService
+import com.running.analysis.RaceService
 import com.running.config.AppSecurityProperties
+import com.running.garmin.adapter.GarminTokenProvider
+import com.running.settings.db.AppSettingJpaRepository
+import com.running.strava.adapter.BackfillGate
+import com.running.strava.adapter.StravaRateBudget
+import com.running.strava.spi.ActivityRepository
+import com.running.strava.spi.StravaApiClient
+import com.running.strava.spi.StravaTokenRepository
+import com.running.strava.usecase.backfill.impl.BackfillLapsDataImpl
+import com.running.strava.usecase.backfill.impl.BackfillStreamsDataImpl
+import com.running.strava.usecase.fetch.impl.FetchRemainingDataImpl
+import com.running.tenant.web.LoginAttemptFilter
+import com.running.tenant.web.OnboardingGate
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
+import java.time.Duration
+import java.util.concurrent.Executors
 import com.running.tenant.db.AppUserRepository
 import com.running.tenant.db.ControlSchema
 import com.zaxxer.hikari.HikariConfig
@@ -91,7 +111,82 @@ class MultiUserConfig {
     }
 
     @Bean
-    fun tenantSettings(): TenantSettings = NoTenantSettings()
+    fun appSettings(repository: AppSettingJpaRepository) = AppSettings(repository)
+
+    @Bean
+    fun tenantModes(registry: TenantRegistry, settings: AppSettings) = TenantModes(registry, settings)
+
+    @Bean
+    fun dataModeGuard(modes: TenantModes) = DataModeGuard(modes)
+
+    @Bean
+    fun inviteCodes(props: MultiUserProperties) = InviteCodes(props.signupCode)
+
+    @Bean
+    fun oauthState(props: MultiUserProperties) = OAuthState(props.secretKey)
+
+    @Bean
+    fun tenantBackfill(
+        gate: BackfillGate,
+        budget: StravaRateBudget,
+        strava: StravaApiClient,
+        tokens: StravaTokenRepository,
+        activities: ActivityRepository,
+        settings: AppSettings,
+        modes: TenantModes,
+    ): TenantBackfill {
+        val gated = BudgetGatedStravaClient(strava, budget)
+        val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "tenant-backfill").apply { isDaemon = true } }
+        return TenantBackfill(
+            gate, budget,
+            FetchRemainingDataImpl(gated, tokens, activities),
+            BackfillStreamsDataImpl(gated, tokens, activities),
+            BackfillLapsDataImpl(gated, tokens, activities),
+            activities, settings, modes, executor,
+        )
+    }
+
+    @Bean
+    fun tenantReset(
+        registry: TenantRegistry,
+        users: AppUserRepository,
+        updater: TenantSchemaUpdater,
+        owner: DataSourceProperties,
+        dataSource: DataSource,
+        modes: TenantModes,
+        garminTokens: GarminTokenProvider,
+        bestEfforts: BestEffortService,
+        performance: PerformanceService,
+        load: LoadService,
+        race: RaceService,
+    ) = TenantReset(
+        registry, users, updater,
+        JdbcDatabaseMaintenance(owner.url.orEmpty(), owner.username.orEmpty(), owner.password),
+        JdbcUrls.databaseName(owner.url.orEmpty()),
+        { id ->
+            (dataSource as? TenantRoutingDataSource)?.closeTenant(id)
+            modes.evict(id)
+            garminTokens.evict(id)
+            bestEfforts.evict(id)
+            performance.evict(id)
+            load.evict(id)
+            race.evict(id)
+        },
+    )
+
+    @Bean
+    fun onboardingWebConfig(modes: TenantModes) = object : WebMvcConfigurer {
+        override fun addInterceptors(registry: InterceptorRegistry) {
+            registry.addInterceptor(OnboardingGate(modes))
+                .excludePathPatterns("/login", "/register", "/error", "/css/**", "/js/**", "/img/**", "/favicon.ico")
+        }
+    }
+
+    @Bean
+    fun loginAttemptFilter() = LoginAttemptFilter(AttemptLimiter(MAX_LOGIN_FAILURES, Duration.ofMinutes(15)))
+
+    @Bean
+    fun loginAttemptFilterRegistration(filter: LoginAttemptFilter) = FilterRegistrationBean(filter).apply { isEnabled = false }
 
     @Bean
     fun tenantJobRunner(registry: TenantRegistry, props: MultiUserProperties) = TenantJobRunner(registry, props.tenantPause)
@@ -158,6 +253,7 @@ class MultiUserConfig {
     companion object {
         const val CONTROL_DB = "running_control"
         const val PROVISION_ARG = "provision-user"
+        const val MAX_LOGIN_FAILURES = 10
 
         /** Wraps the auto-configured owner pool when the flag is on; the pool and its hikari settings stay untouched (design §5.2). */
         @Bean

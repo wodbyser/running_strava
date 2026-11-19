@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <h1>Instellingen</h1>
+        <p class="page-meta">Ingelogd als <span th:text="${username}">naam</span> · bron: <span th:text="${modeLabel}">Alleen Strava</span></p>
+    </div>
+
+    <section class="card" aria-labelledby="h-strava" th:if="${usesStrava}">
+        <h2 id="h-strava">Strava</h2>
+        <p th:if="${stravaLinked}">Strava is gekoppeld. Is de toestemming ingetrokken of verlopen? Koppel dan opnieuw met hetzelfde Strava-account.</p>
+        <p th:unless="${stravaLinked}">Strava is niet meer gekoppeld. Koppel opnieuw met hetzelfde Strava-account.</p>
+        <p th:if="${backfillPhase == 'PAUSED' || backfillPhase == 'RUNNING' || backfillPhase == 'QUEUED'}">Je oude trainingen worden nog opgehaald. <a href="/backfill">Bekijk de voortgang</a>.</p>
+        <div class="card-foot"><a class="btn btn-secondary" href="/auth/strava">Strava opnieuw koppelen</a></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-garmin" th:if="${usesGarmin}">
+        <h2 id="h-garmin">Garmin-sleutel</h2>
+        <p th:if="${garminLast4}">Huidige sleutel eindigt op <strong th:text="${garminLast4}">1234</strong>. Een persoonlijke Garmin-sleutel verloopt na 30 tot 365 dagen; maak dan op Garmin Connect een nieuwe en plak hem hier.</p>
+        <form method="post" action="/settings/garmin" autocomplete="off" class="actions">
+            <label for="key" class="field-label">Nieuwe sleutel</label>
+            <input id="key" name="key" type="password" autocomplete="off" required>
+            <button type="submit" class="btn btn-secondary">Testen en opslaan</button>
+        </form>
+    </section>
+
+    <section class="card" aria-labelledby="h-reset">
+        <h2 id="h-reset">Opnieuw beginnen</h2>
+        <p>Wil je van bron wisselen (bijvoorbeeld van alleen Strava naar Strava en Garmin)? Dan begin je met een lege app. Je huidige gegevens verdwijnen uit de app; de beheerder bewaart ze nog een tijd apart.</p>
+        <form method="post" action="/settings/reset" class="actions">
+            <label for="confirm" class="field-label">Typ je gebruikersnaam om te bevestigen</label>
+            <input id="confirm" name="confirm" type="text" autocomplete="off" required>
+            <button type="submit" class="btn btn-secondary">Opnieuw beginnen</button>
+        </form>
+    </section>
+</th:block>
+</html>

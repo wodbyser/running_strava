@@ -494,7 +494,10 @@ true (a test or a review rule):
 | `POST /register` | open | invite code + username + password; rate limited |
 | `GET /setup` | authenticated | wizard; only reachable while the tenant has no data/credentials |
 | `POST /setup/garmin` | authenticated | paste key, "Test" runs one harmless API call |
-| `POST /setup/garmin/clear` | authenticated | clears the key (tenant only) |
+| `POST /setup/garmin/clear` | authenticated | clears the key (tenant only, only while not onboarded) |
+| `POST /setup/finish` | authenticated | derives and persists the mode once, starts the first Strava fetch when the mode uses Strava (Phase 4) |
+| `GET /backfill` | authenticated, not OWNER | progress of the first Strava fetch (counts only) |
+| `POST /settings/garmin` | authenticated, not OWNER | replace the Garmin key; 409 when the mode does not use Garmin |
 | `GET /auth/strava` | authenticated | adds a signed `state` bound to the tenant |
 | `GET /callback` | authenticated | validates `state`, exchanges the code into the **current tenant DB** |
 | `GET /admin/users` | OWNER only | list, disable, invite codes, per-user sync status |
@@ -529,7 +532,11 @@ Requirements:
   until the owner changes or blanks it in `.env` (needed in Phase 4, before `/admin/users` exists). From Phase 6 on,
   the owner can also generate **single-use** codes on `/admin/users`; those are stored only as SHA-256 in
   `invite_code`.
-- Rate limit: max 5 attempts per IP per 15 minutes, in-memory (no new dependency). Log failures to `auth_audit`.
+- Rate limit: max 5 attempts per IP per 15 minutes, in-memory (no new dependency). Log failures to `auth_audit` (with the ip).
+  Implemented (Phase 4): `ClientIp` takes the last `X-Forwarded-For` entry, but only when the direct peer is loopback/private
+  (a public peer cannot choose its own address). Spring's `ForwardedHeaderFilter` (`forward-headers-strategy: framework`) does
+  not touch `X-Forwarded-For`, so `remoteAddr` alone would be the proxy. Whether Funnel really sends that header can only be
+  seen on the server (owner check in the progress file).
   Behind Tailscale Funnel the client IP comes from `X-Forwarded-For` (prod has `forward-headers-strategy:
   framework`); verify in Phase 4 that `request.remoteAddr` is the real client and not the proxy, otherwise one
   person can lock out everyone. Rate-limit `POST /login` failures per (IP, username) pair, never per username alone
@@ -572,7 +579,7 @@ interface CredentialResolver {
 }
 ```
 
-Implemented in Phase 3 (2026-11-19): the OWNER always uses the env key and his DB is never asked for a setting (he has no `app_settings` table before Phase 4, and invariant 5 forbids the extra query); `TenantSettings` is the port to `app_settings` that Phase 4 fills. `GarminProperties.apiKey` stops being the source of truth in multi-user mode. Keep the property and the env var for
+Implemented in Phase 3 (2026-11-19, Phase 4 added the mode check and the real store `AppSettings`, key `garmin.api_key`, plus the non-secret `garmin.key_last4` for the masked display): a non-owner only gets a key in a mode that uses Garmin. The OWNER always uses the env key and his DB is never asked for a setting (he has no `app_settings` table before Phase 4, and invariant 5 forbids the extra query); `TenantSettings` is the port to `app_settings` that Phase 4 fills. `GarminProperties.apiKey` stops being the source of truth in multi-user mode. Keep the property and the env var for
 the owner (zero change for him) and for local dev.
 
 Strava tokens are read through `StravaTokenRepository` (row id 1) inside the tenant DB, so the Strava use cases
@@ -693,8 +700,9 @@ mode, and assert no exception is observed. Same for `GarminApiClient` in `STRAVA
 ### 9.3 Mode changes are guarded (D11: reset only)
 
 - `DataMode` is written **once**, during onboarding, while the tenant has no activities.
-- Adding a second credential later would change the mode, so it is **blocked** once the tenant has data: the
-  "koppel Strava" button on `/settings` returns 409 with an explanation pointing at `/settings/reset`. Replacing a
+- Adding a second credential later would change the mode, so it is **blocked**. Implemented stricter than "once the
+  tenant has data" (Phase 4): as soon as onboarding is finished the mode is fixed and the other source returns 409 with an
+  explanation pointing at `/settings/reset`. Re-linking Strava as a *different athlete* while data exists is refused too. Replacing a
   key with another key of the **same** source is always allowed (that is credential rotation, not a mode change).
 - `/settings/reset` (non-OWNER only) is the only route that changes the source. The app container has no
   `pg_dump`, so the reset never deletes rows; it **archives** the database instead:
@@ -1020,6 +1028,12 @@ Acceptance:
 
 ### Phase 4 — Registration, onboarding, Strava-only users
 
+Built 2026-11-19 (see `MULTI_USER_PROGRESS.md` for the facts). Differences from the steps below: the flag-on OAuth flow is a
+separate `TenantStravaOAuthController` (the single-user `StravaOAuthController` is conditional on the flag being off); the
+first fetch is the existing `FetchRemainingData` + streams + laps backfills behind a budget-gating client decorator, on one
+daemon thread behind `BackfillGate`; the nightly job queues it instead of a plain sync while it is pending; the real Strava
+round trip and the Funnel client IP still have to be checked by the owner.
+
 Steps:
 
 1. `AppSettingEntity` + nullable `activities.source` (§8.4), shipped after a verified backup (§11.1).
@@ -1265,6 +1279,18 @@ D8 was changed by the owner during the review session (Hibernate update instead 
 Because of O1, `DataMode` is written **once** at onboarding. `POST /settings/data-mode` does not exist; the only
 route that changes a source is `POST /settings/reset` (D11). Because of O4, `GarminErrorCategory.AUTH` must surface
 in the tenant UI, not only in the log (Phase 3 checklist).
+
+---
+
+## 19a. Phase 4 findings (2026-11-19)
+
+| # | Finding | Consequence |
+|---|---|---|
+| 1 | `deploy/docker-compose.yml` passes an explicit list of env vars; `APP_MULTI_USER_ENABLED`, `APP_SIGNUP_CODE`, `APP_TENANT_SECRET_KEY`, `APP_CONTROL_DB_URL` from `deploy/.env` never reach the container | Phase 6 must add them to the compose file (and `.env.example`) before the flag can be switched on in production |
+| 2 | `servletPath` is empty under MockMvc and differs per servlet mapping | Interceptor/filters use `requestURI` minus context path |
+| 3 | `MultiUserProperties` was a data class holding the master key and invite code | `toString` redacted; tested |
+| 4 | A plain `SyncStravaData` on a brand-new tenant would fetch every activity with details and streams, unpaced | The nightly job queues the paced backfill for a tenant whose first fetch is pending |
+| 5 | Mode-less tenants (UNSET) and GARMIN tenants must make no Strava call | Scheduler guard + resolver guard (Phase 5 adds the throwing-stub tests and guards the manual routes) |
 
 ---
 

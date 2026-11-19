@@ -13,4 +13,9 @@ data class MultiUserProperties(
     val tenantPause: Duration = Duration.ofSeconds(5),
     /** Base64 of 32 random bytes (`APP_TENANT_SECRET_KEY`); required while the flag is on. */
     val secretKey: String = "",
-)
+    /** Invite code for `/register` (`APP_SIGNUP_CODE`); signup stays off while it is blank or shorter than 16 characters. */
+    val signupCode: String = "",
+) {
+    /** Neither the master key nor the invite code may reach a log line. */
+    override fun toString() = "MultiUserProperties(enabled=$enabled, controlUrl=$controlUrl, tenantPause=$tenantPause)"
+}

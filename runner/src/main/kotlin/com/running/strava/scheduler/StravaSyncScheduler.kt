@@ -2,6 +2,9 @@ package com.running.strava.scheduler
 
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.sync.SyncStravaData
+import com.running.tenant.DataModeGuard
+import com.running.tenant.TenantBackfill
+import com.running.tenant.TenantContext
 import com.running.tenant.TenantJobRunner
 import com.running.tenant.runPerTenant
 import org.slf4j.LoggerFactory
@@ -14,6 +17,8 @@ class StravaSyncScheduler(
     private val syncStravaData: SyncStravaData,
     private val tokenRepository: StravaTokenRepository,
     private val tenantJobs: ObjectProvider<TenantJobRunner>,
+    private val modeGuard: ObjectProvider<DataModeGuard>,
+    private val backfill: ObjectProvider<TenantBackfill>,
 ) {
 
     private val log = LoggerFactory.getLogger(StravaSyncScheduler::class.java)
@@ -22,6 +27,19 @@ class StravaSyncScheduler(
     fun syncNewActivities() = tenantJobs.runPerTenant("strava-sync") { syncOnce() }
 
     private fun syncOnce() {
+        modeGuard.ifAvailable?.let {
+            if (!it.stravaAllowed(TenantContext.current())) {
+                log.info("Tenant is not set up for Strava, skipping scheduled sync")
+                return
+            }
+        }
+        // A tenant's first full fetch is paced by the shared read budget; the plain sync would fetch everything unpaced.
+        backfill.ifAvailable?.let {
+            if (it.pending()) {
+                it.enqueue()
+                return
+            }
+        }
         if (tokenRepository.get() == null) {
             log.info("No Strava token configured, skipping scheduled sync")
             return

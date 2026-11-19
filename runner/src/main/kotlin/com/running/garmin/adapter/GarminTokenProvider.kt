@@ -14,6 +14,8 @@ import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+enum class GarminKeyCheck { OK, REJECTED, UNAVAILABLE }
+
 /**
  * Exchanges the API key for a bearer token and keeps it in memory only (no disk cache), one entry per tenant.
  * The lifetime comes from the JWT `exp` claim. A token with less than one hour left is replaced.
@@ -78,6 +80,23 @@ class GarminTokenProvider(
 
     private fun exchange(st: State, key: String): String {
         exchanges.incrementAndGet()
+        val (jwt, exp) = requestToken(key)
+        st.token = jwt
+        st.expiresAt = exp
+        return jwt
+    }
+
+    /** Tries a key with the token exchange only (the setup wizard's "Test"). Nothing is cached or stored. */
+    fun verify(key: String): GarminKeyCheck = try {
+        requestToken(key)
+        GarminKeyCheck.OK
+    } catch (e: GarminApiException) {
+        if (e.category == GarminErrorCategory.AUTH) GarminKeyCheck.REJECTED else GarminKeyCheck.UNAVAILABLE
+    } catch (e: Exception) {
+        GarminKeyCheck.UNAVAILABLE
+    }
+
+    private fun requestToken(key: String): Pair<String, Instant> {
         val response = restClient.post()
             .uri(TOKEN_PATH)
             .header("Authorization", "ApiKey $key")
@@ -92,10 +111,7 @@ class GarminTokenProvider(
             }
         }
         val jwt = response.body.trim()
-        val exp = parseExpiry(jwt)
-        st.token = jwt
-        st.expiresAt = exp
-        return jwt
+        return jwt to parseExpiry(jwt)
     }
 
     private fun parseExpiry(jwt: String): Instant {

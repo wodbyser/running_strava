@@ -2,12 +2,15 @@ package com.running.strava.adapter
 
 import com.running.config.StravaProperties
 import com.running.strava.usecase.exchange.ExchangeStravaCode
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.view.RedirectView
 
+/** The single-user flow. With multi-user on, `TenantStravaOAuthController` (signed state, per tenant) replaces it. */
 @RestController
+@ConditionalOnProperty("app.multi-user.enabled", havingValue = "false", matchIfMissing = true)
 class StravaOAuthController(
     private val properties: StravaProperties,
     private val exchangeStravaCode: ExchangeStravaCode,

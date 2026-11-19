@@ -44,6 +44,8 @@ data class Activity(
     /** Strava `external_id` (origin file or service). Used only for the Garmin match dry run. */
     val externalId: String? = null,
     val deviceName: String? = null,
+    /** Provenance: null or `STRAVA` for Strava rows, `GARMIN` for rows projected from Garmin (multi-user, GARMIN mode). */
+    val source: String? = null,
 )
 
 data class Lap(

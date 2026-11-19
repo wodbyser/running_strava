@@ -24,6 +24,7 @@ class IsolationIT @Autowired constructor(
     private val users: AppUserRepository,
     private val registry: TenantRegistry,
     private val activities: ActivityRepository,
+    private val modes: TenantModes,
 ) : MultiUserIT() {
 
     private val encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()
@@ -34,6 +35,7 @@ class IsolationIT @Autowired constructor(
             provisioner.provision("anna")
             users.updatePasswordHash(users.findByUsername("anna")!!.id, encoder.encode("anna-test-pw"))
         }
+        if (!modes.onboardingComplete("anna")) modes.complete("anna", DataMode.STRAVA)
         val start = ZonedDateTime.now().minusDays(2)
         TenantContext.asTenant("wout") { activities.save(Fixtures.run(777, start, 10000.0, 3000).copy(name = "Alleen-van-wout")) }
         TenantContext.asTenant("anna") { activities.save(Fixtures.run(777, start, 5000.0, 1800).copy(name = "Alleen-van-anna")) }

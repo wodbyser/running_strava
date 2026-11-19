@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <h1>Dat kan hier niet</h1>
+    </div>
+    <section class="card" aria-labelledby="h-conflict">
+        <h2 id="h-conflict">Waarom niet?</h2>
+        <p th:text="${reason}">Uitleg</p>
+        <p>Je bron kiezen doe je één keer. Wil je toch wisselen, dan begin je opnieuw via Instellingen: je oude gegevens worden dan bewaard door de beheerder, maar je start met een lege app.</p>
+        <div class="actions">
+            <a class="btn btn-primary" href="/settings">Naar Instellingen</a>
+            <a class="btn btn-ghost" href="/">Terug naar het dashboard</a>
+        </div>
+    </section>
+</th:block>
+</html>

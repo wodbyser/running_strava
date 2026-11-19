@@ -76,6 +76,9 @@ class ActivityEntity(
     var externalId: String? = null,
     @Column(name = "device_name")
     var deviceName: String? = null,
+    /** Provenance. Additive, nullable on purpose: null means STRAVA, the owner's existing rows are never rewritten. */
+    @Column(name = "source", length = 16)
+    var source: String? = null,
 )
 
 @Entity

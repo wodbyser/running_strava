@@ -166,7 +166,7 @@
 </div>
 <div th:if="${@garminKeyBanner.expired()}" class="flash-wrap">
     <div class="flash flash-warning" role="status">
-        <span>Je Garmin-sleutel is verlopen of ingetrokken. Je bewaarde gegevens blijven staan, maar er komt niets nieuws binnen tot je een nieuwe sleutel invoert.</span>
+        <span>Je Garmin-sleutel is verlopen of ingetrokken. Je bewaarde gegevens blijven staan, maar er komt niets nieuws binnen tot je een nieuwe sleutel invoert. <a href="/settings">Naar Instellingen</a></span>
     </div>
 </div>
 <div class="spinner-overlay" id="loadingSpinner" role="status" aria-live="polite" aria-hidden="true">
@@ -187,6 +187,7 @@
         Running Coach
     </span>
     <span>Berekend uit je eigen Strava- en Garmin-gegevens. Geen medisch advies.</span>
+    <a th:if="${@tenantUi.showSettings()}" href="/settings">Instellingen</a>
 </footer>
 <script>
     (function () {

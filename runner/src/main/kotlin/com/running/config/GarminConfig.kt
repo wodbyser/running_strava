@@ -9,6 +9,7 @@ import com.running.garmin.spi.GarminApiClient
 import com.running.garmin.usecase.BackfillGarminData
 import com.running.garmin.usecase.SyncGarminData
 import com.running.tenant.CredentialResolver
+import com.running.tenant.DataModeGuard
 import com.running.tenant.SecretCipher
 import com.running.tenant.TenantRegistry
 import com.running.tenant.TenantSettings
@@ -44,7 +45,8 @@ class GarminConfig {
         registry: ObjectProvider<TenantRegistry>,
         settings: ObjectProvider<TenantSettings>,
         cipher: ObjectProvider<SecretCipher>,
-    ) = CredentialResolver(properties, registry.ifAvailable, settings.ifAvailable, cipher.ifAvailable)
+        guard: ObjectProvider<DataModeGuard>,
+    ) = CredentialResolver(properties, registry.ifAvailable, settings.ifAvailable, cipher.ifAvailable, guard.ifAvailable)
 
     @Bean
     fun garminTokenProvider(builder: RestClient.Builder, properties: GarminProperties, garminClock: Clock, mapper: ObjectMapper, credentials: CredentialResolver) =

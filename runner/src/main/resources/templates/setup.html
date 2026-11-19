@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instellen - Running Coach</title>
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+    <meta name="theme-color" content="#101b24">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="auth">
+    <div class="auth-card auth-wide">
+        <span class="auth-brand">
+            <svg class="brand-mark" viewBox="0 0 30 20" fill="none" aria-hidden="true" focusable="false">
+                <path d="M4.5 4.4 12.6 10l-8.1 5.6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.2 4.4 23.3 10l-8.1 5.6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+            </svg>
+            Running Coach
+        </span>
+        <h1>Welkom, <span th:text="${username}">naam</span></h1>
+        <p class="auth-sub">Koppel waar je trainingen vandaan komen. Dat kan Strava zijn, Garmin, of allebei. Dit kies je nu één keer: later wisselen kan alleen door helemaal opnieuw te beginnen.</p>
+        <p class="msg" th:classappend="${flashType == 'success'} ? 'ok' : 'bad'" th:if="${flashMessage}" th:text="${flashMessage}">Melding</p>
+
+        <section class="setup-step">
+            <h2>Strava</h2>
+            <p class="auth-sub" th:unless="${stravaLinked}">Je logt in bij Strava en geeft deze app toestemming om je activiteiten te lezen. We krijgen je Strava-wachtwoord nooit te zien.</p>
+            <p class="msg ok" th:if="${stravaLinked}">Strava is gekoppeld.</p>
+            <a class="btn btn-secondary" href="/auth/strava" th:text="${stravaLinked} ? 'Opnieuw koppelen' : 'Koppel Strava'">Koppel Strava</a>
+        </section>
+
+        <section class="setup-step">
+            <h2>Garmin</h2>
+            <p class="auth-sub">Maak op Garmin Connect (website) onder Instellingen een persoonlijke API-sleutel. Kies bij voorkeur 365 dagen geldigheid. De sleutel wordt maar één keer getoond.</p>
+            <p class="msg ok" th:if="${garminLast4}">Sleutel opgeslagen (eindigt op <span th:text="${garminLast4}">1234</span>).</p>
+            <form method="post" action="/setup/garmin" autocomplete="off">
+                <label for="key">Garmin-sleutel</label>
+                <input id="key" name="key" type="password" autocomplete="off" required>
+                <button type="submit" class="btn btn-secondary">Testen en opslaan</button>
+            </form>
+            <form method="post" action="/setup/garmin/clear" th:if="${garminLast4}">
+                <button type="submit" class="btn btn-ghost">Sleutel verwijderen</button>
+            </form>
+        </section>
+
+        <section class="setup-step">
+            <h2>Klaar</h2>
+            <p class="auth-sub" th:if="${canFinish}">Je account wordt dan: <strong th:text="${resulting}">Alleen Strava</strong>.</p>
+            <p class="auth-sub" th:unless="${canFinish}">Koppel eerst Strava of voeg een Garmin-sleutel toe.</p>
+            <form method="post" action="/setup/finish">
+                <button type="submit" class="btn btn-primary" th:disabled="${!canFinish}">Dit is goed, ga verder</button>
+            </form>
+        </section>
+        <form method="post" action="/logout"><button type="submit" class="btn btn-ghost">Uitloggen</button></form>
+    </div>
+</main>
+</body>
+</html>

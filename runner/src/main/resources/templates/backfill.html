@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <h1>Je trainingen worden opgehaald</h1>
+        <p class="page-meta">Dit gebeurt op de achtergrond. Je mag gewoon verder kijken in de app.</p>
+    </div>
+
+    <section class="card" aria-labelledby="h-progress">
+        <h2 id="h-progress">Voortgang</h2>
+        <p class="lead" th:switch="${phase}">
+            <span th:case="'DONE'">Klaar: alles is opgehaald.</span>
+            <span th:case="'PAUSED'">Gepauzeerd. Strava laat per dag maar een beperkt aantal opvragen toe, dus de rest volgt automatisch morgen.</span>
+            <span th:case="'FAILED'">Er ging iets mis. Het wordt morgen automatisch opnieuw geprobeerd.</span>
+            <span th:case="*">Bezig met ophalen...</span>
+        </p>
+        <div class="stat-grid">
+            <div class="stat"><span class="label">Activiteiten gevonden</span><span class="value" th:text="${activities}">0</span></div>
+            <div class="stat"><span class="label">Hardlooptrainingen met detail</span><span class="value" th:text="${runsWithDetail} + ' van ' + ${runs}">0 van 0</span></div>
+        </div>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" th:attr="aria-valuenow=${percent}">
+            <span class="progress-fill" th:style="'width:' + ${percent} + '%'"></span>
+        </div>
+        <div class="card-foot"><a class="btn btn-primary" href="/">Naar het dashboard</a></div>
+    </section>
+    <script th:if="${active}">setTimeout(function () { location.reload(); }, 10000);</script>
+</th:block>
+</html>

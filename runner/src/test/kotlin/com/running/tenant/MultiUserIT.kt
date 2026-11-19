@@ -15,6 +15,7 @@ object TestPostgres {
     properties = [
         "app.multi-user.enabled=true",
         "app.multi-user.secret-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "app.multi-user.signup-code=test-invite-code-0123456789",
         "app.security.username=wout",
         "app.security.password=owner-test-pw",
         "app.security.remember-me-key=remember-test-key",

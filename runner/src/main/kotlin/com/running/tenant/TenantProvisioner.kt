@@ -24,7 +24,8 @@ class TenantProvisioner(
 ) {
     private val log = LoggerFactory.getLogger(TenantProvisioner::class.java)
 
-    fun provision(username: String): Tenant {
+    /** [password] is the user's own (signup); without it the row gets an unusable one (CLI provisioning). */
+    fun provision(username: String, password: String? = null): Tenant {
         val id = username.trim().lowercase()
         if (!OwnerBootstrap.TENANT_ID.matches(id) || id in RESERVED) throw TenantProvisionException("Invalid user name")
         val db = DB_PREFIX + id
@@ -32,8 +33,7 @@ class TenantProvisioner(
         val existing = users.findByUsername(id)
         if (existing != null && existing.status != "PENDING") throw TenantProvisionException("User '$id' already exists")
         if (existing == null) {
-            // Unusable password: nobody can log in until a later phase sets one.
-            users.insertUser(id, encoder.encode(UUID.randomUUID().toString()), "USER", id, db, "PENDING")
+            users.insertUser(id, encoder.encode(password ?: UUID.randomUUID().toString()), "USER", id, db, "PENDING")
             users.audit(id, "PROVISION_STARTED")
         }
         val tenant = Tenant(id, db, owner = false)

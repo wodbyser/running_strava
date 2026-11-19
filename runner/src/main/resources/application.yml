@@ -50,6 +50,7 @@ app:
     control-url: ${APP_CONTROL_DB_URL:}
     tenant-pause: 5s
     secret-key: ${APP_TENANT_SECRET_KEY:}
+    signup-code: ${APP_SIGNUP_CODE:}
 
 strava:
   client-id: ${STRAVA_CLIENT_ID:}

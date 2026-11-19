@@ -1214,6 +1214,14 @@ tr:has(.pick-check input:checked) { background: var(--accent-soft); }
 .auth-card label { display: block; font-size: var(--fs-2xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin: var(--sp-2) 0 5px; }
 .auth-card input:not([type="submit"]) { width: 100%; min-height: 44px; margin-bottom: var(--sp-4); font-size: var(--fs-md); }
 .auth-card button[type="submit"] { width: 100%; min-height: 44px; font-size: var(--fs-md); }
+.auth-wide { max-width: 520px; }
+.auth-alt { margin-top: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
+.setup-step { border-top: 1px solid var(--line); padding: var(--sp-4) 0; }
+.setup-step h2 { font-size: var(--fs-md); margin-bottom: var(--sp-2); }
+.setup-step form { margin-top: var(--sp-3); }
+.auth-card .setup-step button[type="submit"] { width: auto; padding: 0 var(--sp-5); }
+.progress { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: var(--sp-4) 0; }
+.progress-fill { display: block; height: 100%; background: var(--accent); }
 .msg { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); margin-bottom: var(--sp-4); border: 1px solid transparent; }
 .msg.bad { background: var(--bad-soft); color: var(--bad); border-color: #eeb2ab; }
 .msg.ok { background: var(--ok-soft); color: var(--ok); border-color: #a9d3b8; }

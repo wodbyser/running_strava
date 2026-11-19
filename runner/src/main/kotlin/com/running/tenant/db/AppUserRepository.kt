@@ -60,7 +60,10 @@ class AppUserRepository(private val jdbc: JdbcTemplate) {
         jdbc.update("UPDATE app_user SET last_login_at = ? WHERE username = ?", OffsetDateTime.now(), username)
     }
 
-    fun audit(username: String?, action: String, detail: String? = null) {
-        jdbc.update("INSERT INTO auth_audit (at, username, action, detail) VALUES (?, ?, ?, ?)", OffsetDateTime.now(), username, action, detail)
+    fun audit(username: String?, action: String, detail: String? = null, ip: String? = null) {
+        jdbc.update(
+            "INSERT INTO auth_audit (at, username, action, detail, ip) VALUES (?, ?, ?, ?, ?)",
+            OffsetDateTime.now(), username?.take(64), action, detail?.take(300), ip?.take(64),
+        )
     }
 }

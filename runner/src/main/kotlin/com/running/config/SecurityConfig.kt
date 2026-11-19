@@ -1,6 +1,7 @@
 package com.running.config
 
 import com.running.tenant.TenantContextFilter
+import com.running.tenant.web.LoginAttemptFilter
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.intercept.AuthorizationFilter
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import java.time.Duration
 
 /**
@@ -43,6 +45,7 @@ class SecurityConfig {
         properties: AppSecurityProperties,
         users: UserDetailsService,
         tenantFilter: ObjectProvider<TenantContextFilter>,
+        loginAttempts: ObjectProvider<LoginAttemptFilter>,
     ): SecurityFilterChain {
         http.csrf { it.disable() }
         http.headers { headers -> headers.frameOptions { it.sameOrigin() } }
@@ -53,6 +56,7 @@ class SecurityConfig {
         }
         http.authorizeHttpRequests {
             it.requestMatchers("/login", "/favicon.ico", "/error", "/css/**", "/js/**", "/img/**").permitAll()
+            if (tenantFilter.ifAvailable != null) it.requestMatchers("/register").permitAll()
             it.anyRequest().authenticated()
         }
         http.formLogin { it.loginPage("/login").defaultSuccessUrl("/", false).permitAll() }
@@ -63,6 +67,7 @@ class SecurityConfig {
                 .tokenValiditySeconds(REMEMBER_ME.seconds.toInt())
         }
         tenantFilter.ifAvailable { http.addFilterAfter(it, AuthorizationFilter::class.java) }
+        loginAttempts.ifAvailable { http.addFilterBefore(it, UsernamePasswordAuthenticationFilter::class.java) }
         http.logout { it.logoutSuccessUrl("/login?logout").permitAll() }
         return http.build()
     }

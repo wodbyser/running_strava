@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="nl" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nieuw account - Running Coach</title>
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+    <meta name="theme-color" content="#101b24">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<main class="auth">
+    <div class="auth-card auth-wide">
+        <span class="auth-brand">
+            <svg class="brand-mark" viewBox="0 0 30 20" fill="none" aria-hidden="true" focusable="false">
+                <path d="M4.5 4.4 12.6 10l-8.1 5.6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M15.2 4.4 23.3 10l-8.1 5.6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
+            </svg>
+            Running Coach
+        </span>
+        <h1>Nieuw account</h1>
+        <p class="auth-sub">Je hebt een uitnodigingscode nodig. Je trainingen blijven helemaal van jou: niemand anders ziet ze.</p>
+        <p class="msg bad" th:if="${error}" th:text="${error}">Fout</p>
+        <form method="post" action="/register">
+            <label for="code">Uitnodigingscode</label>
+            <input id="code" name="code" type="password" autocomplete="off" required autofocus>
+            <label for="username">Gebruikersnaam</label>
+            <input id="username" name="username" type="text" autocomplete="username" th:value="${username}" pattern="[a-z][a-z0-9_]{2,30}" required>
+            <label for="password">Wachtwoord (minstens 10 tekens)</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+            <label for="password2">Wachtwoord nog eens</label>
+            <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="10" required>
+            <button type="submit" class="btn btn-primary">Account maken</button>
+        </form>
+        <p class="auth-alt"><a href="/login">Ik heb al een account</a></p>
+    </div>
+</main>
+</body>
+</html>

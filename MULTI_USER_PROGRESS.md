@@ -4,11 +4,24 @@ Single source of truth for where this feature stands. **Read this first, update 
 Full design and rationale: `docs/multi-user-design.md` (self-contained, no session context needed).
 Prompt to start a fresh agent on the next phase: `MULTI_USER_PROMPT.md` (same prompt every time).
 
-**Last updated:** 2026-11-19 by: Phase 3 session (per-tenant Garmin key/token/coordinator, SecretCipher, CredentialResolver, Strava rate budget). Phase 3 is APPROVED (owner, 2026-11-19) and committed.
+**Last updated:** 2026-11-19 by: Phase 4 session (signup, wizard, Strava state, modes, settings/reset, paced backfill). Phase 4 is APPROVED (owner, 2026-11-19); the two checks that need the real Strava app and the Funnel move to the pre-launch test.
 
 ## Next session starts here
 
-- **Next action:** Phase 3 is APPROVED (2026-11-19). Start **Phase 4**, but first check the owner preconditions (below) with the owner. Before it ships `app_settings` + `activities.source` to the owner's DB: verified backup first (design §11.1).
+- **Next action:** Phase 4 is APPROVED (owner, 2026-11-19). Start **Phase 5**. **Postponed by the owner to the pre-launch test, before inviting anyone (not blocking Phases 5-7):**
+  1. Real Strava round trip: run the app locally with the flag on against a restored copy (`APP_MULTI_USER_ENABLED=true`, `APP_TENANT_SECRET_KEY`, `APP_SIGNUP_CODE` from `.env`, `STRAVA_REDIRECT_URI=http://localhost:8080/callback` added to the Strava app's callback domain `localhost`), sign up a second person, click "Koppel Strava", finish, watch `/backfill`. Report what happened.
+  2. Client IP behind Funnel: after one failed signup/login from the phone on mobile data, check `select action, username, ip from auth_audit order by id desc limit 5` in `running_control`: `ip` must be the phone's public address, not `127.0.0.1`/`172.x`. (`ClientIp` believes the last `X-Forwarded-For` entry only when the direct peer is loopback/private.)
+  Also before launch: `bash deploy/backup.sh`, then a flag-on run on a restored copy, then the compose change (Phase 6).
+- **Deploy gap found (Phase 6, not changed now):** `deploy/docker-compose.yml` passes only `APP_USERNAME/APP_PASSWORD/APP_REMEMBER_ME_KEY/STRAVA_*/GARMIN_PERSONAL_API_KEY`. `APP_MULTI_USER_ENABLED`, `APP_SIGNUP_CODE`, `APP_TENANT_SECRET_KEY` and `APP_CONTROL_DB_URL` in `deploy/.env` never reach the container, so the flag cannot be switched on in production until the compose file passes them (owner decides when; flag stays off meanwhile).
+- **First release with Phase 4 on the owner's DB** (flag off or on): Hibernate adds `app_settings` and `activities.source` (nullable). Verified on a restored copy: flag off = Spring Boot's own update; flag on = exactly 2 statements (`alter table if exists activities add column source varchar(16)`, `create table app_settings`). Take `bash deploy/backup.sh` first (design §11.1). Rollback = previous image, the extra table/column are ignored.
+- Phase 4 facts for the next agent:
+  - Modes: `DataMode`/`TenantModes`/`DataModeGuard` in `tenant/DataMode.kt`. OWNER is BOTH without a query. Mode + `onboarding_complete` live in `app_settings`, cached in memory, written once by `TenantModes.complete`. Reset evicts it.
+  - **Stricter than design §9.3:** after onboarding the mode is fixed, so adding the *other* source is always 409 (not only "once data exists"). Same-source rotation (`/settings/garmin`, "Strava opnieuw koppelen") stays allowed. Strava re-link with a *different athlete* while data exists is refused.
+  - `CredentialResolver` gives non-owner tenants a Garmin key only in GARMIN/BOTH; `StravaSyncScheduler` skips tenants whose mode does not use Strava (UNSET and GARMIN) and hands a tenant with `backfill.pending` to `TenantBackfill` instead of syncing unpaced. Phase 5 still has to add the throwing-stub tests and the guard in the manual `/sync`, `/fetch-all`, ... routes (they make no HTTP call today in GARMIN mode only because there is no Strava token).
+  - Flag-on web layer is in `tenant/web/` (`RegisterController`, `SetupController`, `SettingsController`, `TenantStravaOAuthController`, `BackfillController`, `OnboardingGate` interceptor, `LoginAttemptFilter`, `TenantUi`). `StravaOAuthController` is now `@ConditionalOnProperty(flag=false)`; with the flag on, `TenantStravaOAuthController` replaces it (signed single-use `state`).
+  - `TenantReset` (archive by rename, refuses OWNER and any DB that is not `running_u_<tenant>`) evicts the five caches/token provider via the `onReset` callback in `MultiUserConfig`. The tenant is removed from `TenantRegistry` during the rename so nothing can reconnect.
+  - `TenantBackfill`: one daemon thread + `BackfillGate`; use cases are the existing `FetchRemainingData` + streams + laps backfills wrapped by `BudgetGatedStravaClient` (throws the rate-limit exception when the 70% budget is used). Known limitation: an activity whose summary was saved but whose detail call was cut off by the budget gets laps/streams later but not Strava's `best_efforts_json` (existing `FetchRemainingData` behaviour, same for the owner's manual run).
+  - Invite code: `app.multi-user.signup-code` (`APP_SIGNUP_CODE`), reusable env code only (single-use codes are Phase 6). Signup username = tenant id (`^[a-z][a-z0-9_]{2,30}$`), password 10..72 bytes.
 - Phase 3 facts for the next agent: `CredentialResolver` (flag off: env key; flag on: OWNER env key, other tenants a stored
   key decrypted by `SecretCipher`, no tenant = no key) is in `tenant/CredentialResolver.kt`; `TenantSettings` is the port to the
   future `app_settings` table (Phase 4 replaces `NoTenantSettings` in `MultiUserConfig`; key name `CredentialResolver.GARMIN_KEY`
@@ -79,7 +92,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 | 1 | `running_control`, `app_user`/`invite_code`/`auth_audit`, DB login, owner bootstrap | APPROVED | 186 runner + 434 core tests green; flag-on manual run on restored copy, see log |
 | 2 | Routing datasource, fail-closed filter, Hibernate start-up, `TenantSchemaUpdater`, tenant-aware schedulers/warm-ups, provisioner CLI | APPROVED | 434 core + 220 runner tests green; zero schema statements on restored owner copy; timings equal within noise, see log |
 | 3 | Per-tenant caches, Garmin token provider, coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget | APPROVED | 434 core + 241 runner tests green; flag off/on manual run on restored copy, see log |
-| 4 | `app_settings` + `activities.source`, `/register`, `/setup`, Strava OAuth `state`, Strava-only users, reset | NOT STARTED | |
+| 4 | `app_settings` + `activities.source`, `/register`, `/setup`, Strava OAuth `state`, Strava-only users, reset | APPROVED | 434 core + 275 runner tests green; flag off/on manual run on restored copies; real Strava round trip and forwarded IP behind Funnel deliberately postponed by the owner to the pre-launch test (before inviting friends), see log |
 | 5 | GARMIN-only projection, mode guard, capability matrix + UI panels | NOT STARTED | |
 | 6 | `/admin/users`, backup-all nightly, deploy docs | NOT STARTED | |
 | 7 | Hardening, session invalidation, delete-user, remove feature flag | NOT STARTED | |
@@ -138,18 +151,18 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 ## Phase 4 checklist
 
-- [ ] Owner preconditions done (Strava subscription, capacity 10, env secrets)
-- [ ] Verified backup, then ship `AppSettingEntity` + nullable `activities.source` (null = STRAVA)
-- [ ] `/register` with invite code (env code reusable), constant-time compare, rate limit 5/15min per IP;
-      login rate limit per (IP, username); verify forwarded client IP behind Funnel
-- [ ] `/setup` wizard (Strava button, Garmin key + Test), hidden after onboarding; never for the OWNER
-- [ ] Strava OAuth `state` (HMAC: tenant + session + expiry); replay rejected; Dutch message on "athlete limit"
-- [ ] `DataMode` derivation + persistence; OWNER hard-coded `BOTH`
-- [ ] `DataModeGuard` for STRAVA mode; OAuth 409 once data exists
-- [ ] `/settings` (rotate same-source credentials) + `POST /settings/reset` (archive by rename), OWNER refused + test
-- [ ] First Strava backfill on the per-tenant queue with a progress page
-- [ ] Tests: `InviteCodeTest`, `DataModeTest`, `OwnerModeTest`, `ModeChangeGuardTest`, `OwnerSafetyTest`
-- [ ] Manual: one Strava-only user end-to-end; owner pages unchanged
+- [x] Owner preconditions done (Strava subscription, capacity 10, env secrets) (owner said so 2026-11-19; env secrets appended earlier)
+- [x] Verified backup, then ship `AppSettingEntity` + nullable `activities.source` (null = STRAVA) (`deploy/backup.sh` 2026-11-19 14:42, restored into scratch, 22 tables identical; entities shipped to a restored copy only, never to `running`)
+- [x] `/register` with invite code (env code reusable), constant-time compare, rate limit 5/15min per IP; login rate limit per (IP, username)
+- [ ] ...verify forwarded client IP behind Funnel (`ClientIp` implemented and unit-tested; the real header can only be seen on the server: owner step 2 above)
+- [x] `/setup` wizard (Strava button, Garmin key + Test), hidden after onboarding; never for the OWNER
+- [x] Strava OAuth `state` (HMAC: tenant + session + expiry + nonce); replay rejected; Dutch message on "athlete limit" (matched on the 403 body of the token exchange; wording of Strava's real error unverified)
+- [x] `DataMode` derivation + persistence; OWNER hard-coded `BOTH`
+- [x] `DataModeGuard` for STRAVA mode; OAuth 409 for GARMIN mode (and Garmin 409 for STRAVA mode), see "stricter than §9.3" above
+- [x] `/settings` (rotate same-source credentials) + `POST /settings/reset` (archive by rename), OWNER refused + test
+- [x] First Strava backfill on the per-tenant queue with a progress page (`/backfill`)
+- [x] Tests: `InviteCodeTest`, `DataModeTest`, `OwnerModeTest`, `OwnerSafetyTest`, `OAuthStateTest`, `StravaSchedulerGuardTest`; `ModeChangeGuardTest` = the garmin-only and strava-only tests in `OnboardingIT` (409 both ways, same-source rotation, reset archives) and `OwnerSafetyTest` (refuses owner DB name); `OnboardingIT` also covers signup, rate limits, state replay/other tenant, log grep for key/code/password, owner never sees setup
+- [ ] Manual: one Strava-only user end-to-end with the real Strava app (owner step 1); done here instead: signup, wizard, Garmin test against the real Garmin server (fake key rejected with the Dutch message), Strava user seeded in the tenant DB: `/settings`, `/backfill`, dashboard; owner pages unchanged
 
 ## Phase 5 checklist
 
@@ -190,6 +203,11 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 | 2026-11-19 | Phase 2, provisioned empty tenant `testtenant` (scratch, local Postgres), flag ON | 20 schema statements, 18 tables; tenant `/activities` 0 rows, pages `/ /load /race /recovery /performance` 200; owner `/activities` still 606 rows; second boot `Schema update 'testtenant': 0 statement(s)`; both warm-ups logged `starting for 2 tenants`; scratch DBs `running_u_testtenant` and `running_control` dropped afterwards (not the owner's DB) |
 | 2026-11-19 | Phase 3, same jar and restored copy `running_restore_test`, 6 pages, flag ON (with secret key) vs OFF, one cold request each | all 200 and same order of magnitude (`/` 2.1 vs 2.3 s, `/activities` 0.75 vs 0.58, `/load` 6.0 vs 7.1, `/race` 1.7 vs 1.3 s; cold, warm-ups running, not a timing gate). `/garmin/status` state `OK` with the env key under the flag ON (owner key still used). Flag ON without `APP_TENANT_SECRET_KEY`: refuses to start with a clear message, no secret printed. Start-up 8.5 s both. `Schema update 'wout': 0 statement(s)` |
 | 2026-11-19 | `deploy/backup.sh` run; `running.dump` of it restored into a scratch DB | counts identical to live; scratch DB dropped |
+| 2026-11-19 | Phase 4 backup before shipping the new entities: `deploy/backups/all-20261119-1442/` (`running.dump` 48 MB, `running_p3.dump` 35 MB), `running.dump` restored into scratch `running_restore_p4` | all 22 table counts identical (md5 of the count list equal), activities 606 |
+| 2026-11-19 | Phase 4, flag OFF, same jar, restored copy: schema | Spring Boot's own update added `app_settings` and `activities.source` (nullable, 0 rows with a value, 606 rows untouched); `/register /setup /settings /backfill` answer 404 for the owner, anonymous `/register` 302 to login (as any unknown path), no "Nieuw account" link |
+| 2026-11-19 | Phase 4, flag ON on a second restored copy that had neither addition | `Schema update 'wout': 2 statement(s)` = `alter table if exists activities add column source varchar(16)` + `create table app_settings (...)`; second boot on the first copy: 0 statements |
+| 2026-11-19 | Phase 4 cold single requests (owner session, same jar, same copy), flag OFF vs ON | `/` 4.32 vs 4.04 s, `/activities` 0.54 vs 0.49, `/load` 10.61 vs 10.96, `/race` 1.99 vs 1.99 s (cold, not a timing gate; same order, no extra SQL on the owner path: `OwnerModeTest` asserts zero settings reads for the owner) |
+| 2026-11-19 | Phase 4 manual flag-on run | wrong invite code 403; signup 302 to `/setup`, own DB `running_u_p4user` created; `/` and `/activities` redirect to `/setup` until onboarded; fake Garmin key against the real Garmin server: "Garmin weigert deze sleutel", nothing stored; audit rows `SIGNUP_BAD_CODE`, `PROVISION_STARTED`, `PROVISIONED`, `SIGNUP` with ip; greps for owner password, Strava secret, remember-me key, user password, invite code, fake key in 4 logs = 0. Scratch DBs `running_control`, `running_control_b`, `running_u_p4user`, `running_restore_p4`, `running_restore_p4b` dropped afterwards (all mine, never `running`) |
 
 ## Session log
 
@@ -284,6 +302,8 @@ Newest last. One entry per session: what was done, what was verified, what is ne
   runs flag off and on against `running_restore_test` (see Measurements log), grep for the fake key/password/remember-me key/master
   key in both logs = 0. Never connected to the owner's `running`: no backup needed. I created and dropped the scratch DB
   `running_control` in the local container; `running-db` stopped again. No questions asked.
+
+- **2026-11-19** — Phase 4 (owner: Phase 3 approved, Strava subscription + 10 athletes done, `APP_SIGNUP_CODE`/`APP_TENANT_SECRET_KEY` in `deploy/.env`). Baseline 434 + 241 green. Plan: persistence (`app_settings`, `activities.source`), modes, signup, wizard, OAuth state, settings/reset, paced backfill, tests, manual runs. Built (all behind the flag except the two additive columns/tables): `settings/db/AppSettingEntity` + `AppSettings`/`SettingsStore`; `DataMode`, `TenantModes`, `DataModeGuard`; `InviteCodes`, `AttemptLimiter`, `ClientIp`, `OAuthState`; `TenantReset` + `DatabaseMaintenance`; `TenantBackfill` + `BudgetGatedStravaClient`; web layer in `tenant/web/`; templates `register`, `setup`, `settings`, `backfill`, `conflict` (+ small CSS, login link, footer link, banner link); `GarminTokenProvider.verify(key)` (token exchange only, nothing cached); `TenantProvisioner.provision(name, password)`; `AppUserRepository.audit(..., ip)`; `MultiUserProperties.toString` no longer prints the master key/invite code. Decisions/deviations (design updated): (1) mode fixed once onboarded, other source always 409 (stricter than "once data exists"); (2) Strava re-link as another athlete is refused when data exists; (3) `StravaOAuthController` is conditional on flag off and `TenantStravaOAuthController` replaces it with the flag on, so the owner's flag-off flow is byte-for-byte as before; (4) `OnboardingGate` is an MVC interceptor and uses the request URI, because `servletPath` is empty in MockMvc (first IT run caught it); (5) the nightly Strava job does not plain-sync a tenant whose first fetch is pending, it queues the paced backfill; (6) scheduler skips UNSET/GARMIN tenants. `IsolationIT` now onboards `anna` first (she would otherwise be redirected to `/setup`). Verified: 434 core + 275 runner tests, 0 failures (new: `InviteCodeTest` 6, `OAuthStateTest` 5, `DataModeTest` 6, `OwnerModeTest` 3, `OwnerSafetyTest` 3, `StravaSchedulerGuardTest` 1, `OnboardingIT` 8, 2 more in `FlagOffContextTest`); backup + restore drill, flag off/on manual runs and screenshots of register/setup/settings/backfill: see Measurements log. Never connected to the owner's `running`: only `pg_dump`/`SELECT` through `backup.sh`. Not done (cannot be from here): real Strava OAuth round trip and the forwarded-IP check behind Funnel; both are owner steps under "Next session starts here". Not built, belongs later: single-use invite codes and `/admin/users` (Phase 6), compose passing the new env vars (Phase 6), throwing-stub tests per mode and guards on the manual Strava routes (Phase 5), session invalidation on disable (Phase 7). `running-db` was started for the drill and stopped again. No questions asked.
 
 ## Guardrail checklist before any commit
 
