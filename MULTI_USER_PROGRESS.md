@@ -4,13 +4,18 @@ Single source of truth for where this feature stands. **Read this first, update 
 Full design and rationale: `docs/multi-user-design.md` (self-contained, no session context needed).
 Prompt to start a fresh agent on the next phase: `MULTI_USER_PROMPT.md` (same prompt every time).
 
-**Last updated:** 2026-11-17 by: review session (design corrected, no code yet).
+**Last updated:** 2026-11-19 by: Phase 1 session (control plane + DB-backed login behind the flag).
 
 ## Next session starts here
 
-- **Next action:** start **Phase 0** (safety net + baseline measurements, no code change). All owner decisions are
-  taken (D1–D14, D8 revised); there are no open questions. Do not start Phase 1 before the Phase 0 gate is green.
-- **Nothing is implemented yet.** `main` is unchanged apart from documentation.
+- **Next action:** Phase 1 is APPROVED (2026-11-19). Start **Phase 2** (routing datasource, §5.7 boot with the flag on first). Phase 0 is APPROVED (owner deploys on Linux;
+  `backup.ps1` is irrelevant and was not run). Wiring `backup.sh` into the systemd timer stays a Phase 6 item.
+- **Phase 1 is DONE** (flag off by default). New package `runner/.../com/running/tenant/`; `SecurityConfig` has one
+  `@ConditionalOnProperty` on `userDetailsService`; `application.yml` got `app.multi-user.*`.
+- Phase 2 reminders: control DB test infrastructure so far is H2 in PostgreSQL mode (§15.3 decided by the owner
+  2026-11-19: use Testcontainers PostgreSQL, adding it as a test-only dependency in Phase 2). The owner-DB assertion of §5.6 is
+  already in `OwnerBootstrap` (refuses start if OWNER row's `tenant_db` differs from the URL database); Phase 2 only
+  needs to add the pool wrapping.
 - Owner preconditions before Phase 4 (not code, owner does these): Strava subscription, Strava athlete capacity
   1 → 10, `APP_SIGNUP_CODE` and `APP_TENANT_SECRET_KEY` in `deploy/.env` (see design §19).
 
@@ -58,8 +63,8 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 | Phase | Scope | Status | Gate result |
 |---|---|---|---|
-| 0 | Backup/restore drill, row counts, schema snapshot, page-timing baseline, backup-all script (no code change) | NOT STARTED | |
-| 1 | `running_control`, `app_user`/`invite_code`/`auth_audit`, DB login, owner bootstrap | NOT STARTED | |
+| 0 | Backup/restore drill, row counts, schema snapshot, page-timing baseline, backup-all script (no code change) | APPROVED | Tests green, restore drill counts match, see log |
+| 1 | `running_control`, `app_user`/`invite_code`/`auth_audit`, DB login, owner bootstrap | APPROVED | 186 runner + 434 core tests green; flag-on manual run on restored copy, see log |
 | 2 | Routing datasource, fail-closed filter, Hibernate start-up, `TenantSchemaUpdater`, tenant-aware schedulers/warm-ups, provisioner CLI | NOT STARTED | |
 | 3 | Per-tenant caches, Garmin token provider, coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget | NOT STARTED | |
 | 4 | `app_settings` + `activities.source`, `/register`, `/setup`, Strava OAuth `state`, Strava-only users, reset | NOT STARTED | |
@@ -69,27 +74,27 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 ## Phase 0 checklist
 
-- [ ] Fresh dump via `deploy/migrate.sh backup` (do **not** use the old untracked `deploy/running.dump`)
-- [ ] Restore into scratch DB `running_restore_test`; boot the current image against it
-- [ ] Record row counts of all 18 tables (live and restored must match)
-- [ ] Save `pg_dump --schema-only` of the live DB under `docs/multi-user-baseline/` (no data)
-- [ ] Record median timings of `/`, `/activities`, `/load`, `/race` and start-up time in "Measurements log"
-- [ ] `deploy/backup.sh` + `deploy/backup.ps1`: dump every `running*` DB + manifest; `migrate.sh backup` unchanged
-- [ ] One manual backup-all run restored successfully before wiring it into the nightly timer
-- [ ] No file under `runner/` or `core/` changed
+- [x] Fresh dump via `deploy/migrate.sh backup` (do **not** use the old untracked `deploy/running.dump`)
+- [x] Restore into scratch DB `running_restore_test`; boot the current image against it
+- [x] Record row counts of all tables (22 here, not 18; live and restored match)
+- [x] Save `pg_dump --schema-only` of the live DB under `docs/multi-user-baseline/` (no data)
+- [x] Record median timings of `/`, `/activities`, `/load`, `/race` and start-up time in "Measurements log"
+- [x] `deploy/backup.sh` + `deploy/backup.ps1`: dump every `running*` DB + manifest; `migrate.sh backup` unchanged
+- [x] One manual backup-all run restored (nightly wiring deliberately left to Phase 6 / owner; not wired) successfully before wiring it into the nightly timer
+- [x] No file under `runner/` or `core/` changed
 
 ## Phase 1 checklist
 
-- [ ] `MultiUserProperties` (`app.multi-user.enabled` default `false`, `control-url`, `tenant-pause`)
-- [ ] `ControlDb` (own Hikari + `JdbcTemplate`, **not** a `DataSource` bean), only with the flag on
-- [ ] `running_control` auto-create (autocommit) + `CREATE TABLE IF NOT EXISTS` initializer
-- [ ] `AppUserPrincipal` (Serializable), `ControlUserDetailsService`
-- [ ] `SecurityConfig`: `InMemoryUserDetailsManager` when off (`matchIfMissing = true`), control-plane when on
-- [ ] `OwnerBootstrap`: create on first boot, `encoder.matches` before re-hash, refuse a 2nd OWNER
-- [ ] Refuse start-up with flag on + blank `APP_PASSWORD`, or flag on + H2 URL
-- [ ] Tests: `OwnerBootstrapTest`, `FlagOffContextTest`
-- [ ] Flag-off regression: existing suites pass, no connection to `running_control` at boot
-- [ ] Flag on against restored copy: remember-me survives a restart
+- [x] `MultiUserProperties` (`app.multi-user.enabled` default `false`, `control-url`, `tenant-pause`)
+- [x] `ControlDb` (own Hikari + `JdbcTemplate`, **not** a `DataSource` bean), only with the flag on
+- [x] `running_control` auto-create (autocommit) + `CREATE TABLE IF NOT EXISTS` initializer
+- [x] `AppUserPrincipal` (Serializable), `ControlUserDetailsService`
+- [x] `SecurityConfig`: `InMemoryUserDetailsManager` when off (`matchIfMissing = true`), control-plane when on
+- [x] `OwnerBootstrap`: create on first boot, `encoder.matches` before re-hash, refuse a 2nd OWNER
+- [x] Refuse start-up with flag on + blank `APP_PASSWORD`, or flag on + H2 URL
+- [x] Tests: `OwnerBootstrapTest`, `FlagOffContextTest`
+- [x] Flag-off regression: existing suites pass, no connection to `running_control` at boot
+- [x] Flag on against restored copy: remember-me survives a restart
 
 ## Phase 2 checklist
 
@@ -162,7 +167,11 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 | Date | What | Result |
 |---|---|---|
-| | | |
+| 2026-11-19 | Local stack (`running-db`, copy of owner data, Postgres 17), dump `deploy/backups/running-20261119-1323.dump` | 49,352,978 bytes, 85 TOC entries |
+| 2026-11-19 | Row counts live vs restored (`running_restore_test`) | 22 tables identical (activities 606, activity_laps 6062, activity_streams 586, garmin_body_battery_sample 81129, garmin_raw_payload 2464, others smaller) |
+| 2026-11-19 | Start-up of `running-coach:latest` (built 2026-11-18 22:02) against the restored copy, flag n/a | 6.4 s Spring "Started", /login reachable after 8 s |
+| 2026-11-19 | Warm median of 5 requests via curl, session cookie, app in Docker with 2 GB, restored copy | `/` 0.117 s, `/activities` 0.096 s, `/load` 0.745 s, `/race` 1.018 s (first/cold: 0.48, 0.35, 2.78, 1.43 s). Sub-100 ms pages are noisy (range 0.06-0.15 s); judge ±5% on `/load` and `/race` |
+| 2026-11-19 | `deploy/backup.sh` run; `running.dump` of it restored into a scratch DB | counts identical to live; scratch DB dropped |
 
 ## Session log
 
@@ -181,6 +190,41 @@ Newest last. One entry per session: what was done, what was verified, what is ne
   `encoder.matches` for the owner password; OWNER fixed to `BOTH`; reset = archive by rename; phases reordered so
   per-tenant state exists before signup; Strava subscription + 10-athlete cap. Removed the stale
   `review-package.md`. Still no code changed.
+
+- **2026-11-19** — Phase 0. Baseline tests green on Java 23 before starting. Used the local deploy stack
+  (`running-db`, was stopped, started and stopped again; the owner's `running` DB only read via `pg_dump`/`SELECT`).
+  Fresh dump, restore into `running_restore_test`, booted the current image against it (own container on port 8099,
+  no Strava/Garmin credentials, removed afterwards), row counts match, schema-only dump saved in
+  `docs/multi-user-baseline/running-schema.sql`, timings in the Measurements log. Added `deploy/backup.sh`
+  (tested: dumps `running` and `running_p3`, manifest with counts, restore verified) and `deploy/backup.ps1`
+  (**not run**, no Windows here; same logic, please run once on the server). Findings: the DB has 22 tables, 4 of
+  them legacy upper-case ones no entity maps (design corrected); there is an extra DB `running_p3` (35 MB, copy of
+  an earlier experiment; the backup-all picks it up as `running_*`); `running_restore_test` is left in the local
+  volume (scratch, owner may drop it). `deploy/backups/` and `running.dump` are git-ignored. Not done on purpose:
+  wiring `backup.sh` into the systemd timer (Phase 6 checklist; changes the owner's nightly job). No questions asked.
+
+- **2026-11-19** — Phase 1 (owner: Phase 0 APPROVED, Linux deploy only). Plan: `MultiUserProperties`, `ControlDb`,
+  control schema, principal/user-details, `OwnerBootstrap`, conditional `SecurityConfig`; files in `runner/.../tenant/`
+  (`MultiUserConfig.kt` holds all flag-on beans and `MultiUserGuards`). Tests (H2 in PostgreSQL mode, no new
+  dependency): `OwnerBootstrapTest` (create, same hash on unchanged password, re-hash on change, blank keeps hash,
+  changed username/2nd owner/other owner DB refused, case-insensitive lookup, disabled user, guards for blank password
+  and H2 URL, URL helper) and `FlagOffContextTest` (no `ControlDb`/`MultiUserProperties`/`ownerBootstrap` bean,
+  `InMemoryUserDetailsManager`, owner pool `maximumPoolSize == 2`). Full suite on Java 23: core 434, runner 186, 0
+  failures. Manual, flag ON against `running_restore_test` (local `running-db`, reached via container IP, port not
+  published; jar run with Strava/Garmin env blanked, throwaway passwords): `running_control` auto-created, OWNER row
+  `wout`/`running_restore_test`; login 302 to `/`, wrong password to `/login?error`, `/activities` `/load` `/race`
+  200; restart with same password: hash md5 unchanged and the remember-me cookie alone still gives 200 on `/`; changed
+  password: hash changed, new password works, old fails; blank `APP_PASSWORD` refuses to start with the clear message;
+  no password/remember-me key in any of the 4 logs (grep 0). Flag OFF against the same copy: login, `/`
+  `/activities` `/load` `/race` 200, no `running_control` database created, no "control" in the log. The owner's DB
+  `running` was never connected to. Decisions/deviations: owner tenant id = lowercased `APP_USERNAME`, which must match
+  `^[a-z][a-z0-9_]{2,30}$` when the flag is on (start-up refuses otherwise); `last_login_at` is written by
+  `LastLoginRecorder` on form login only (remember-me re-auth does not write); `auth_audit` gets
+  `OWNER_CREATED`/`OWNER_PASSWORD_UPDATED` rows; one-owner rule is enforced in code, not by a partial index (H2).
+  Left over: I dropped the scratch `running_control` I created in the local Postgres after the flag-on run (it is not
+  the owner's DB); `running-db` was started for the test and stopped again; no timings compared (Phase 2 gate).
+  Phase 1 does not change `ddl-auto` or add a `DataSource`. Owner answers (2026-11-19): Phase 1 approved; APP_USERNAME fits the regex; Testcontainers approved for Phase 2; commit requested. No backup needed: nothing ran against
+  the owner's database `running`.
 
 ## Guardrail checklist before any commit
 

@@ -45,6 +45,10 @@ app:
     username: ${APP_USERNAME:wout}
     password: ${APP_PASSWORD:}
     remember-me-key: ${APP_REMEMBER_ME_KEY:}
+  multi-user:
+    enabled: ${APP_MULTI_USER_ENABLED:false}
+    control-url: ${APP_CONTROL_DB_URL:}
+    tenant-pause: 0s
 
 strava:
   client-id: ${STRAVA_CLIENT_ID:}

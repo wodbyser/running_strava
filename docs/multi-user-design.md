@@ -95,7 +95,7 @@ atleten** zetten (zonder review mogelijk). Meer dan 9 andere Strava-gebruikers k
   stable hash in the control DB (§6.3) therefore keeps cookies valid across restarts; re-hashing on every boot
   would silently log everybody out.
 
-### 2.3 Persistence: 18 tables, all implicitly single-tenant
+### 2.3 Persistence: 18 entity tables (22 in the dev copy), all implicitly single-tenant
 
 `@Table` entities (all in `runner/src/main/kotlin/.../db/`):
 
@@ -510,7 +510,8 @@ At boot, with multi-user enabled:
    every boot and invalidate every remember-me cookie (§2.2). This preserves today's behaviour: editing `.env`
    changes the owner's password.
 3. If `APP_PASSWORD` is blank → leave the hash alone (do not lock the owner out) and log a warning.
-4. `APP_USERNAME` change is **not** supported automatically (it would rename the owner row); refuse to start with a
+4. (Implemented in Phase 1: the owner's `tenant_id` is the lowercased `APP_USERNAME`, which must match `^[a-z][a-z0-9_]{2,30}$` with the flag on; the OWNER row's `tenant_db` must equal the database of `spring.datasource.url`, else start-up refuses.)
+5. `APP_USERNAME` change is **not** supported automatically (it would rename the owner row); refuse to start with a
    clear message instead of silently creating a second OWNER.
 
 ### 6.4 Signup
@@ -916,7 +917,7 @@ Steps:
 
 1. Fresh dump of the owner's DB (`deploy/migrate.sh backup`); restore it into a scratch DB `running_restore_test`
    inside the same Postgres container; boot the current image against it (`DB_URL=…/running_restore_test`).
-2. Record row counts of all 18 tables and `pg_dump --schema-only` of the live DB (store under
+2. Record row counts of all tables (18 entity tables; the local copy also has 4 legacy upper-case H2-era tables `ACTIVITIES`, `ACTIVITY_STREAMS`, `STRAVA_TOKENS`, `SYNC_STATUS` that no entity maps) and `pg_dump --schema-only` of the live DB (store under
    `docs/multi-user-baseline/`, no data).
 3. Record page timings for `/`, `/activities`, `/load`, `/race` (5 warm requests each, median) and the start-up
    time. These are the ±5% reference.
@@ -1099,7 +1100,7 @@ target error; do not "fix" buildSrc).
 Two databases are needed, so H2 is not enough. Preferred: Testcontainers PostgreSQL (add
 `org.testcontainers:postgresql` + `junit-jupiter` as `testImplementation`, `@Testcontainers`). If the owner objects
 to a new test dependency, fall back to a `@SpringBootTest` guarded by an env var that points at a local Postgres
-and creates `running_test_*` databases, skipped when absent. Decide once, document it, do not mix.
+and creates `running_test_*` databases, skipped when absent. Decide once, document it, do not mix. **Decided 2026-11-19 by the owner: Testcontainers.**
 
 ### 15.4 Manual acceptance script (repeat every phase)
 

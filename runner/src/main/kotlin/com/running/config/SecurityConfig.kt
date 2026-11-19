@@ -1,6 +1,7 @@
 package com.running.config
 
 import org.slf4j.LoggerFactory
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -24,6 +25,7 @@ class SecurityConfig {
     private val log = LoggerFactory.getLogger(SecurityConfig::class.java)
 
     @Bean
+    @ConditionalOnProperty("app.multi-user.enabled", havingValue = "false", matchIfMissing = true)
     fun userDetailsService(properties: AppSecurityProperties): UserDetailsService {
         val encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()
         val password = properties.password.ifBlank { java.util.UUID.randomUUID().toString() }
