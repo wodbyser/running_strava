@@ -1294,6 +1294,19 @@ in the tenant UI, not only in the log (Phase 3 checklist).
 
 ---
 
+## 19b. Phase 5 findings (2026-11-19)
+
+| # | Finding | Consequence |
+|---|---|---|
+| 1 | `Activity.source` and `ActivityRepositoryImpl` mapping already existed from Phase 4 | Projector only needs the pure mapping (`core/.../garmin/projection`) and the runner collision guard |
+| 2 | The Strava guard sits in the client (`ModeGuardedStravaClient`, BeanPostProcessor, flag on only), not in every use case: one place, also covers the nightly job and the paced backfill. `exchangeToken` stays open because onboarding links Strava before a mode exists | A GARMIN or not onboarded tenant cannot make a Strava data call by any path; the manual routes also answer with a Dutch message instead of an error |
+| 3 | The dashboard and `/coach` read `strava_tokens` and offered "Koppel Strava" | They ask `TenantCapabilities.stravaUsed()` first: no token read and no Strava buttons for a GARMIN tenant |
+| 4 | Panels: a `NOT AVAILABLE` page redirects (`CapabilityInterceptor`) to `/unavailable`; a `PARTIAL` page gets a one-line note from the same interceptor. The matrix is in code (`CapabilityMatrix`) and in `docs/multi-user-capabilities.md` | Owner never sees either (no query, flag off = no interceptor) |
+| 5 | Owner decision 2026-11-19 on R14: `/ai` stays available for everybody, also for tenants with Strava data | Policy risk (no Strava data in AI prompts) accepted by the owner; for GARMIN tenants the prompt states what is missing |
+| 6 | The Garmin projection hook is an `afterRun` callback of `GarminSyncCoordinator`, only for mode GARMIN | BOTH tenants and the owner are never projected |
+
+---
+
 ## 20. Review log (2026-11-17, second session)
 
 The first draft was checked line by line against the code and the current Strava/Garmin terms. Corrections:

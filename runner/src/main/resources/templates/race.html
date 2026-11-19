@@ -239,7 +239,7 @@
                 <tbody>
                 <tr th:each="c : ${p.candidates}">
                     <td class="nowrap" th:text="${c.date}">-</td>
-                    <td><a th:href="'/activity/' + ${c.id}" th:text="${c.name}">-</a> <a class="note-xs" th:href="'https://www.strava.com/activities/' + ${c.id}" target="_blank" rel="noopener">Strava</a></td>
+                    <td><a th:href="'/activity/' + ${c.id}" th:text="${c.name}">-</a> <a th:if="${stravaUsed}" class="note-xs" th:href="'https://www.strava.com/activities/' + ${c.id}" target="_blank" rel="noopener">Strava</a></td>
                     <td class="num" th:text="${c.distance}">-</td>
                     <td th:text="${c.reasons}">-</td>
                 </tr>

@@ -45,10 +45,12 @@ class AiAnalysisService(
     private val periodComparisonService: PeriodComparisonService,
     private val recoveryService: RecoveryService? = null,
     private val garminProperties: com.running.config.GarminProperties? = null,
+    private val caps: com.running.tenant.web.TenantCapabilities? = null,
 ) {
 
     companion object {
         const val NO_DATA = "Geen trainingsdata beschikbaar. Synchroniseer eerst je Strava-activiteiten."
+        const val NO_DATA_GARMIN = "Geen trainingsdata beschikbaar. Synchroniseer eerst je Garmin-gegevens."
         const val RECENT_COUNT = 30
 
         /** Weekly-km and totals window: covers the ~5 weeks of detailed runs plus ~7 weeks before, for build-up context. */
@@ -134,11 +136,15 @@ class AiAnalysisService(
 
     fun buildTrainingContext(): String {
         val activities = runs()
-        if (activities.isEmpty()) return NO_DATA
+        val garminOnly = caps?.garminOnly() == true
+        if (activities.isEmpty()) return if (garminOnly) NO_DATA_GARMIN else NO_DATA
 
         return buildString {
             appendLine("TRAININGSHISTORIEK (enkel loopactiviteiten)")
             appendLine("=".repeat(50))
+            if (garminOnly) {
+                appendLine("Bron: Garmin-samenvattingen per training. Er zijn geen rondes, geen seconde-data en geen hoogtemeters; trek daar geen conclusies over.")
+            }
 
             val recent = activities.takeLast(RECENT_COUNT)
             val lapsByActivity = activityRepository.findLapsForActivities(recent.map { it.id })
@@ -157,7 +163,8 @@ class AiAnalysisService(
                 activity.maxHeartrate?.let { appendLine("   Max HR: ${Format.hr(it)}") }
                 Cadence.toSpm(activity.averageCadence, activity.type)?.let { appendLine("   Gem. cadans: ${"%.0f".format(Locale.ROOT, it)} spm") }
                 activity.averageWatts?.let { appendLine("   Gem. vermogen: ${"%.0f".format(Locale.ROOT, it)} W") }
-                appendLine("   Hoogtemeters: ${"%.0f".format(Locale.ROOT, activity.totalElevationGain)} m")
+                if (activity.source == "GARMIN") appendLine("   Hoogtemeters: onbekend (niet beschikbaar uit Garmin)")
+                else appendLine("   Hoogtemeters: ${"%.0f".format(Locale.ROOT, activity.totalElevationGain)} m")
                 val laps = lapsByActivity[activity.id].orEmpty()
                 val structure = WorkoutStructure.describe(laps, activity.workoutType, TerrainClass.elevationPerKm(activity))
                 when {
@@ -220,7 +227,7 @@ class AiAnalysisService(
 
     fun buildAiPrompt(includeRecovery: Boolean = false): String {
         val context = buildTrainingContext()
-        if (context == NO_DATA) return context
+        if (context == NO_DATA || context == NO_DATA_GARMIN) return context
         val recovery = recoveryBlock(includeRecovery)
 
         return """
@@ -249,7 +256,7 @@ class AiAnalysisService(
 
     fun buildNextTrainingPrompt(params: NextTrainingParams): String {
         val context = buildTrainingContext()
-        if (context == NO_DATA) return context
+        if (context == NO_DATA || context == NO_DATA_GARMIN) return context
 
         val details = buildString {
             appendLine("(Door de gebruiker ingevuld.)")

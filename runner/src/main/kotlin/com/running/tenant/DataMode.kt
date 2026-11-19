@@ -67,3 +67,28 @@ class DataModeGuard(private val modes: TenantModes) {
 
     fun garminAllowed(tenant: String?): Boolean = tenant != null && modes.mode(tenant).usesGarmin
 }
+
+/** A Strava call was attempted for a tenant whose mode does not use Strava. Thrown before any HTTP request is built. */
+class ModeMismatchException(message: String) : RuntimeException(message)
+
+/**
+ * Flag-on wrapper around the Strava client (design §9.2): a GARMIN-only or not yet onboarded tenant makes no Strava data call,
+ * whichever path reached the client. The OAuth code exchange stays open because onboarding needs it before the mode exists.
+ */
+class ModeGuardedStravaClient(
+    private val delegate: com.running.strava.spi.StravaApiClient,
+    private val guard: () -> DataModeGuard,
+) : com.running.strava.spi.StravaApiClient {
+    private fun <T> allowed(call: () -> T): T {
+        if (!guard().stravaAllowed(TenantContext.current())) throw ModeMismatchException("This account does not use Strava")
+        return call()
+    }
+
+    override fun exchangeToken(code: String) = delegate.exchangeToken(code)
+    override fun refreshToken(refreshToken: String) = allowed { delegate.refreshToken(refreshToken) }
+    override fun getAthleteActivities(token: com.running.strava.domain.StravaToken, page: Int, perPage: Int, after: Long?) =
+        allowed { delegate.getAthleteActivities(token, page, perPage, after) }
+
+    override fun getActivity(token: com.running.strava.domain.StravaToken, activityId: Long) = allowed { delegate.getActivity(token, activityId) }
+    override fun getActivityStreams(token: com.running.strava.domain.StravaToken, activityId: Long) = allowed { delegate.getActivityStreams(token, activityId) }
+}

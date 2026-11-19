@@ -36,6 +36,7 @@ class RaceController(
     private val service: RaceService,
     private val goals: RaceGoalRepository,
     private val syncStravaData: SyncStravaData,
+    private val caps: com.running.tenant.web.TenantCapabilities,
 ) {
     data class RaceData(val overview: RaceOverview, val history: RaceHistoryReport)
 
@@ -44,6 +45,7 @@ class RaceController(
         val w = RaceWindowSettings.from(params)
         val o = service.overview(w)
         val page: RacePage = RacePageBuilder.build(o)
+        model.addAttribute("stravaUsed", caps.stravaUsed())
         model.addAttribute("title", "Wedstrijd")
         model.addAttribute("intro", RaceText.INTRO)
         model.addAttribute("safety", RaceText.SAFETY)
@@ -128,6 +130,11 @@ class RaceController(
     /** Re-reads every Strava activity summary once, so race markings on old activities arrive (design P5-6). */
     @PostMapping("/race/strava-recheck")
     fun recheck(ra: RedirectAttributes): String {
+        if (!caps.stravaUsed()) {
+            ra.addFlashAttribute("flashMessage", "Je account gebruikt geen Strava, dus er is niets opgehaald.")
+            ra.addFlashAttribute("flashType", "warning")
+            return "redirect:/race#kandidaten"
+        }
         val result = syncStravaData.executeFull()
         ra.addFlashAttribute(
             "flashMessage",

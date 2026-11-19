@@ -11,7 +11,7 @@
 <div th:if="${hasToken && !hasData}" class="card empty-state">
     <h2>Geen trainingsdata gevonden</h2>
     <p>Synchroniseer nu, of haal je volledige historiek op via het Dashboard.</p>
-    <div class="actions">
+    <div class="actions" th:if="${stravaUsed}">
         <form method="post" action="/coach/sync" data-loading="Nieuwe trainingen syncen...">
             <button type="submit" class="btn btn-primary btn-lg">Synchroniseer nu</button>
         </form>
@@ -25,7 +25,7 @@
             <h1>Profiel</h1>
             <p>Je hartslagzones en loopprofiel: hoe vaak, hoe ver en hoe snel je traint. Waar je het label <span class="badge badge-est">schatting</span> ziet, heeft de app de waarde afgeleid: niet gemeten.</p>
         </div>
-        <form method="post" action="/coach/sync" id="syncForm" data-loading="Nieuwe trainingen syncen...">
+        <form th:if="${stravaUsed}" method="post" action="/coach/sync" id="syncForm" data-loading="Nieuwe trainingen syncen...">
             <button type="submit" class="btn btn-secondary btn-sm" title="Haalt de nieuwste activiteiten van Strava op en herberekent je profiel.">Nieuwe trainingen syncen</button>
         </form>
     </div>

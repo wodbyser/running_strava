@@ -169,6 +169,11 @@
         <span>Je Garmin-sleutel is verlopen of ingetrokken. Je bewaarde gegevens blijven staan, maar er komt niets nieuws binnen tot je een nieuwe sleutel invoert. <a href="/settings">Naar Instellingen</a></span>
     </div>
 </div>
+<div th:if="${capabilityNote}" class="flash-wrap">
+    <div class="flash flash-warning" role="note">
+        <span th:text="${capabilityNote}">Gedeeltelijk beschikbaar</span>
+    </div>
+</div>
 <div class="spinner-overlay" id="loadingSpinner" role="status" aria-live="polite" aria-hidden="true">
     <div class="spinner" aria-hidden="true"></div>
     <div class="spinner-text" id="loadingText">Bezig met synchroniseren...</div>

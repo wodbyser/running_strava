@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <h1 th:text="${pageTitle}">Pagina</h1>
+    </div>
+    <section class="card" aria-labelledby="h-unavailable">
+        <h2 id="h-unavailable">Niet beschikbaar voor jouw account</h2>
+        <p th:text="${reason}">Uitleg</p>
+        <p>Je account gebruikt <span th:text="${sourceLabel}">één bron</span>. De rest van de app werkt gewoon met die gegevens.</p>
+        <div class="actions">
+            <a class="btn btn-primary" href="/">Naar het dashboard</a>
+        </div>
+    </section>
+</th:block>
+</html>

@@ -19,15 +19,17 @@ class CoachController(
     private val syncStravaData: SyncStravaData,
     private val coachService: CoachService,
     private val tokenRepoImpl: StravaTokenRepositoryImpl,
+    private val caps: com.running.tenant.web.TenantCapabilities,
 ) {
     @GetMapping("/coach")
     fun coach(model: Model): String {
         val allActivities = activityRepository.findAll()
         val runs = allActivities.filter { it.type in runTypes }
-        val hasToken = tokenRepository.get() != null
+        val hasToken = !caps.stravaUsed() || tokenRepository.get() != null
         val savedRhr = tokenRepoImpl.getRestingHr()
 
         model.addAttribute("hasToken", hasToken)
+        model.addAttribute("stravaUsed", caps.stravaUsed())
         model.addAttribute("hasData", runs.isNotEmpty())
         model.addAttribute("title", "Profiel")
         model.addAttribute("savedRhr", savedRhr)
@@ -41,6 +43,11 @@ class CoachController(
 
     @PostMapping("/coach/sync")
     fun sync(ra: RedirectAttributes): String {
+        if (!caps.stravaUsed()) {
+            ra.addFlashAttribute("flashMessage", "Je account gebruikt geen Strava, dus er is niets opgehaald.")
+            ra.addFlashAttribute("flashType", "warning")
+            return "redirect:/coach"
+        }
         val result = syncStravaData.execute()
         val msg = buildString {
             append("Synchronisatie voltooid. ")

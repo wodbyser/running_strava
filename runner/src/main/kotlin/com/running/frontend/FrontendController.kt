@@ -68,7 +68,16 @@ class FrontendController(
     private val loadService: LoadService,
     private val trainingRatingService: TrainingRatingService,
     private val garminSync: com.running.garmin.web.GarminSyncView,
+    private val caps: com.running.tenant.web.TenantCapabilities,
 ) {
+    /** Server-side mode guard for the manual Strava routes (design §9.2): a GARMIN-only account never reaches the Strava use cases. */
+    private fun withoutStrava(ra: RedirectAttributes): String? {
+        if (caps.stravaUsed()) return null
+        ra.addFlashAttribute("flashMessage", "Je account gebruikt geen Strava, dus er is niets opgehaald.")
+        ra.addFlashAttribute("flashType", "warning")
+        return "redirect:/"
+    }
+
 
     @GetMapping("/")
     fun dashboard(
@@ -88,7 +97,7 @@ class FrontendController(
         val filtered = filterActivities(allActivities, period, from, till, null)
         val runs = filtered.filter { it.type in runTypes }
         val sorted = runs.sortedByDescending { it.startDate }
-        val hasToken = tokenRepository.get() != null
+        val hasToken = caps.stravaUsed() && tokenRepository.get() != null
         val syncStatus = activityRepository.getSyncStatus()
 
         // Weighted aggregates: pace = total distance / total moving time; HR and cadence time-weighted over
@@ -131,6 +140,7 @@ class FrontendController(
         model.addAttribute("filterEvolutionTill", evolutionTill ?: "")
 
         model.addAttribute("hasToken", hasToken)
+        model.addAttribute("stravaUsed", caps.stravaUsed())
         model.addAttribute("garminSyncLine", garminSync.line())
         model.addAttribute("garminSyncPossible", garminSync.possible)
         model.addAttribute("garminSyncRunning", garminSync.running)
@@ -231,6 +241,7 @@ class FrontendController(
             ?: return "redirect:/activities"
 
         val a = activity
+        model.addAttribute("stravaUsed", caps.stravaUsed())
         val detail = mutableMapOf<String, Any>()
         detail["id"] = a.id
         detail["name"] = a.name
@@ -245,7 +256,7 @@ class FrontendController(
         detail["maxHr"] = Format.hr(a.maxHeartrate)
         detail["cadence"] = Cadence.formatSpm(a.averageCadence, a.type)
         detail["isRun"] = a.isRun()
-        detail["elevation"] = "%.0f m".format(Locale.ROOT, a.totalElevationGain)
+        detail["elevation"] = if (a.source == "GARMIN") "-" else "%.0f m".format(Locale.ROOT, a.totalElevationGain)
         // max_speed is m/s: fastest instantaneous pace (Strava, GPS-sensitive)
         detail["maxSpeed"] = Format.pace(a.maxSpeed.toDouble())
         detail["avgWatts"] = a.averageWatts?.let { "%.0f W".format(Locale.ROOT, it) } ?: "-"
@@ -375,6 +386,7 @@ class FrontendController(
 
     @PostMapping("/sync")
     fun sync(ra: RedirectAttributes): String {
+        withoutStrava(ra)?.let { return it }
         val result = syncStravaData.execute()
         val msg = buildString {
             append("Synchronisatie voltooid. ")
@@ -392,6 +404,7 @@ class FrontendController(
 
     @PostMapping("/fetch-all")
     fun fetchAll(ra: RedirectAttributes): String {
+        withoutStrava(ra)?.let { return it }
         val result = fetchAllHistoricalData.execute()
         val msg = buildString {
             append("Alle data opgehaald: ${result.activitiesFetched} activiteiten")
@@ -408,6 +421,7 @@ class FrontendController(
 
     @PostMapping("/fetch-remaining")
     fun fetchRemaining(ra: RedirectAttributes): String {
+        withoutStrava(ra)?.let { return it }
         val result = fetchRemainingData.execute()
         val msg = buildString {
             append("Ontbrekende data opgehaald: ${result.newActivities} nieuw, ${result.streamsFetched} streams")
@@ -424,6 +438,7 @@ class FrontendController(
 
     @PostMapping("/backfill-streams")
     fun backfillStreams(ra: RedirectAttributes): String {
+        withoutStrava(ra)?.let { return it }
         val r = backfillStreamsData.execute()
         val msg = when {
             r.missing == 0 && r.errors.isEmpty() -> "Detaildata is al volledig: elke run heeft detailmetingen."
@@ -440,6 +455,7 @@ class FrontendController(
 
     @PostMapping("/backfill-laps")
     fun backfillLaps(ra: RedirectAttributes): String {
+        withoutStrava(ra)?.let { return it }
         val result = backfillLapsData.execute()
         val msg = buildString {
             append("Intervallen gecontroleerd: ${result.checked} activiteiten, ${result.updated} bijgewerkt met rondes, ${result.skipped} al in orde")

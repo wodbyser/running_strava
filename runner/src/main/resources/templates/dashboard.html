@@ -1,10 +1,19 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
 <th:block th:fragment="content">
-    <div th:if="${!hasToken}" class="card empty-state">
+    <div th:if="${!hasToken && stravaUsed}" class="card empty-state">
         <h2>Koppel je Strava-account</h2>
         <p>De app leest je activiteiten, rondes en GPS-streams uit Strava. Zonder koppeling is er niets om te analyseren.</p>
         <div class="actions"><a href="/auth/strava" class="btn btn-primary btn-lg">Koppel Strava account</a></div>
+    </div>
+
+    <div th:if="${!stravaUsed && !hasData}" class="card empty-state">
+        <h2>Nog geen Garmin-activiteiten</h2>
+        <p>Je Garmin-gegevens worden elke ochtend automatisch opgehaald. Wil je nu al beginnen, haal ze dan hier op.</p>
+        <div class="actions">
+            <form method="post" action="/recovery/garmin-update" data-loading="Garmin-synchronisatie starten..."><input type="hidden" name="back" value="dashboard"><button type="submit" class="btn btn-primary btn-lg" th:disabled="${!garminSyncPossible}">Garmin synchroniseren</button></form>
+        </div>
+        <p class="note-xs" th:text="${garminSyncLine}">-</p>
     </div>
 
     <div th:if="${hasToken && !hasData}" class="card empty-state">
@@ -23,7 +32,7 @@
         <div class="page-head">
             <div>
                 <h1>Dashboard</h1>
-                <p class="page-meta">Laatste Strava-sync: <strong th:text="${stats.lastSync}">nooit</strong></p>
+                <p class="page-meta" th:if="${stravaUsed}">Laatste Strava-sync: <strong th:text="${stats.lastSync}">nooit</strong></p>
             </div>
             <div class="sync-bar">
                 <div class="actions">

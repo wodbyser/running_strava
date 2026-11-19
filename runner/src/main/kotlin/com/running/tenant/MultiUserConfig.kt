@@ -16,6 +16,7 @@ import com.running.strava.usecase.backfill.impl.BackfillLapsDataImpl
 import com.running.strava.usecase.backfill.impl.BackfillStreamsDataImpl
 import com.running.strava.usecase.fetch.impl.FetchRemainingDataImpl
 import com.running.tenant.web.LoginAttemptFilter
+import com.running.tenant.web.CapabilityInterceptor
 import com.running.tenant.web.OnboardingGate
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -120,6 +121,10 @@ class MultiUserConfig {
     fun dataModeGuard(modes: TenantModes) = DataModeGuard(modes)
 
     @Bean
+    fun garminActivityProjector(garmin: com.running.garmin.spi.GarminRepository, activities: ActivityRepository) =
+        com.running.garmin.adapter.GarminActivityProjector(garmin, activities)
+
+    @Bean
     fun inviteCodes(props: MultiUserProperties) = InviteCodes(props.signupCode)
 
     @Bean
@@ -179,6 +184,8 @@ class MultiUserConfig {
         override fun addInterceptors(registry: InterceptorRegistry) {
             registry.addInterceptor(OnboardingGate(modes))
                 .excludePathPatterns("/login", "/register", "/error", "/css/**", "/js/**", "/img/**", "/favicon.ico")
+            registry.addInterceptor(CapabilityInterceptor(modes))
+                .excludePathPatterns("/login", "/register", "/setup/**", "/settings/**", "/backfill", "/unavailable", "/error", "/css/**", "/js/**", "/img/**", "/favicon.ico")
         }
     }
 
@@ -254,6 +261,14 @@ class MultiUserConfig {
         const val CONTROL_DB = "running_control"
         const val PROVISION_ARG = "provision-user"
         const val MAX_LOGIN_FAILURES = 10
+
+        /** Every Strava data call goes through the mode guard when the flag is on (design §9.2). */
+        @Bean
+        @JvmStatic
+        fun stravaModeGuardPostProcessor(beans: ObjectProvider<DataModeGuard>) = object : BeanPostProcessor {
+            override fun postProcessAfterInitialization(bean: Any, beanName: String): Any =
+                if (bean is StravaApiClient && bean !is ModeGuardedStravaClient) ModeGuardedStravaClient(bean) { beans.getObject() } else bean
+        }
 
         /** Wraps the auto-configured owner pool when the flag is on; the pool and its hikari settings stay untouched (design §5.2). */
         @Bean

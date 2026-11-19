@@ -61,7 +61,7 @@ class IsolationIT @Autowired constructor(
             assertTrue(a.contains("Alleen-van-anna"), url)
             assertFalse(a.contains("Alleen-van-wout"), url)
         }
-        for (url in listOf("/", "/performance", "/load", "/race", "/recovery")) {
+        for (url in listOf("/", "/performance", "/load", "/race")) {
             val a = page(anna, url)
             assertFalse(a.contains("Alleen-van-wout"), url)
         }

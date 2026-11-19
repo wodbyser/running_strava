@@ -22,6 +22,8 @@ class GarminSyncCoordinator(
     private val syncGarminData: SyncGarminData,
     private val backfillGarminData: BackfillGarminData,
     private val executor: Executor,
+    /** Runs on the same thread and tenant after a finished run (the GARMIN-only projection). A failure is logged, never thrown. */
+    private val afterRun: () -> Unit = {},
     /** Is there a usable key for the tenant of the current thread? */
     private val configured: () -> Boolean = { properties.configured },
 ) {
@@ -50,6 +52,11 @@ class GarminSyncCoordinator(
                     "Garmin {} finished: records={}, failed calls={}, aborted={}",
                     name, result.recordsPerEndpoint, result.failures.size, result.aborted,
                 )
+                try {
+                    afterRun()
+                } catch (e: Exception) {
+                    log.warn("Garmin {} follow-up failed: {}", name, e.javaClass.simpleName)
+                }
             } catch (e: Exception) {
                 log.warn("Garmin {} failed: {}", name, e.javaClass.simpleName)
             } finally {

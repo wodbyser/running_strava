@@ -1,6 +1,7 @@
 package com.running.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.running.garmin.adapter.GarminActivityProjector
 import com.running.garmin.adapter.GarminApiClientImpl
 import com.running.garmin.adapter.GarminRedactor
 import com.running.garmin.adapter.GarminSyncCoordinator
@@ -9,7 +10,10 @@ import com.running.garmin.spi.GarminApiClient
 import com.running.garmin.usecase.BackfillGarminData
 import com.running.garmin.usecase.SyncGarminData
 import com.running.tenant.CredentialResolver
+import com.running.tenant.DataMode
 import com.running.tenant.DataModeGuard
+import com.running.tenant.TenantContext
+import com.running.tenant.TenantModes
 import com.running.tenant.SecretCipher
 import com.running.tenant.TenantRegistry
 import com.running.tenant.TenantSettings
@@ -67,5 +71,10 @@ class GarminConfig {
         sync: SyncGarminData,
         backfill: BackfillGarminData,
         credentials: CredentialResolver,
-    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor()) { credentials.garminConfigured() }
+        projector: ObjectProvider<GarminActivityProjector>,
+        modes: ObjectProvider<TenantModes>,
+    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor(), afterRun = {
+        val tenant = TenantContext.current()
+        if (tenant != null && modes.ifAvailable?.mode(tenant) == DataMode.GARMIN) projector.ifAvailable?.project()
+    }) { credentials.garminConfigured() }
 }
