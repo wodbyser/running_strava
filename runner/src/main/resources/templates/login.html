@@ -25,6 +25,7 @@
         <p class="auth-sub">Deze app is privé. Log in om je trainingen te bekijken.</p>
         <p class="msg bad" th:if="${param.error}">Gebruikersnaam of wachtwoord klopt niet.</p>
         <p class="msg bad" th:if="${param.locked}">Te veel mislukte pogingen. Probeer het over een kwartier opnieuw.</p>
+        <p class="msg bad" th:if="${param.disabled}">Je account is uitgeschakeld door de beheerder. Je gegevens blijven bewaard.</p>
         <p class="msg ok" th:if="${param.logout}">Je bent uitgelogd.</p>
         <form method="post" action="/login">
             <label for="username">Gebruikersnaam</label>

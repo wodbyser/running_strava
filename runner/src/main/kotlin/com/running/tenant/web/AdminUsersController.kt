@@ -3,6 +3,7 @@ package com.running.tenant.web
 import com.running.tenant.AdminRefused
 import com.running.tenant.AdminUsers
 import com.running.tenant.StravaRevokeFailed
+import com.running.tenant.TenantNotReady
 import com.running.tenant.SingleUseInvites
 import com.running.tenant.db.AppUserRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -74,6 +75,8 @@ class AdminUsersController(
             flash(ra, "$username kan weer inloggen.")
         } catch (e: AdminRefused) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        } catch (e: TenantNotReady) {
+            flash(ra, "Weer inschakelen is niet gelukt: de database van $username kon niet worden bijgewerkt. Er is niets veranderd.", "error")
         }
         return "redirect:/admin/users"
     }

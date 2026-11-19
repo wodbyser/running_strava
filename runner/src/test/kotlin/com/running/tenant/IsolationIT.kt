@@ -15,6 +15,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.ZonedDateTime
 
@@ -97,7 +98,7 @@ class IsolationIT @Autowired constructor(
         val anna = login("anna", "anna-test-pw")
         registry.remove("anna")
         try {
-            mvc.perform(get("/activities").session(anna)).andExpect(status().isForbidden)
+            mvc.perform(get("/activities").session(anna)).andExpect(status().isFound).andExpect(redirectedUrl("/login?disabled"))
         } finally {
             registry.add(Tenant("anna", "running_u_anna", false))
         }

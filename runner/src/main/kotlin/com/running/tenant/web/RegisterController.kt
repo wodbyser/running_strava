@@ -68,8 +68,11 @@ class RegisterController(
         if (!OwnerBootstrap.TENANT_ID.matches(name) || name in TenantProvisioner.RESERVED) {
             return refuse(HttpStatus.BAD_REQUEST, "Kies een gebruikersnaam van 3 tot 31 tekens: kleine letters, cijfers of _, beginnend met een letter.", "SIGNUP_INVALID")
         }
-        if (password.length < MIN_PASSWORD || password.toByteArray().size > MAX_PASSWORD_BYTES) {
+        if (password.length < MIN_PASSWORD) {
             return refuse(HttpStatus.BAD_REQUEST, "Kies een wachtwoord van minstens 10 tekens.", "SIGNUP_INVALID")
+        }
+        if (password.toByteArray().size > MAX_PASSWORD_BYTES) {
+            return refuse(HttpStatus.BAD_REQUEST, "Dat wachtwoord is te lang. Kies er een van hoogstens 72 tekens.", "SIGNUP_INVALID")
         }
         if (password != password2) return refuse(HttpStatus.BAD_REQUEST, "De twee wachtwoorden zijn niet gelijk.", "SIGNUP_INVALID")
         if (users.findByUsername(name) != null) return refuse(HttpStatus.CONFLICT, "Die gebruikersnaam is al bezet.", "SIGNUP_TAKEN")

@@ -104,11 +104,11 @@
             <details class="nav-menu">
                 <summary>Analyse</summary>
                 <div class="nav-panel">
-                    <a href="/recovery" data-match="/recovery">
+                    <a th:if="${@tenantCaps.available('/recovery')}" href="/recovery" data-match="/recovery">
                         <span class="nav-item-title">Herstel</span>
                         <span class="nav-item-desc">Slaap, HRV en hoe uitgerust je bent</span>
                     </a>
-                    <a href="/performance" data-match="/performance">
+                    <a th:if="${@tenantCaps.available('/performance')}" href="/performance" data-match="/performance">
                         <span class="nav-item-title">Prestaties</span>
                         <span class="nav-item-desc">Conditie, tempo en efficiëntie over tijd</span>
                     </a>
@@ -147,6 +147,8 @@
                     </a>
                 </div>
             </details>
+            <a th:if="${@tenantUi.showSettings()}" href="/settings" data-match="/settings">Instellingen</a>
+            <a th:if="${@tenantUi.showAdmin()}" href="/admin/users" data-match="/admin/">Gebruikers</a>
         </nav>
     </div>
 </header>
@@ -191,9 +193,7 @@
         </svg>
         Running Coach
     </span>
-    <span>Berekend uit je eigen Strava- en Garmin-gegevens. Geen medisch advies.</span>
-    <a th:if="${@tenantUi.showSettings()}" href="/settings">Instellingen</a>
-    <a th:if="${@tenantUi.showAdmin()}" href="/admin/users">Gebruikers</a>
+    <span th:text="'Berekend uit je eigen ' + ${@tenantCaps.sourceText()} + '. Geen medisch advies.'">Berekend uit je eigen Strava- en Garmin-gegevens. Geen medisch advies.</span>
 </footer>
 <script>
     (function () {

@@ -17,6 +17,8 @@
     <section class="card" aria-labelledby="h-garmin" th:if="${usesGarmin}">
         <h2 id="h-garmin">Garmin-sleutel</h2>
         <p th:if="${garminLast4}">Huidige sleutel eindigt op <strong th:text="${garminLast4}">1234</strong>. Een persoonlijke Garmin-sleutel verloopt na 30 tot 365 dagen; maak dan op Garmin Connect een nieuwe en plak hem hier.</p>
+        <p th:unless="${garminLast4}">Er is geen werkende sleutel opgeslagen.</p>
+        <p class="note-xs">Een nieuwe sleutel maak je op de Garmin Connect-website onder Instellingen (persoonlijke API-sleutel). Kies bij voorkeur 365 dagen geldigheid.</p>
         <form method="post" action="/settings/garmin" autocomplete="off" class="actions">
             <label for="key" class="field-label">Nieuwe sleutel</label>
             <input id="key" name="key" type="password" autocomplete="off" required>
@@ -30,7 +32,7 @@
         <form method="post" action="/settings/reset" class="actions">
             <label for="confirm" class="field-label">Typ je gebruikersnaam om te bevestigen</label>
             <input id="confirm" name="confirm" type="text" autocomplete="off" required>
-            <button type="submit" class="btn btn-secondary">Opnieuw beginnen</button>
+            <button type="submit" class="btn btn-danger">Opnieuw beginnen</button>
         </form>
     </section>
 </th:block>

@@ -535,9 +535,11 @@ Requirements:
   `invite_code`.
 - Rate limit: max 5 attempts per IP per 15 minutes, in-memory (no new dependency). Log failures to `auth_audit` (with the ip).
   Implemented (Phase 4): `ClientIp` takes the last `X-Forwarded-For` entry, but only when the direct peer is loopback/private
-  (a public peer cannot choose its own address). Spring's `ForwardedHeaderFilter` (`forward-headers-strategy: framework`) does
-  not touch `X-Forwarded-For`, so `remoteAddr` alone would be the proxy. Whether Funnel really sends that header can only be
-  seen on the server (owner check in the progress file).
+  (a public peer cannot choose its own address). Correction (review 2026-11-19): Spring's `ForwardedHeaderFilter`
+  (`forward-headers-strategy: framework`) *does* touch it: the wrapped request reports the **first** entry (client-chosen) as
+  `remoteAddr` and hides the header, which let a client bypass the login lockout by rotating a fake first entry. `ClientIp`
+  therefore unwraps to the container's own request before reading `remoteAddr` and the header (test in `InviteCodeTest`).
+  Whether Funnel really sends that header can only be seen on the server (owner check in the progress file).
   Behind Tailscale Funnel the client IP comes from `X-Forwarded-For` (prod has `forward-headers-strategy:
   framework`); verify in Phase 4 that `request.remoteAddr` is the real client and not the proxy, otherwise one
   person can lock out everyone. Rate-limit `POST /login` failures per (IP, username) pair, never per username alone

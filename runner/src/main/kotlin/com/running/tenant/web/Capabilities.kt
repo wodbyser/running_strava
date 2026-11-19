@@ -75,6 +75,16 @@ class TenantCapabilities(private val modes: ObjectProvider<TenantModes>) {
     fun stravaUsed(): Boolean = mode().usesStrava
 
     fun garminOnly(): Boolean = mode() == DataMode.GARMIN
+
+    /** False only for a page the matrix marks NOT_AVAILABLE for this tenant's mode, so the menu never leads to a dead end. */
+    fun available(path: String): Boolean = CapabilityMatrix.forPath(path)?.level(mode()) != Level.NOT_AVAILABLE
+
+    /** The sources named in the footer. */
+    fun sourceText(): String = when (mode()) {
+        DataMode.STRAVA -> "Strava-gegevens"
+        DataMode.GARMIN -> "Garmin-gegevens"
+        else -> "Strava- en Garmin-gegevens"
+    }
 }
 
 /** Sends a tenant to the shared "not available" panel, or hands a partial-page note to the layout. */

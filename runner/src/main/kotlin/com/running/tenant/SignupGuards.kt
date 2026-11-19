@@ -1,6 +1,8 @@
 package com.running.tenant
 
 import com.running.tenant.db.AppUserRepository
+import jakarta.servlet.ServletRequest
+import jakarta.servlet.ServletRequestWrapper
 import jakarta.servlet.http.HttpServletRequest
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -118,13 +120,22 @@ class AttemptLimiter(
  * The address of the caller. Behind the reverse proxy (Tailscale Funnel) `remoteAddr` is the proxy, so `X-Forwarded-For`
  * is only believed when the direct peer is a loopback or private address, and then only its last entry
  * (the one our own proxy appended; earlier entries are whatever the client sent).
+ * The servlet container's own request is read: with `forward-headers-strategy: framework` the wrapper on top reports the
+ * *first* forwarded entry as `remoteAddr` (chosen by the client) and hides the header.
  */
 object ClientIp {
     fun of(request: HttpServletRequest): String {
-        val remote = request.remoteAddr.orEmpty()
+        val original = unwrap(request) as? HttpServletRequest ?: request
+        val remote = original.remoteAddr.orEmpty()
         if (!isInternal(remote)) return remote
-        val forwarded = request.getHeader("X-Forwarded-For")?.split(',')?.map { it.trim() }?.lastOrNull { it.isNotEmpty() }
+        val forwarded = original.getHeader("X-Forwarded-For")?.split(',')?.map { it.trim() }?.lastOrNull { it.isNotEmpty() }
         return forwarded?.take(64) ?: remote
+    }
+
+    private fun unwrap(request: ServletRequest): ServletRequest {
+        var current = request
+        while (current is ServletRequestWrapper) current = current.request
+        return current
     }
 
     fun isInternal(address: String): Boolean {

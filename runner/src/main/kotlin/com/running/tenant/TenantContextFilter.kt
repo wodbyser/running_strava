@@ -24,7 +24,7 @@ class TenantContextFilter(private val registry: TenantRegistry) : OncePerRequest
             request.getSession(false)?.invalidate()
             SecurityContextHolder.clearContext()
             response.addCookie(Cookie("remember-me", null).apply { maxAge = 0; path = request.contextPath.ifEmpty { "/" } })
-            response.sendError(HttpServletResponse.SC_FORBIDDEN)
+            response.sendRedirect(request.contextPath + "/login?disabled")
             return
         }
         TenantContext.asTenant(tenant.id) { chain.doFilter(request, response) }

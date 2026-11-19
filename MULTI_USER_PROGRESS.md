@@ -328,6 +328,21 @@ Newest last. One entry per session: what was done, what was verified, what is ne
 
 - **2026-11-19** — Phase 7 (owner thought Phase 6 APPROVED: yes). Baseline 438 + 289 green. Built session invalidation, delete-user, redaction audit (see "Next action"). Tests: `AdminUsersIT` +2 (session ends and cookie cleared; delete: revoke failure aborts, typed name required, archive by rename, row DELETED, login dead, owner 403): 438 core + 291 runner, 0 failures. Not done on purpose: removing the flag-off path (needs owner sign-off, hard rule 6), perf comparison, any run against the owner's DB (none touched). No questions asked at first; later the owner asked what removing the flag means: advised to keep it, owner agreed by asking for a commit once nothing blocks. Perf comparison done (Measurements log).
 
+- **2026-11-19** — Code review of phases 0-7 (owner asked for a review, then "fix what matters"). Fixed: (1) login/signup
+  rate limit bypass: with `forward-headers-strategy: framework` the wrapped request's `remoteAddr` is the client-chosen first
+  `X-Forwarded-For` entry; reproduced (12 tries with rotating fake entries, never locked), `ClientIp` now unwraps to the
+  container request (design §6.4 corrected; prod config unchanged); (2) delete-user confirmation was pre-filled by a hidden
+  field: now a typed name in a disclosure with a danger button; (3) `enable` runs the schema updater for that tenant (it was
+  skipped at boot while disabled), failure rolls back and shows a flash; (4) a disabled user's open session is sent to
+  `/login?disabled` with a message instead of a bare 403 (tests updated); (5) stale "sessie loopt door" text on `/admin/users`;
+  (6) UI: pages marked NOT_AVAILABLE are hidden from the menu (`tenantCaps.available`), Instellingen/Gebruikers moved from the
+  footer to the main nav, footer names only the tenant's sources, danger style for reset/delete, Garmin help on `/settings`,
+  copy button for a new invite code; (7) too-long password got the "minstens 10 tekens" message. Flag off: nav, footer and
+  pages unchanged (`tenantCaps` answers BOTH without a query; manual jar run, `/settings` and `/admin/users` 404). Verified: core + runner suite green (runner 292 tests, 0 failures; `AdminUsersIT` now reads the invite code from `#newCode`);
+  flag-on jar on a throwaway Postgres container, screenshots of admin/settings/nav/kicked-out login. Left on purpose: single
+  scheduler thread for per-tenant jobs (owner runs first; changing the pool alters the owner's job concurrency), Garmin
+  projection efficiency, invite page refresh re-POST.
+
 ## Guardrail checklist before any commit
 
 - [ ] No secret in a log line, template or exception message

@@ -40,7 +40,7 @@ class AdminUsersIT @Autowired constructor(
 
     private fun newInvite(owner: MockHttpSession): String {
         val html = mvc.perform(post("/admin/users/invites").session(owner)).andReturn().response.contentAsString
-        return Regex("<code>([^<]+)</code>").find(html)!!.groupValues[1]
+        return Regex("<code id=\"newCode\">([^<]+)</code>").find(html)!!.groupValues[1]
     }
 
     private fun register(name: String, code: String, ip: String): MvcResult = mvc.perform(
@@ -95,7 +95,7 @@ class AdminUsersIT @Autowired constructor(
         assertEquals(302, mvc.perform(post("/admin/users/ad_off/disable").session(admin)).andReturn().response.status)
         assertEquals("DISABLED", users.findByUsername("ad_off")!!.status)
         assertEquals(null, registry.find("ad_off"))
-        assertEquals(403, mvc.perform(get("/activities").session(session)).andReturn().response.status, "an open session is stopped too")
+        assertEquals("/login?disabled", mvc.perform(get("/activities").session(session)).andReturn().response.redirectedUrl, "an open session is stopped too")
         assertTrue(mvc.perform(post("/login").param("username", "ad_off").param("password", password)).andReturn().response.redirectedUrl!!.contains("error"))
         assertEquals(listOf("running_u_ad_off"), databases("running_u_ad_off"), "nothing was dropped or renamed")
 
@@ -114,7 +114,7 @@ class AdminUsersIT @Autowired constructor(
         modes.complete("ad_sess", DataMode.STRAVA)
         mvc.perform(post("/admin/users/ad_sess/disable").session(owner()))
         val result = mvc.perform(get("/activities").session(session)).andReturn()
-        assertEquals(403, result.response.status)
+        assertEquals("/login?disabled", result.response.redirectedUrl)
         assertTrue(session.isInvalid)
         assertEquals(0, result.response.getCookie("remember-me")!!.maxAge)
     }

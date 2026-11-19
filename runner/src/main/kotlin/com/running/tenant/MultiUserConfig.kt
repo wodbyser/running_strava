@@ -200,7 +200,8 @@ class MultiUserConfig {
         deauthorizer: StravaDeauthorizer,
         strava: com.running.strava.spi.StravaApiClient,
         reset: TenantReset,
-    ) = AdminUsers(users, registry, modes, settings, activities, garminStatus, tokens, eviction, deauthorizer, strava, reset)
+        updater: TenantSchemaUpdater,
+    ) = AdminUsers(users, registry, modes, settings, activities, garminStatus, tokens, eviction, deauthorizer, strava, reset, updater)
 
     @Bean
     fun stravaDeauthorizer(restClient: org.springframework.web.client.RestClient) = StravaDeauthorizer { accessToken ->

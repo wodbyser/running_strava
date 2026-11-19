@@ -28,6 +28,8 @@ fun interface StravaDeauthorizer {
 
 class StravaRevokeFailed(message: String) : RuntimeException(message)
 
+class TenantNotReady(message: String) : RuntimeException(message)
+
 /** One line of `/admin/users` (design D13): counts and last sync only, never anything of the user's training. */
 data class UserOverview(
     val username: String,
@@ -65,6 +67,7 @@ class AdminUsers(
     private val deauthorizer: StravaDeauthorizer = StravaDeauthorizer { },
     private val stravaClient: com.running.strava.spi.StravaApiClient? = null,
     private val reset: TenantReset? = null,
+    private val schema: TenantSchemaUpdater? = null,
 ) {
     /**
      * A fresh thread per tenant read. The request thread carries an open-in-view EntityManager that keeps the connection of the
@@ -96,8 +99,16 @@ class AdminUsers(
         val row = users.findByUsername(username.trim().lowercase()) ?: throw AdminRefused("Unknown user")
         if (row.role == "OWNER") throw AdminRefused("The owner is always active")
         if (row.status != "DISABLED") throw AdminRefused("Only a disabled user can be enabled")
-        users.setStatus(row.username, "ACTIVE")
         registry.add(Tenant(row.tenantId, row.tenantDb, owner = false))
+        // The start-up schema update skipped this tenant while it was disabled; a newer version may need extra columns.
+        try {
+            schema?.let { TenantContext.asTenant(row.tenantId) { it.update() } }
+        } catch (e: Exception) {
+            registry.remove(row.tenantId)
+            eviction.evict(row.tenantId)
+            throw TenantNotReady("Schema update failed")
+        }
+        users.setStatus(row.username, "ACTIVE")
         users.audit(row.username, "USER_ENABLED", "by owner")
     }
 

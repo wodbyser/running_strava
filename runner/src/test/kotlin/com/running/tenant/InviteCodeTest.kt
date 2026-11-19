@@ -1,10 +1,13 @@
 package com.running.tenant
 
+import jakarta.servlet.http.HttpServletRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.web.filter.ForwardedHeaderFilter
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -77,5 +80,19 @@ class InviteCodeTest {
         assertEquals("203.0.113.9", ClientIp.of(request("127.0.0.1", "203.0.113.9")))
         assertEquals("100.64.0.5", ClientIp.of(request("100.64.0.5", null)))
         assertEquals("198.51.100.7", ClientIp.of(request("198.51.100.7", "1.2.3.4")), "a public peer cannot choose its own address")
+    }
+
+    @Test
+    fun `a spoofed first forwarded entry is ignored behind ForwardedHeaderFilter (forward-headers-strategy framework)`() {
+        val original = MockHttpServletRequest().apply {
+            remoteAddr = "172.18.0.1"
+            addHeader("X-Forwarded-For", "8.8.4.4, 203.0.113.9")
+        }
+        var seen: String? = null
+        ForwardedHeaderFilter().doFilter(original, MockHttpServletResponse()) { req, _ ->
+            assertEquals("8.8.4.4", req.remoteAddr, "precondition: the wrapper reports the client-chosen first entry")
+            seen = ClientIp.of(req as HttpServletRequest)
+        }
+        assertEquals("203.0.113.9", seen)
     }
 }
