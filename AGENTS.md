@@ -43,6 +43,7 @@ STRAVA_CLIENT_ID=xxx STRAVA_CLIENT_SECRET=xxx ./gradlew :runner:bootRun
 | `GET /activity/{id}` | Activity detail |
 | `GET /recovery`, `/performance`, `/load`, `/load/response` | Garmin recovery, performance, training load and "reaction to training" pages (read-only, computed on demand; `/load/data` is the JSON) |
 | `GET /race`, `/race/history` | Race prediction, goals, pacing plan, race readiness, and the look back at past races (read-only, computed on demand; `/race/data` is the JSON). Goals: `POST /race/goal`, `POST /race/goal/{id}/delete`; `POST /race/strava-recheck` re-reads every Strava summary once |
+| `GET /admin/users` | Owner only, only with `app.multi-user.enabled=true` (404 otherwise): users, counts, last sync, disable/enable, single-use invite codes |
 | `GET /ai` | AI prompt page (copy-paste for external chatbots, no API key needed) |
 | `GET /auth/strava` | Strava OAuth initiation |
 | `GET /h2-console` | H2 console (dev only) |
@@ -76,10 +77,15 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
   compose and `deploy/docker-compose.yml` share the volume `running_pgdata`, so on the server this deletes the
   production database. Never run it there.
 
-## Multi-user (planned, not built yet)
+## Multi-user (built behind `app.multi-user.enabled`, default false; phases 0-6 done, see `MULTI_USER_PROGRESS.md`)
 
-The owner's app is single-user today. A plan exists to let other people log in with their own Strava/Garmin
+With the flag off (default, also in `deploy/docker-compose.yml` unless `APP_MULTI_USER_ENABLED=true` is in `deploy/.env`) the app
+is the single-user app. The feature lets other people log in with their own Strava/Garmin
 credentials, with **one database per user** (the owner's `running` DB is never migrated or reused).
+Env vars (`deploy/.env.example`): `APP_MULTI_USER_ENABLED`, `APP_SIGNUP_CODE`, `APP_TENANT_SECRET_KEY`, `APP_CONTROL_DB_URL`.
+Back-up of all databases: `bash deploy/backup.sh` (nightly via the systemd unit after `install-systemd.sh`). Code that reads
+several tenants inside one web request must do it on a fresh thread: the open-in-view EntityManager of the request thread
+keeps the first tenant's connection (see `AdminUsers`).
 
 - Design, phases and owner-safety rules: `docs/multi-user-design.md`
 - Progress and next action: `MULTI_USER_PROGRESS.md`

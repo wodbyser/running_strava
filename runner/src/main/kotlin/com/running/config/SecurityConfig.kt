@@ -56,7 +56,10 @@ class SecurityConfig {
         }
         http.authorizeHttpRequests {
             it.requestMatchers("/login", "/favicon.ico", "/error", "/css/**", "/js/**", "/img/**").permitAll()
-            if (tenantFilter.ifAvailable != null) it.requestMatchers("/register").permitAll()
+            if (tenantFilter.ifAvailable != null) {
+                it.requestMatchers("/register").permitAll()
+                it.requestMatchers("/admin/**").hasRole("OWNER")
+            }
             it.anyRequest().authenticated()
         }
         http.formLogin { it.loginPage("/login").defaultSuccessUrl("/", false).permitAll() }

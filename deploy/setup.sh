@@ -94,6 +94,7 @@ if [ ! -f .env ]; then
     chmod 600 .env
     sed -i "s|^DB_PASSWORD=$|DB_PASSWORD=$(openssl rand -hex 24)|" .env
     sed -i "s|^APP_REMEMBER_ME_KEY=$|APP_REMEMBER_ME_KEY=$(openssl rand -hex 32)|" .env
+    sed -i "s|^APP_TENANT_SECRET_KEY=$|APP_TENANT_SECRET_KEY=$(openssl rand -base64 32)|" .env
     if tailscale_ok; then
         dns="$(public_dns)"
         if [ -n "$dns" ]; then

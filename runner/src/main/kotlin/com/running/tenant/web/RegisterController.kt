@@ -4,6 +4,7 @@ import com.running.tenant.AttemptLimiter
 import com.running.tenant.ClientIp
 import com.running.tenant.InviteCodes
 import com.running.tenant.OwnerBootstrap
+import com.running.tenant.SingleUseInvites
 import com.running.tenant.TenantProvisionException
 import com.running.tenant.TenantProvisioner
 import com.running.tenant.db.AppUserRepository
@@ -28,6 +29,7 @@ import java.time.Duration
 @ConditionalOnProperty("app.multi-user.enabled", havingValue = "true")
 class RegisterController(
     private val invites: InviteCodes,
+    private val singleUse: SingleUseInvites,
     private val provisioner: TenantProvisioner,
     private val users: AppUserRepository,
 ) {
@@ -60,7 +62,9 @@ class RegisterController(
             return "register"
         }
         if (!limiter.hit(ip)) return refuse(HttpStatus.TOO_MANY_REQUESTS, "Te veel pogingen. Probeer het over een kwartier opnieuw.", "SIGNUP_LIMITED")
-        if (!invites.matches(code.trim())) return refuse(HttpStatus.FORBIDDEN, "Die uitnodigingscode klopt niet.", "SIGNUP_BAD_CODE")
+        val candidate = code.trim()
+        val envCode = invites.matches(candidate)
+        if (!envCode && !singleUse.usable(candidate)) return refuse(HttpStatus.FORBIDDEN, "Die uitnodigingscode klopt niet.", "SIGNUP_BAD_CODE")
         if (!OwnerBootstrap.TENANT_ID.matches(name) || name in TenantProvisioner.RESERVED) {
             return refuse(HttpStatus.BAD_REQUEST, "Kies een gebruikersnaam van 3 tot 31 tekens: kleine letters, cijfers of _, beginnend met een letter.", "SIGNUP_INVALID")
         }
@@ -69,13 +73,17 @@ class RegisterController(
         }
         if (password != password2) return refuse(HttpStatus.BAD_REQUEST, "De twee wachtwoorden zijn niet gelijk.", "SIGNUP_INVALID")
         if (users.findByUsername(name) != null) return refuse(HttpStatus.CONFLICT, "Die gebruikersnaam is al bezet.", "SIGNUP_TAKEN")
+        if (!envCode && !singleUse.claim(candidate)) return refuse(HttpStatus.FORBIDDEN, "Die uitnodigingscode klopt niet.", "SIGNUP_BAD_CODE")
         try {
             provisioner.provision(name, password)
         } catch (e: DuplicateKeyException) {
+            if (!envCode) singleUse.release(candidate)
             return refuse(HttpStatus.CONFLICT, "Die gebruikersnaam is al bezet.", "SIGNUP_TAKEN")
         } catch (e: TenantProvisionException) {
+            if (!envCode) singleUse.release(candidate)
             return refuse(HttpStatus.INTERNAL_SERVER_ERROR, "Je account aanmaken is niet gelukt. Vraag de beheerder om het opnieuw te proberen.", "SIGNUP_FAILED")
         }
+        if (!envCode) singleUse.markUsedBy(candidate, name)
         users.audit(name, "SIGNUP", null, ip)
         login(name, request, response)
         return "redirect:/setup"

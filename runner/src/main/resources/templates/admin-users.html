@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout}">
+<th:block th:fragment="content">
+    <div class="page-head">
+        <h1>Gebruikers</h1>
+        <p class="page-meta" th:text="${activeCount} + ' van ' + ${totalCount} + ' accounts actief. Je ziet alleen aantallen en wanneer er voor het laatst gesynchroniseerd is, nooit iemands trainingen.'">2 van 2 accounts actief.</p>
+    </div>
+
+    <section class="card" aria-labelledby="h-code" th:if="${newCode}">
+        <h2 id="h-code">Nieuwe uitnodigingscode</h2>
+        <p class="lead">Geef deze code door aan één persoon. Ze werkt één keer en is 7 dagen geldig. Je ziet ze nu voor het laatst: de app bewaart alleen een afgeleide waarde.</p>
+        <p><code th:text="${newCode}">code</code></p>
+    </section>
+
+    <section class="card" aria-labelledby="h-users">
+        <h2 id="h-users">Accounts</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Naam</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Bron</th>
+                        <th scope="col" class="num">Trainingen</th>
+                        <th scope="col">Laatste sync</th>
+                        <th scope="col">Laatste login</th>
+                        <th scope="col">Garmin-sleutel</th>
+                        <th scope="col"><span class="sr-only">Acties</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="u : ${rows}" th:classappend="${u.status != 'ACTIVE'} ? 'row-muted' : ''">
+                        <td><strong th:text="${u.username}">naam</strong><span th:if="${u.owner}"> (beheerder)</span></td>
+                        <td><span class="badge" th:classappend="${u.status == 'ACTIVE'} ? 'badge-ok' : 'badge-bad'" th:text="${u.statusLabel}">Actief</span></td>
+                        <td th:text="${u.reachable ? (u.mode ?: '-') : (u.status == 'ACTIVE' ? 'Niet bereikbaar' : '-')}">Alleen Strava</td>
+                        <td class="num mono" th:text="${u.activities != null} ? ${u.activities} : '-'">0</td>
+                        <td th:text="${u.lastSync ?: 'Nog niet'}">1 nov 2026 6:00</td>
+                        <td th:text="${u.lastLogin ?: 'Nog niet'}">1 nov 2026 6:00</td>
+                        <td class="mono" th:text="${u.garminKey ?: '-'}">…1234</td>
+                        <td>
+                            <form th:if="${u.canDisable}" method="post" th:action="@{/admin/users/{n}/disable(n=${u.username})}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Uitschakelen</button>
+                            </form>
+                            <form th:if="${u.canEnable}" method="post" th:action="@{/admin/users/{n}/enable(n=${u.username})}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Weer inschakelen</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <details class="explain">
+            <summary>Wat doet uitschakelen?</summary>
+            <p>De persoon kan niet meer inloggen en zijn gegevens worden niet meer opgehaald. Er wordt niets gewist: met "Weer inschakelen" is alles terug. Een ingelogde sessie loopt nog door tot ze verloopt of de app herstart.</p>
+        </details>
+    </section>
+
+    <section class="card" aria-labelledby="h-invites">
+        <h2 id="h-invites">Uitnodigingscodes voor één gebruik</h2>
+        <p class="lead">Maak een code per persoon. De gewone code uit de instellingen van de server blijft ook werken.</p>
+        <form method="post" action="/admin/users/invites" class="actions">
+            <button type="submit" class="btn btn-primary">Nieuwe code maken</button>
+        </form>
+        <div class="table-wrap" th:if="${!invites.isEmpty()}">
+            <table>
+                <thead><tr><th scope="col">Code</th><th scope="col">Gemaakt</th><th scope="col">Toestand</th><th scope="col">Gebruikt door</th><th scope="col"><span class="sr-only">Acties</span></th></tr></thead>
+                <tbody>
+                    <tr th:each="i : ${invites}" th:classappend="${!i.usable} ? 'row-muted' : ''">
+                        <td class="mono" th:text="${i.shortId} + '…'">abcd1234…</td>
+                        <td th:text="${i.created}">1 nov 2026</td>
+                        <td th:text="${i.state}">Geldig</td>
+                        <td th:text="${i.usedBy ?: '-'}">-</td>
+                        <td>
+                            <form th:if="${i.usable}" method="post" th:action="@{/admin/users/invites/{id}/revoke(id=${i.shortId})}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Intrekken</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</th:block>
+</html>

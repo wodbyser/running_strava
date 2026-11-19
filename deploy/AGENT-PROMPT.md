@@ -129,6 +129,9 @@ $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfil
 Register-ScheduledTask -TaskName 'Running Coach back-up' -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At 3am) -RunLevel Highest
 ```
 
+Optioneel, alleen als de multi-user-vlag aan staat: plan ook `deploy\backup.ps1` (alle databases), zie
+`deploy\DEPLOY.md` stap 9. Zonder vlag is dat niet nodig.
+
 ## Stap 9 — Eindcontrole
 
 - `docker compose -f .\deploy\docker-compose.yml ps` → beide containers `running`/`healthy`.

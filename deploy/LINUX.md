@@ -212,7 +212,10 @@ Gevolgen:
 | Unit | Wat het doet |
 |---|---|
 | `running-coach.service` | Start bij het opstarten de stack én de publieke link. `ExecStop` is `stop.sh`. |
-| `running-coach-backup.timer` | Elke nacht om 03:00 een dump in `deploy/backups/`, 14 dagen bewaard. |
+| `running-coach-backup.timer` | Elke nacht om 03:00 een dump van `running` (`migrate.sh backup`) en daarna van **alle** databases (`backup.sh`, map `deploy/backups/all-<datum>/` met een manifest), 14 dagen bewaard. |
+
+Heb je de units al geïnstalleerd vóór de multi-user-uitbreiding? Draai `bash deploy/install-systemd.sh` nog
+eens (kan altijd opnieuw): pas dan komt `backup.sh` in de nachtelijke taak.
 
 ```bash
 systemctl status running-coach
@@ -307,8 +310,38 @@ bash deploy/migrate.sh restore deploy/backups/running-20261107-0300.dump
 docker compose -f deploy/docker-compose.yml restart app           # daarna de app herstarten
 ```
 
+Voor alle databases tegelijk (jouw `running`, `running_control` met de gebruikerslijst en elke `running_u_*`
+van een gebruiker) gebruik je:
+
+```bash
+bash deploy/backup.sh      # schrijft deploy/backups/all-<datum>/<database>.dump + manifest.txt met rijen per tabel
+```
+
+Eén gebruiker terugzetten kan in een scratch-database, zonder iets te overschrijven:
+`docker compose -f deploy/docker-compose.yml exec -T postgres createdb -U postgres running_restore_test2`, dan het
+bestand met `docker compose cp` naar de container kopiëren en `pg_restore -U postgres -d running_restore_test2 --no-owner <bestand>`.
+Bewaar naast de dumps ook `APP_TENANT_SECRET_KEY` uit `deploy/.env` (bijvoorbeeld in je wachtwoordmanager): zonder die
+sleutel zijn de bewaarde Garmin-sleutels van gebruikers in een back-up onleesbaar.
+
 De timer draait als root en chown't de back-ups daarna naar jouw gebruiker, dus je kunt ze gewoon
 openen en opruimen. Zet ze af en toe ook op een andere schijf of in de cloud.
+
+### Meerdere gebruikers (feature-vlag)
+
+Staat standaard **uit** (`APP_MULTI_USER_ENABLED=false` in `deploy/.env`, of de regel ontbreekt): de app werkt dan
+precies zoals voorheen. Aanzetten doe je pas bewust, in deze volgorde:
+
+1. `bash deploy/backup.sh` en controleer dat `deploy/backups/all-<datum>/` gevuld is.
+2. Zet in `deploy/.env`: `APP_TENANT_SECRET_KEY` (`openssl rand -base64 32`), `APP_SIGNUP_CODE` (minstens 16 tekens)
+   en `APP_MULTI_USER_ENABLED=true`. De variabelen worden door `deploy/docker-compose.yml` aan de container doorgegeven.
+3. `docker compose -f deploy/docker-compose.yml up -d` (herstart de app). De database `running_control` wordt vanzelf
+   aangemaakt; jouw database `running` krijgt bij de eerste start na de Phase-4-release twee toevoegingen
+   (tabel `app_settings`, kolom `activities.source`), verder niets.
+4. Open `https://<jouw-link>/admin/users` (alleen voor jou): codes voor één gebruik maken, gebruikers uitschakelen.
+5. `bash deploy/status.sh` toont "Gebruikers: N actief van M".
+
+Terugdraaien: `APP_MULTI_USER_ENABLED=false` en de app herstarten. Er wordt niets gewist; de databases van gebruikers
+blijven staan. Nooit `docker compose down -v`.
 
 ### Publieke link aan of uit
 

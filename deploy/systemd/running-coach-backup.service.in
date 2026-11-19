@@ -9,5 +9,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=@REPO_DIR@/deploy
 ExecStart=/usr/bin/env bash @REPO_DIR@/deploy/migrate.sh backup
+# Daarna alle databases (running, running_control en elke gebruiker) in backups/all-<datum>/
+ExecStart=/usr/bin/env bash @REPO_DIR@/deploy/backup.sh
 # De timer draait als root; de back-ups blijven eigendom van de repo-gebruiker.
 ExecStartPost=/usr/bin/chown -R @OWNER@:@GROUP@ @REPO_DIR@/deploy/backups

@@ -222,6 +222,20 @@ Register-ScheduledTask -TaskName 'Running Coach back-up' -Action $action -Trigge
 
 De back-ups komen in `deploy\backups\`. Zet ze af en toe ook op een andere schijf of in OneDrive.
 
+Gebruik je meerdere gebruikers (feature-vlag `APP_MULTI_USER_ENABLED=true`), laat de taak dan ook
+`deploy\backup.ps1` draaien (dumpt elke `running*`-database naar `deploy\backups\all-<datum>\` met een manifest):
+
+```powershell
+$action2 = New-ScheduledTaskAction -Execute 'powershell.exe' `
+  -Argument '-NoProfile -ExecutionPolicy Bypass -File "C:\Users\Gebruiker\running\deploy\backup.ps1"'
+Register-ScheduledTask -TaskName 'Running Coach back-up (alle databases)' -Action $action2 -Trigger (New-ScheduledTaskTrigger -Daily -At 3:15am) -RunLevel Highest
+```
+
+Bewaar ook `APP_TENANT_SECRET_KEY` uit `deploy\.env` apart: zonder die sleutel zijn bewaarde Garmin-sleutels in een back-up
+onleesbaar. De omgevingsvariabelen voor multi-user (`APP_MULTI_USER_ENABLED`, `APP_SIGNUP_CODE`, `APP_TENANT_SECRET_KEY`,
+`APP_CONTROL_DB_URL`) staan in `deploy\.env.example` en worden door `docker-compose.yml` doorgegeven; de vlag staat standaard uit.
+Het aanzetten staat beschreven in `deploy/LINUX.md` ("Meerdere gebruikers").
+
 ## Stap 10 — Updaten na een codewijziging
 
 Vervang de bestanden in de repo-map (zip of `git pull`) en dan:

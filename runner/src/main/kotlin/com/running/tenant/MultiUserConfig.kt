@@ -152,11 +152,7 @@ class MultiUserConfig {
     }
 
     @Bean
-    fun tenantReset(
-        registry: TenantRegistry,
-        users: AppUserRepository,
-        updater: TenantSchemaUpdater,
-        owner: DataSourceProperties,
+    fun tenantEviction(
         dataSource: DataSource,
         modes: TenantModes,
         garminTokens: GarminTokenProvider,
@@ -164,20 +160,44 @@ class MultiUserConfig {
         performance: PerformanceService,
         load: LoadService,
         race: RaceService,
+    ) = TenantEviction { id ->
+        (dataSource as? TenantRoutingDataSource)?.closeTenant(id)
+        modes.evict(id)
+        garminTokens.evict(id)
+        bestEfforts.evict(id)
+        performance.evict(id)
+        load.evict(id)
+        race.evict(id)
+    }
+
+    @Bean
+    fun tenantReset(
+        registry: TenantRegistry,
+        users: AppUserRepository,
+        updater: TenantSchemaUpdater,
+        owner: DataSourceProperties,
+        eviction: TenantEviction,
     ) = TenantReset(
         registry, users, updater,
         JdbcDatabaseMaintenance(owner.url.orEmpty(), owner.username.orEmpty(), owner.password),
         JdbcUrls.databaseName(owner.url.orEmpty()),
-        { id ->
-            (dataSource as? TenantRoutingDataSource)?.closeTenant(id)
-            modes.evict(id)
-            garminTokens.evict(id)
-            bestEfforts.evict(id)
-            performance.evict(id)
-            load.evict(id)
-            race.evict(id)
-        },
+        { id -> eviction.evict(id) },
     )
+
+    @Bean
+    fun singleUseInvites(users: AppUserRepository) = SingleUseInvites(users)
+
+    @Bean
+    fun adminUsers(
+        users: AppUserRepository,
+        registry: TenantRegistry,
+        modes: TenantModes,
+        settings: AppSettings,
+        activities: ActivityRepository,
+        garminStatus: com.running.garmin.spi.GarminSyncStatusRepository,
+        tokens: StravaTokenRepository,
+        eviction: TenantEviction,
+    ) = AdminUsers(users, registry, modes, settings, activities, garminStatus, tokens, eviction)
 
     @Bean
     fun onboardingWebConfig(modes: TenantModes) = object : WebMvcConfigurer {

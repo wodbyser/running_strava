@@ -61,11 +61,13 @@ class FlagOffContextTest @Autowired constructor(private val context: Application
             com.running.tenant.web.SettingsController::class.java, com.running.tenant.web.BackfillController::class.java,
             com.running.tenant.web.TenantStravaOAuthController::class.java, com.running.tenant.web.LoginAttemptFilter::class.java,
             TenantModes::class.java, DataModeGuard::class.java, InviteCodes::class.java, OAuthState::class.java, TenantBackfill::class.java, TenantReset::class.java,
+            com.running.tenant.web.AdminUsersController::class.java, AdminUsers::class.java, SingleUseInvites::class.java, TenantEviction::class.java,
         )) {
             assertTrue(context.getBeansOfType(type).isEmpty(), type.simpleName)
         }
         assertEquals(1, context.getBeansOfType(com.running.strava.adapter.StravaOAuthController::class.java).size)
         assertFalse(context.getBean(com.running.tenant.web.TenantUi::class.java).showSettings())
+        assertFalse(context.getBean(com.running.tenant.web.TenantUi::class.java).showAdmin())
     }
 
     @Test

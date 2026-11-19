@@ -1,10 +1,15 @@
 package com.running.tenant
 
+import com.running.tenant.db.AppUserRepository
 import jakarta.servlet.http.HttpServletRequest
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.util.Base64
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 
@@ -24,6 +29,36 @@ class InviteCodes(private val envCode: String) {
 
     companion object {
         const val MIN_LENGTH = 16
+    }
+}
+
+/**
+ * Single-use invite codes made on `/admin/users` (design §6.4). Only the SHA-256 is stored; the code itself exists once, in the
+ * response that shows it to the owner. 144 random bits, so a hash of a code cannot be brute-forced back.
+ */
+class SingleUseInvites(private val users: AppUserRepository, private val clock: Clock = Clock.systemUTC()) {
+    fun create(): String {
+        val bytes = ByteArray(18).also { SecureRandom().nextBytes(it) }
+        val code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        users.insertInvite(hash(code), OffsetDateTime.ofInstant(clock.instant().plus(VALIDITY), ZoneOffset.UTC))
+        return code
+    }
+
+    fun usable(code: String): Boolean = code.length in MIN_LENGTH..MAX_LENGTH && users.inviteUsable(hash(code))
+
+    fun claim(code: String): Boolean = code.length in MIN_LENGTH..MAX_LENGTH && users.claimInvite(hash(code))
+
+    fun release(code: String) = users.releaseInvite(hash(code))
+
+    fun markUsedBy(code: String, username: String) = users.markInviteUsedBy(hash(code), username)
+
+    private fun hash(code: String): String =
+        MessageDigest.getInstance("SHA-256").digest(code.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+
+    companion object {
+        val VALIDITY: Duration = Duration.ofDays(7)
+        const val MIN_LENGTH = 16
+        const val MAX_LENGTH = 128
     }
 }
 

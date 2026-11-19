@@ -54,6 +54,17 @@ if printf '%s\n' "$states" | grep -q '^running-db|.*[Uu]p'; then
     fi
 fi
 
+# --- Gebruikers (alleen als multi-user ooit aanstond: dan bestaat running_control) ---
+if printf '%s\n' "$states" | grep -q '^running-db|.*[Uu]p'; then
+    has_control="$(dc exec -T postgres psql -U postgres -d postgres -tAc "select 1 from pg_database where datname = 'running_control'" 2>/dev/null | tr -d '[:space:]')"
+    if [ "$has_control" = 1 ]; then
+        tenants="$(dc exec -T postgres psql -U postgres -d running_control -tAc "select count(*) filter (where status = 'ACTIVE') || ' actief van ' || count(*) from app_user" 2>/dev/null | tr -d '\r')"
+        if [ -n "$tenants" ]; then info "Gebruikers: $tenants"; else bad "running_control bestaat maar is niet leesbaar"; fi
+    else
+        info "Multi-user: nog nooit aangezet (geen running_control)"
+    fi
+fi
+
 # --- Lokale app -------------------------------------------------------------
 code="$(curl -o /dev/null -sS -w '%{http_code}' --max-time 15 "$APP_URL" || true)"
 if [ "$code" = 200 ]; then

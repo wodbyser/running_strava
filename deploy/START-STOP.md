@@ -122,6 +122,10 @@ powershell -ExecutionPolicy Bypass -File .\deploy\migrate.ps1 restore -File .\de
 docker compose -f .\deploy\docker-compose.yml restart app
 ```
 
+Met meerdere gebruikers aan: `powershell -ExecutionPolicy Bypass -File .\deploy\backup.ps1` dumpt alle databases
+(`running`, `running_control`, `running_u_*`) naar `deploy\backups\all-<datum>\`. `status.ps1` toont dan ook
+"Gebruikers: N actief van M".
+
 Volgorde is belangrijk: eerst `restore`, dan `restart app`. De app leest de database bij het opstarten.
 
 ## Publieke link aan of uit

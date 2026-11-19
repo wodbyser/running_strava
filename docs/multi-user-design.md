@@ -501,7 +501,8 @@ true (a test or a review rule):
 | `GET /auth/strava` | authenticated | adds a signed `state` bound to the tenant |
 | `GET /callback` | authenticated | validates `state`, exchanges the code into the **current tenant DB** |
 | `GET /admin/users` | OWNER only | list, disable, invite codes, per-user sync status |
-| `POST /admin/users/{id}/disable` | OWNER only | blocks login and closes the pool |
+| `POST /admin/users/{username}/disable` / `/enable` | OWNER only | blocks login and closes the pool; OWNER and unknown names refused with 403; nothing is deleted; `enable` only from DISABLED (Phase 6) |
+| `POST /admin/users/invites`, `/invites/{id}/revoke` | OWNER only | single-use code (7 days) shown once in the response that creates it; revoke = expire now (Phase 6) |
 | `GET /settings` | authenticated | replace Strava/Garmin credentials, see mode |
 | `POST /settings/reset` | non-OWNER only | D11: archive this tenant's DB, provision a fresh one, back to `/setup` |
 
@@ -1077,6 +1078,13 @@ Acceptance:
 
 ### Phase 6 — Admin, backups, deploy, docs
 
+Built (2026-11-19): `AdminUsers` + `AdminUsersController` + `admin-users.html`, `SingleUseInvites` (SHA-256 only, claim is one atomic
+`UPDATE`, released again when provisioning fails, not consumed by an invalid username/password), `/admin/**` is `hasRole("OWNER")` in
+`SecurityConfig` only when the flag is on, compose passes the four env vars (flag default `false`), nightly unit runs `backup.sh`
+after `migrate.sh backup`, `status.sh`/`status.ps1` show "Gebruikers: N actief van M". `APP_SIGNUP_CODE` stays the switch for
+`/register` (blank = signup off); the owner keeps it secret and hands out single-use codes. Session invalidation on disable is Phase 7
+(`TenantContextFilter` already answers 403 for a disabled tenant, so an open session stops working at once).
+
 Steps:
 
 1. `/admin/users` (OWNER only): list, last login, key presence (masked), counts, disable, invite codes.
@@ -1304,6 +1312,17 @@ in the tenant UI, not only in the log (Phase 3 checklist).
 | 4 | Panels: a `NOT AVAILABLE` page redirects (`CapabilityInterceptor`) to `/unavailable`; a `PARTIAL` page gets a one-line note from the same interceptor. The matrix is in code (`CapabilityMatrix`) and in `docs/multi-user-capabilities.md` | Owner never sees either (no query, flag off = no interceptor) |
 | 5 | Owner decision 2026-11-19 on R14: `/ai` stays available for everybody, also for tenants with Strava data | Policy risk (no Strava data in AI prompts) accepted by the owner; for GARMIN tenants the prompt states what is missing |
 | 6 | The Garmin projection hook is an `afterRun` callback of `GarminSyncCoordinator`, only for mode GARMIN | BOTH tenants and the owner are never projected |
+
+---
+
+## 19c. Phase 6 findings (2026-11-19)
+
+| # | Finding | Consequence |
+|---|---|---|
+| 1 | The open-in-view `EntityManager` of the request thread keeps the JDBC connection of the first tenant it queried (non-transactional repository methods do not release it). Reading a second tenant on that thread returned the first tenant's counts (caught by `AdminUsersIT`: tenant showed the owner's 0 instead of its 1) | `/admin/users` reads each tenant on a fresh thread. Any future code that visits several tenants in one request must do the same; nothing today does (a request has exactly one tenant) |
+| 2 | `deploy/.env` of the owner has no `APP_MULTI_USER_ENABLED`, so passing it through compose cannot switch the flag on | Compose default `false`; the flag stays the owner's explicit call |
+| 3 | A backup is only restorable if `APP_TENANT_SECRET_KEY` is kept too (stored Garmin keys are encrypted with it) | Documented in `deploy/LINUX.md` and `deploy/DEPLOY.md` |
+| 4 | The installed systemd unit is a rendered copy of the template | The nightly job only gains `backup.sh` after the owner re-runs `deploy/install-systemd.sh` |
 
 ---
 

@@ -65,6 +65,12 @@ class TenantUi(private val modes: org.springframework.beans.factory.ObjectProvid
         val tenant = com.running.tenant.TenantContext.current() ?: return false
         return !known.isOwner(tenant)
     }
+
+    /** The owner's link to `/admin/users`: only with the flag on and only for the OWNER role. */
+    fun showAdmin(): Boolean {
+        modes.ifAvailable ?: return false
+        return (SecurityContextHolder.getContext().authentication?.principal as? AppUserPrincipal)?.role == "OWNER"
+    }
 }
 
 internal fun DataMode.label(): String = when (this) {

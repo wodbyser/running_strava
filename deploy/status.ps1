@@ -69,6 +69,17 @@ if ($states.ContainsKey('running-db') -and $states['running-db'] -match 'Up') {
     }
 }
 
+# --- Gebruikers (alleen als multi-user ooit aanstond: dan bestaat running_control) ---
+if ($states.ContainsKey('running-db') -and $states['running-db'] -match 'Up') {
+    $hasControl = ("$(& docker compose -f $composeFile exec -T postgres psql -U postgres -d postgres -tAc "select 1 from pg_database where datname = 'running_control'" 2>$null)").Trim()
+    if ($hasControl -eq '1') {
+        $tenants = ("$(& docker compose -f $composeFile exec -T postgres psql -U postgres -d running_control -tAc "select count(*) filter (where status = 'ACTIVE') || ' actief van ' || count(*) from app_user" 2>$null)").Trim()
+        if ($tenants) { Info "Gebruikers: $tenants" } else { Bad "running_control bestaat maar is niet leesbaar" }
+    } else {
+        Info "Multi-user: nog nooit aangezet (geen running_control)"
+    }
+}
+
 # --- Lokale app ---
 try {
     $r = Invoke-WebRequest $appUrl -UseBasicParsing -TimeoutSec 15
