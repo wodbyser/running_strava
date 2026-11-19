@@ -41,6 +41,11 @@
                             <form th:if="${u.canDisable}" method="post" th:action="@{/admin/users/{n}/disable(n=${u.username})}">
                                 <button type="submit" class="btn btn-secondary btn-sm">Uitschakelen</button>
                             </form>
+                            <form th:if="${u.canDelete}" method="post" th:action="@{/admin/users/{n}/delete(n=${u.username})}"
+                                  onsubmit="return confirm('Gebruiker verwijderen? Strava-toegang wordt ingetrokken en de database wordt gearchiveerd.')">
+                                <input type="hidden" name="confirm" th:value="${u.username}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Verwijderen</button>
+                            </form>
                             <form th:if="${u.canEnable}" method="post" th:action="@{/admin/users/{n}/enable(n=${u.username})}">
                                 <button type="submit" class="btn btn-secondary btn-sm">Weer inschakelen</button>
                             </form>

@@ -24,7 +24,10 @@ class AdminUsersIT @Autowired constructor(
     private val registry: TenantRegistry,
     private val activities: ActivityRepository,
     private val modes: TenantModes,
+    private val tokens: com.running.strava.spi.StravaTokenRepository,
 ) : MultiUserIT() {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean lateinit var deauthorizer: StravaDeauthorizer
+
     private val password = "a-long-test-password"
 
     private fun login(user: String, pw: String): MockHttpSession {
@@ -103,6 +106,46 @@ class AdminUsersIT @Autowired constructor(
         assertEquals(302, mvc.perform(post("/admin/users/ad_off/enable").session(admin)).andReturn().response.status)
         assertNotNull(registry.find("ad_off"))
         assertEquals(200, mvc.perform(get("/activities").session(login("ad_off", password))).andReturn().response.status)
+    }
+
+    @Test
+    fun `disabling ends an open session and clears the remember-me cookie`() {
+        val session = signUpWithInvite("ad_sess", "198.51.100.40")
+        modes.complete("ad_sess", DataMode.STRAVA)
+        mvc.perform(post("/admin/users/ad_sess/disable").session(owner()))
+        val result = mvc.perform(get("/activities").session(session)).andReturn()
+        assertEquals(403, result.response.status)
+        assertTrue(session.isInvalid)
+        assertEquals(0, result.response.getCookie("remember-me")!!.maxAge)
+    }
+
+    @Test
+    fun `delete revokes Strava first, archives the database, keeps the row and refuses the owner`() {
+        val admin = owner()
+        signUpWithInvite("ad_del", "198.51.100.41")
+        modes.complete("ad_del", DataMode.STRAVA)
+        TenantContext.asTenant("ad_del") { tokens.save(com.running.strava.domain.StravaToken("access-x", "refresh-x", System.currentTimeMillis() / 1000 + 3600, 1L)) }
+
+        org.mockito.Mockito.doThrow(RuntimeException("down")).`when`(deauthorizer).deauthorize("access-x")
+        assertEquals(302, mvc.perform(post("/admin/users/ad_del/delete").param("confirm", "ad_del").session(admin)).andReturn().response.status)
+        assertEquals("ACTIVE", users.findByUsername("ad_del")!!.status, "revoke failed: nothing happened")
+        assertEquals(listOf("running_u_ad_del"), databases("running_u_ad_del%"))
+
+        org.mockito.Mockito.reset(deauthorizer)
+        assertEquals(302, mvc.perform(post("/admin/users/ad_del/delete").param("confirm", "wrong").session(admin)).andReturn().response.status)
+        assertEquals("ACTIVE", users.findByUsername("ad_del")!!.status, "needs the typed name")
+
+        assertEquals(302, mvc.perform(post("/admin/users/ad_del/delete").param("confirm", "ad_del").session(admin)).andReturn().response.status)
+        org.mockito.Mockito.verify(deauthorizer).deauthorize("access-x")
+        assertEquals("DELETED", users.findByUsername("ad_del")!!.status)
+        assertEquals(null, registry.find("ad_del"))
+        val dbs = databases("running_u_ad_del%")
+        assertEquals(1, dbs.size, dbs.toString())
+        assertTrue(dbs[0].startsWith("running_u_ad_del_old_"), "archived by rename, not dropped")
+        assertTrue(mvc.perform(post("/login").param("username", "ad_del").param("password", password)).andReturn().response.redirectedUrl!!.contains("error"))
+
+        assertEquals(403, mvc.perform(post("/admin/users/wout/delete").param("confirm", "wout").session(admin)).andReturn().response.status)
+        assertEquals("ACTIVE", users.findByUsername("wout")!!.status)
     }
 
     @Test

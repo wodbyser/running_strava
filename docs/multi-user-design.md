@@ -1101,6 +1101,11 @@ Steps: remove the `app.multi-user.enabled=false` path, session invalidation on d
 (Strava `oauth/revoke` first, then archive-by-rename, owner drops the archive by hand after its dump; OWNER
 refused), log-redaction audit, dependency/licence check, final performance comparison, delete `InMemoryUserDetailsManager`.
 
+Built so far (2026-11-19): session invalidation (filter invalidates the session and expires `remember-me`), delete-user
+(`POST /admin/users/{u}/delete`, typed name; Strava `oauth/deauthorize` first and a failure aborts; `TenantReset.archive`
+renames to `running_u_<id>_old_<ts>` without a new DB; user row kept with status `DELETED`), static log audit. Flag removal
+is still open and waits for the owner.
+
 Acceptance: full suite green, security checklist signed off, owner confirms nothing changed for him.
 
 ---

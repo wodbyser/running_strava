@@ -197,7 +197,19 @@ class MultiUserConfig {
         garminStatus: com.running.garmin.spi.GarminSyncStatusRepository,
         tokens: StravaTokenRepository,
         eviction: TenantEviction,
-    ) = AdminUsers(users, registry, modes, settings, activities, garminStatus, tokens, eviction)
+        deauthorizer: StravaDeauthorizer,
+        strava: com.running.strava.spi.StravaApiClient,
+        reset: TenantReset,
+    ) = AdminUsers(users, registry, modes, settings, activities, garminStatus, tokens, eviction, deauthorizer, strava, reset)
+
+    @Bean
+    fun stravaDeauthorizer(restClient: org.springframework.web.client.RestClient) = StravaDeauthorizer { accessToken ->
+        restClient.post()
+            .uri("https://www.strava.com/oauth/deauthorize")
+            .header("Authorization", "Bearer $accessToken")
+            .retrieve()
+            .toBodilessEntity()
+    }
 
     @Bean
     fun onboardingWebConfig(modes: TenantModes) = object : WebMvcConfigurer {

@@ -92,6 +92,27 @@ class TenantReset(
         archive
     }
 
+    /**
+     * Delete-user: same guards as [reset], but the fresh database is not created. The tenant leaves the registry for good.
+     * Returns the archive name; the owner drops it by hand after a dump (design §14, Phase 7).
+     */
+    fun archive(tenantId: String, tenantDb: String): String = synchronized(lock) {
+        if (tenantId == registry.ownerId || registry.find(tenantId)?.owner == true) throw TenantResetRefused("The owner cannot be deleted")
+        if (tenantDb == ownerDb || !ARCHIVABLE.matches(tenantDb) || tenantDb != TenantProvisioner.DB_PREFIX + tenantId) {
+            throw TenantResetRefused("Refusing to archive database '$tenantDb'")
+        }
+        val archive = tenantDb + "_old_" + STAMP.format(clock.instant().atOffset(ZoneOffset.UTC))
+        check(archive.length <= 63 && archive != ownerDb) { "Invalid archive name" }
+        registry.remove(tenantId)
+        onReset(tenantId)
+        if (maintenance.exists(tenantDb)) {
+            maintenance.terminateConnections(tenantDb)
+            maintenance.rename(tenantDb, archive)
+        }
+        log.info("Tenant '{}' deleted: database archived as '{}'", tenantId, archive)
+        archive
+    }
+
     private companion object {
         val ARCHIVABLE = Regex("^running_u_[a-z][a-z0-9_]{2,30}$")
         val STAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm")

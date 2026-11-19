@@ -2,6 +2,7 @@ package com.running.tenant.web
 
 import com.running.tenant.AdminRefused
 import com.running.tenant.AdminUsers
+import com.running.tenant.StravaRevokeFailed
 import com.running.tenant.SingleUseInvites
 import com.running.tenant.db.AppUserRepository
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -11,6 +12,7 @@ import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.server.ResponseStatusException
 import org.springframework.web.servlet.mvc.support.RedirectAttributes
 
@@ -72,6 +74,24 @@ class AdminUsersController(
             flash(ra, "$username kan weer inloggen.")
         } catch (e: AdminRefused) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        }
+        return "redirect:/admin/users"
+    }
+
+    @PostMapping("/admin/users/{username}/delete")
+    fun delete(@PathVariable username: String, @RequestParam(defaultValue = "") confirm: String, ra: RedirectAttributes): String {
+        val owner = ownerOnly()
+        if (confirm.trim().lowercase() != username.trim().lowercase()) {
+            flash(ra, "Typ de gebruikersnaam om te verwijderen.", "error")
+            return "redirect:/admin/users"
+        }
+        try {
+            val archive = admin.delete(username)
+            flash(ra, "$username is verwijderd. De database is bewaard als $archive; verwijder die zelf binnen 30 dagen na een back-up.")
+        } catch (e: AdminRefused) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN)
+        } catch (e: StravaRevokeFailed) {
+            flash(ra, "Strava-toegang intrekken is mislukt; er is niets verwijderd. Probeer het later opnieuw.", "error")
         }
         return "redirect:/admin/users"
     }

@@ -1,6 +1,7 @@
 package com.running.tenant
 
 import jakarta.servlet.FilterChain
+import jakarta.servlet.http.Cookie
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
@@ -20,6 +21,9 @@ class TenantContextFilter(private val registry: TenantRegistry) : OncePerRequest
         val tenant = try {
             registry.requireActive(principal.tenantId)
         } catch (e: TenantDisabledException) {
+            request.getSession(false)?.invalidate()
+            SecurityContextHolder.clearContext()
+            response.addCookie(Cookie("remember-me", null).apply { maxAge = 0; path = request.contextPath.ifEmpty { "/" } })
             response.sendError(HttpServletResponse.SC_FORBIDDEN)
             return
         }
