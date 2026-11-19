@@ -46,4 +46,11 @@ class FlagOffContextTest @Autowired constructor(private val context: Application
         assertFalse(context.getBeansOfType(TenantRoutingDataSource::class.java).isNotEmpty())
         assertTrue(context.getBeansOfType(TenantContextFilter::class.java).isEmpty())
     }
+
+    @Test
+    fun `flag off has no tenant secrets, the env key resolver and a silent banner`() {
+        assertTrue(context.getBeansOfType(SecretCipher::class.java).isEmpty())
+        assertTrue(context.getBeansOfType(TenantSettings::class.java).isEmpty())
+        assertFalse(context.getBean(com.running.garmin.web.GarminKeyBanner::class.java).expired())
+    }
 }

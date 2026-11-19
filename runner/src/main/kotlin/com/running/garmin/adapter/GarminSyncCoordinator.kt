@@ -7,13 +7,14 @@ import com.running.garmin.usecase.SyncGarminData
 import com.running.tenant.TenantContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
 
 enum class GarminStartOutcome { STARTED, BUSY, DISABLED, NOT_CONFIGURED }
 
 /**
- * One Garmin run at a time. A second trigger gets BUSY and makes no HTTP call.
+ * One Garmin run at a time per tenant (the single executor thread also serialises tenants). A second trigger gets BUSY and makes no HTTP call.
  * With the flag off or no key, nothing starts and no HTTP call is made.
  */
 class GarminSyncCoordinator(
@@ -21,13 +22,15 @@ class GarminSyncCoordinator(
     private val syncGarminData: SyncGarminData,
     private val backfillGarminData: BackfillGarminData,
     private val executor: Executor,
-    /** Until per-tenant keys exist the one configured key belongs to the owner only (design §10.2, Phase 3). */
-    private val keyUsableByCurrentTenant: () -> Boolean = { true },
+    /** Is there a usable key for the tenant of the current thread? */
+    private val configured: () -> Boolean = { properties.configured },
 ) {
     private val log = LoggerFactory.getLogger(GarminSyncCoordinator::class.java)
-    private val running = AtomicBoolean(false)
+    private val running = ConcurrentHashMap<String, AtomicBoolean>()
 
-    val isRunning: Boolean get() = running.get()
+    private fun flag(tenant: String?) = running.computeIfAbsent(tenant ?: NO_TENANT) { AtomicBoolean(false) }
+
+    val isRunning: Boolean get() = flag(TenantContext.current()).get()
 
     fun startSync(async: Boolean = true): GarminStartOutcome = launch("sync", async) { syncGarminData.execute() }
 
@@ -36,7 +39,9 @@ class GarminSyncCoordinator(
 
     private fun launch(name: String, async: Boolean, job: () -> GarminSyncResult): GarminStartOutcome {
         if (!properties.enabled) return GarminStartOutcome.DISABLED
-        if (!properties.configured || !keyUsableByCurrentTenant()) return GarminStartOutcome.NOT_CONFIGURED
+        if (!configured()) return GarminStartOutcome.NOT_CONFIGURED
+        val tenant = TenantContext.current()
+        val running = flag(tenant)
         if (!running.compareAndSet(false, true)) return GarminStartOutcome.BUSY
         val task = Runnable {
             try {
@@ -52,7 +57,6 @@ class GarminSyncCoordinator(
             }
         }
         if (async) {
-            val tenant = TenantContext.current()
             val bound = if (tenant == null) task else Runnable { TenantContext.asTenant(tenant, task::run) }
             try {
                 executor.execute(bound)
@@ -64,5 +68,9 @@ class GarminSyncCoordinator(
             task.run()
         }
         return GarminStartOutcome.STARTED
+    }
+
+    private companion object {
+        const val NO_TENANT = ""
     }
 }

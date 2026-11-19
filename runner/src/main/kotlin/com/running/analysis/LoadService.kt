@@ -166,6 +166,11 @@ class LoadService(
 
     private val cache = ConcurrentHashMap<TenantKey<Triple<Long, String, String>>, Heavy>()
 
+    /** Forgets everything cached for one tenant (reset, delete). */
+    fun evict(tenant: String) {
+        cache.keys.removeIf { it.tenant == tenant }
+    }
+
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
 
     /** Everything both pages share. Not cached as a whole: Garmin rows and windows change between requests. */

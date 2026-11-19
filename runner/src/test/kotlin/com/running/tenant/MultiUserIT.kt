@@ -14,6 +14,7 @@ object TestPostgres {
 @SpringBootTest(
     properties = [
         "app.multi-user.enabled=true",
+        "app.multi-user.secret-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "app.security.username=wout",
         "app.security.password=owner-test-pw",
         "app.security.remember-me-key=remember-test-key",

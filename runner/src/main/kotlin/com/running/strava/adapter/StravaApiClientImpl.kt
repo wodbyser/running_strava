@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter
 class StravaApiClientImpl(
     private val restClient: RestClient,
     private val properties: StravaProperties,
+    private val budget: StravaRateBudget = StravaRateBudget(),
 ) : StravaApiClient {
 
     private val baseUrl = "https://www.strava.com/api/v3"
@@ -90,8 +91,11 @@ class StravaApiClientImpl(
                 .uri(uri)
                 .header("Authorization", "Bearer ${token.accessToken}")
                 .retrieve()
-                .body(String::class.java)
+                .toEntity(String::class.java)
+                .also { budget.observe(it.headers) }
+                .body
         } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) budget.rateLimited(e.responseHeaders)
             if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on page $page: ${e.message}")
             throw e
         }
@@ -106,8 +110,11 @@ class StravaApiClientImpl(
                 .uri("$baseUrl/activities/$activityId")
                 .header("Authorization", "Bearer ${token.accessToken}")
                 .retrieve()
-                .body(String::class.java)
+                .toEntity(String::class.java)
+                .also { budget.observe(it.headers) }
+                .body
         } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) budget.rateLimited(e.responseHeaders)
             if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on activity $activityId: ${e.message}")
             throw e
         }
@@ -127,8 +134,11 @@ class StravaApiClientImpl(
                 .uri(uri)
                 .header("Authorization", "Bearer ${token.accessToken}")
                 .retrieve()
-                .body(String::class.java)
+                .toEntity(String::class.java)
+                .also { budget.observe(it.headers) }
+                .body
         } catch (e: RestClientResponseException) {
+            if (e.statusCode.value() == 429) budget.rateLimited(e.responseHeaders)
             if (e.statusCode.value() == 429) throw RateLimitExceededException("Strava API rate limit on streams for activity $activityId: ${e.message}")
             throw e
         }

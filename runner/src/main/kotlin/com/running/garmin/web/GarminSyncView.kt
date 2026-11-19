@@ -6,21 +6,23 @@ import com.running.config.GarminProperties
 import com.running.garmin.adapter.GarminSyncCoordinator
 import com.running.garmin.domain.GarminErrorCategory
 import com.running.garmin.spi.GarminSyncStatusRepository
+import com.running.tenant.CredentialResolver
 import org.springframework.stereotype.Component
 
 /** Texts and state for the "Garmin synchroniseren" button, shared by the pages that show it. */
 @Component
 class GarminSyncView(
     private val properties: GarminProperties,
+    private val credentials: CredentialResolver,
     private val coordinator: GarminSyncCoordinator,
     private val statusRepository: GarminSyncStatusRepository,
 ) {
     val running: Boolean get() = coordinator.isRunning
-    val possible: Boolean get() = properties.enabled && properties.configured && !coordinator.isRunning
+    val possible: Boolean get() = properties.enabled && credentials.garminConfigured() && !coordinator.isRunning
 
     fun line(): String {
         if (!properties.enabled) return "Garmin-synchronisatie staat uit in de instellingen."
-        if (!properties.configured) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
+        if (!credentials.garminConfigured()) return "Geen Garmin-sleutel ingesteld: synchroniseren kan niet."
         if (coordinator.isRunning) return "Synchronisatie bezig. De pagina ververst vanzelf als het klaar is."
         val st = statusRepository.get()
         val ok = st.lastSuccessAt?.atZone(RecoveryService.ZONE)?.toLocalDateTime()?.let { PerfDates.dayTime(it) }

@@ -4,6 +4,7 @@ import com.running.analysis.FakeActivityRepository
 import com.running.config.GarminProperties
 import com.running.garmin.adapter.GarminStartOutcome
 import com.running.garmin.adapter.GarminSyncCoordinator
+import com.running.tenant.CredentialResolver
 import com.running.garmin.domain.*
 import com.running.garmin.scheduler.GarminSyncScheduler
 import com.running.garmin.spi.GarminRepository
@@ -55,7 +56,7 @@ class GarminControllerTest {
         val coordinator = GarminSyncCoordinator(properties, useCases, useCases, queueExecutor)
         val clock: Clock = Clock.fixed(Instant.parse("2026-10-25T10:00:00Z"), ZoneOffset.UTC)
         val mvc: MockMvc = MockMvcBuilders.standaloneSetup(
-            GarminSyncController(properties, coordinator, status, EmptyGarminRepo(), FakeActivityRepository(emptyList()), clock),
+            GarminSyncController(properties, CredentialResolver(properties), coordinator, status, EmptyGarminRepo(), FakeActivityRepository(emptyList()), clock),
         ).build()
     }
 

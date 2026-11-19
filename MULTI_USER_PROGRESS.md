@@ -4,12 +4,18 @@ Single source of truth for where this feature stands. **Read this first, update 
 Full design and rationale: `docs/multi-user-design.md` (self-contained, no session context needed).
 Prompt to start a fresh agent on the next phase: `MULTI_USER_PROMPT.md` (same prompt every time).
 
-**Last updated:** 2026-11-19 by: Phase 2 session (routing, schema updater, tenant-aware jobs, provisioner CLI). Phase 2 is APPROVED (owner, 2026-11-19) and committed.
+**Last updated:** 2026-11-19 by: Phase 3 session (per-tenant Garmin key/token/coordinator, SecretCipher, CredentialResolver, Strava rate budget). Phase 3 is APPROVED (owner, 2026-11-19) and committed.
 
 ## Next session starts here
 
-- **Next action:** Phase 2 is APPROVED (2026-11-19). Start **Phase 3** (per-tenant Garmin token provider +
-  coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget, `evict(tenant)`). Phase 1 is APPROVED, Phase 0 is APPROVED.
+- **Next action:** Phase 3 is APPROVED (2026-11-19). Start **Phase 4**, but first check the owner preconditions (below) with the owner. Before it ships `app_settings` + `activities.source` to the owner's DB: verified backup first (design §11.1).
+- Phase 3 facts for the next agent: `CredentialResolver` (flag off: env key; flag on: OWNER env key, other tenants a stored
+  key decrypted by `SecretCipher`, no tenant = no key) is in `tenant/CredentialResolver.kt`; `TenantSettings` is the port to the
+  future `app_settings` table (Phase 4 replaces `NoTenantSettings` in `MultiUserConfig`; key name `CredentialResolver.GARMIN_KEY`
+  = `garmin.api_key`, store it with `SecretCipher.encrypt`). `StravaRateBudget` (fed by `StravaApiClientImpl`) and `BackfillGate`
+  are beans but nothing calls `tenantBackfillAllowed()`/`runIfFree` yet: the Phase 4 per-tenant backfill must. The "key verlopen"
+  banner (`GarminKeyBanner`, layout.html) has no `/settings` link yet (route is Phase 4). `evict(tenant)` exists on the four
+  caches and on `GarminTokenProvider`; the Phase 4 reset must call all five.
 - Phase 2 facts for the next agent: everything is in `runner/.../com/running/tenant/` (`TenantContext`+`TenantKey`,
   `TenantRegistry`, `TenantRoutingDataSource`, `TenantContextFilter`, `TenantSchemaUpdater`+`SchemaGuard`+
   `UniqueConstraintChurn`, `TenantJobRunner`, `TenantProvisioner`, `MultiUserEnvironmentPostProcessor`; flag-on wiring in
@@ -71,7 +77,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 | 0 | Backup/restore drill, row counts, schema snapshot, page-timing baseline, backup-all script (no code change) | APPROVED | Tests green, restore drill counts match, see log |
 | 1 | `running_control`, `app_user`/`invite_code`/`auth_audit`, DB login, owner bootstrap | APPROVED | 186 runner + 434 core tests green; flag-on manual run on restored copy, see log |
 | 2 | Routing datasource, fail-closed filter, Hibernate start-up, `TenantSchemaUpdater`, tenant-aware schedulers/warm-ups, provisioner CLI | APPROVED | 434 core + 220 runner tests green; zero schema statements on restored owner copy; timings equal within noise, see log |
-| 3 | Per-tenant caches, Garmin token provider, coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget | NOT STARTED | |
+| 3 | Per-tenant caches, Garmin token provider, coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget | APPROVED | 434 core + 241 runner tests green; flag off/on manual run on restored copy, see log |
 | 4 | `app_settings` + `activities.source`, `/register`, `/setup`, Strava OAuth `state`, Strava-only users, reset | NOT STARTED | |
 | 5 | GARMIN-only projection, mode guard, capability matrix + UI panels | NOT STARTED | |
 | 6 | `/admin/users`, backup-all nightly, deploy docs | NOT STARTED | |
@@ -120,13 +126,14 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 ## Phase 3 checklist
 
-- [ ] Tenant-scoped cache keys in `BestEffortService`, `PerformanceService`, `LoadService`, `RaceService` + `evict(tenant)`
-- [ ] Per-tenant `GarminTokenProvider` + `GarminSyncCoordinator` (+ per-tenant `isRunning`, `GarminSyncView`)
-- [ ] `SecretCipher` + `APP_TENANT_SECRET_KEY` (refuse to start if missing while enabled)
-- [ ] `CredentialResolver` (tenant setting, env key for OWNER only); `GarminProperties.configured` replaced
-- [ ] Garmin `AUTH` error per tenant surfaced as the "key verlopen" banner (D14); nothing deleted
-- [ ] Strava rate-budget counter (response headers), global backfill semaphore, tenant pause
-- [ ] Tests: `TenantCacheTest`, `TenantJobRunnerTest`, `GarminTenantKeyTest`, `SecretCipherTest`, one-tenant-fails test
+- [x] Tenant-scoped cache keys in `BestEffortService`, `PerformanceService`, `LoadService`, `RaceService` + `evict(tenant)`
+- [x] Per-tenant `GarminTokenProvider` + `GarminSyncCoordinator` (+ per-tenant `isRunning`, `GarminSyncView`)
+- [x] `SecretCipher` + `APP_TENANT_SECRET_KEY` (refuse to start if missing while enabled)
+- [x] `CredentialResolver` (tenant setting, env key for OWNER only); `GarminProperties.configured` replaced
+- [x] Garmin `AUTH` error per tenant surfaced as the "key verlopen" banner (D14); nothing deleted
+- [x] Strava rate-budget counter (response headers), global backfill semaphore, tenant pause
+- [x] Tests: `TenantCacheTest`, `GarminTenantKeyTest`, `GarminTenantGateTest` (per-tenant busy), `SecretCipherTest`, `StravaRateBudgetTest`, `GarminKeyBannerTest`;
+      TenantJobRunnerTest and the one-tenant-fails test = `TenantRegistryAndJobsTest` (Phase 2)
 
 ## Phase 4 checklist
 
@@ -180,6 +187,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 | 2026-11-19 | Phase 2, flag ON, restored copy `running_restore_test`, local jar, owner only: start-up | 7.8-9.1 s "Started"; `Schema update 'wout': 0 statement(s)` on every boot (3 boots) |
 | 2026-11-19 | Phase 2 timings, same jar, same copy, curl with session, flag ON vs OFF, 70 warm requests each, median | `/activities` on 0.173 / 0.179 s vs off 0.177 / 0.180 s; `/` on 0.078 / 0.078 vs off 0.080 / 0.078 (differences 0-2%). Heavy pages are noisy between identical runs (`/load` 0.55-0.69, `/race` 0.76-1.02 s for BOTH flag values over 20-sample runs): on 0.55-0.68 / 0.76-0.89, off 0.58-0.69 / 0.83-1.02. A first run looked 10-20% slower on `/activities`; it was the per-connection `ObjectProvider` lookup in the router (now resolved once) plus run-to-run noise. `allow_jdbc_metadata_access=false` alone changes nothing (checked with the flag off) |
 | 2026-11-19 | Phase 2, provisioned empty tenant `testtenant` (scratch, local Postgres), flag ON | 20 schema statements, 18 tables; tenant `/activities` 0 rows, pages `/ /load /race /recovery /performance` 200; owner `/activities` still 606 rows; second boot `Schema update 'testtenant': 0 statement(s)`; both warm-ups logged `starting for 2 tenants`; scratch DBs `running_u_testtenant` and `running_control` dropped afterwards (not the owner's DB) |
+| 2026-11-19 | Phase 3, same jar and restored copy `running_restore_test`, 6 pages, flag ON (with secret key) vs OFF, one cold request each | all 200 and same order of magnitude (`/` 2.1 vs 2.3 s, `/activities` 0.75 vs 0.58, `/load` 6.0 vs 7.1, `/race` 1.7 vs 1.3 s; cold, warm-ups running, not a timing gate). `/garmin/status` state `OK` with the env key under the flag ON (owner key still used). Flag ON without `APP_TENANT_SECRET_KEY`: refuses to start with a clear message, no secret printed. Start-up 8.5 s both. `Schema update 'wout': 0 statement(s)` |
 | 2026-11-19 | `deploy/backup.sh` run; `running.dump` of it restored into a scratch DB | counts identical to live; scratch DB dropped |
 
 ## Session log
@@ -257,6 +265,24 @@ Newest last. One entry per session: what was done, what was verified, what is ne
   `tenant-pause` default is still `0s` (Phase 3); `OwnerBootstrap`'s `InitializingBean` was replaced by an `initMethod` bean so the
   registry really starts after it (ordering bug found by the first IT run); `TenantContextFilter` answers 403 for a disabled tenant
   but does not end the session (Phase 7). Questions asked: none. Owner approved Phase 2 and asked for a commit (2026-11-19).
+
+- **2026-11-19** — Phase 3. Baseline suite green. Built: `SecretCipher` (AES-256-GCM, `enc:v1:`, null on bad/foreign value),
+  `CredentialResolver` + `TenantSettings` port, per-tenant `GarminTokenProvider` (state per tenant, key rotation drops the token,
+  `evict`, `secrets()` = every known key/token + the env key, so redaction also holds for non-owner tenants), per-tenant
+  `GarminSyncCoordinator` flags (the single executor still serialises tenants on purpose) with the "usable key" check coming from the
+  resolver, `GarminSyncView`/`GarminSyncController` through the resolver, `GarminKeyBanner` (non-owner tenants with a stored AUTH
+  error only; false without a DB read for the owner/flag off), `evict(tenant)` on the four caches, `StravaRateBudget` (read headers,
+  70% of the 15-min or daily budget, 429 block, stale windows ignored) + `BackfillGate`, `app.multi-user.tenant-pause` now `5s`,
+  `app.multi-user.secret-key` (`APP_TENANT_SECRET_KEY`) required when the flag is on. Decisions/deviations (design updated):
+  (1) the OWNER's Garmin key is only the env key, never read from his DB (design said "setting, else env"; the owner has no
+  `app_settings` table before Phase 4 and invariant 5 forbids the extra query); (2) no `TenantSettings` store yet: tenants have no key
+  until Phase 4, so they get `NOT_CONFIGURED` and zero Garmin calls (tested); (3) `StravaApiClientImpl` GET calls now use `toEntity`
+  to read headers: same requests, same bodies (the only change on the owner's Strava path; `StravaExternalIdTest` and the suite pass);
+  (4) the banner has no link, `/settings` does not exist before Phase 4. Not built, belongs later: per-tenant backfill queue that uses
+  the budget/gate and the progress page (Phase 4), `/settings`. Verified: core 434 + runner 241 tests, 0 failures; manual
+  runs flag off and on against `running_restore_test` (see Measurements log), grep for the fake key/password/remember-me key/master
+  key in both logs = 0. Never connected to the owner's `running`: no backup needed. I created and dropped the scratch DB
+  `running_control` in the local container; `running-db` stopped again. No questions asked.
 
 ## Guardrail checklist before any commit
 

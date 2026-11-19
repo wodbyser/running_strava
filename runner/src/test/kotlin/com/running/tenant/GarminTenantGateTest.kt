@@ -12,15 +12,15 @@ import org.mockito.Mockito.verifyNoInteractions
 import org.mockito.Mockito.`when`
 import java.util.concurrent.Executor
 
-/** Until per-tenant Garmin keys exist (Phase 3) the one configured key may only be used for the owner's tenant. */
+/** The coordinator asks the credential resolver, so only a tenant with a usable key can start a run, and "busy" is per tenant. */
 class GarminTenantGateTest {
     private val sync = mock(SyncGarminData::class.java)
     private val backfill = mock(BackfillGarminData::class.java)
     private val registry = TenantRegistry { listOf(Tenant("wout", "running", true), Tenant("anna", "running_u_anna", false)) }.also { it.reload() }
     private val queued = mutableListOf<Runnable>()
-    private val coordinator = GarminSyncCoordinator(
-        GarminProperties(apiKey = "fake-key-for-test"), sync, backfill, Executor { queued += it },
-    ) { registry.ownerId == TenantContext.current() }
+    private val properties = GarminProperties(apiKey = "fake-key-for-test")
+    private val credentials = CredentialResolver(properties, registry)
+    private val coordinator = GarminSyncCoordinator(properties, sync, backfill, Executor { queued += it }) { credentials.garminConfigured() }
 
     @Test
     fun `another tenant gets NOT_CONFIGURED and no sync is made`() {
@@ -39,5 +39,19 @@ class GarminTenantGateTest {
         queued.single().run()
         assertEquals("wout", seen)
         assertEquals(null, TenantContext.current())
+    }
+
+    @Test
+    fun `busy is per tenant`() {
+        val withKey = CredentialResolver(properties, registry, { "enc" }, null)
+        assertEquals(GarminStartOutcome.NOT_CONFIGURED, TenantContext.asTenant("anna") { GarminSyncCoordinator(properties, sync, backfill, Executor { queued += it }) { withKey.garminConfigured() }.startSync() })
+        val open = GarminSyncCoordinator(properties, sync, backfill, Executor { queued += it }) { true }
+        assertEquals(GarminStartOutcome.STARTED, TenantContext.asTenant("wout") { open.startSync() })
+        assertEquals(GarminStartOutcome.BUSY, TenantContext.asTenant("wout") { open.startSync() })
+        assertEquals(GarminStartOutcome.STARTED, TenantContext.asTenant("anna") { open.startSync() })
+        assertEquals(true, TenantContext.asTenant("wout") { open.isRunning })
+        assertEquals(false, TenantContext.asTenant("piet") { open.isRunning })
+        queued.forEach { it.run() }
+        assertEquals(false, TenantContext.asTenant("wout") { open.isRunning })
     }
 }

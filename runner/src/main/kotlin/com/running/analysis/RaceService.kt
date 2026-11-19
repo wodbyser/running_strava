@@ -156,6 +156,11 @@ class RaceService(
     private val config: RaceConfig get() = properties.race.toConfig()
     private val halvesCache = ConcurrentHashMap<TenantKey<Long>, Halves>()
 
+    /** Forgets everything cached for one tenant (reset, delete). */
+    fun evict(tenant: String) {
+        halvesCache.keys.removeIf { it.tenant == tenant }
+    }
+
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
 
     private class Base(

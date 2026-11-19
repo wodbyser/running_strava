@@ -83,6 +83,16 @@ class MultiUserConfig {
     @Bean
     fun tenantContextFilterRegistration(filter: TenantContextFilter) = FilterRegistrationBean(filter).apply { isEnabled = false }
 
+    /** A missing or malformed master key stops the start-up: no silent plaintext fallback (design §7.1). */
+    @Bean
+    fun secretCipher(props: MultiUserProperties): SecretCipher {
+        check(props.secretKey.isNotBlank()) { "app.multi-user.enabled needs APP_TENANT_SECRET_KEY (base64 of 32 random bytes)" }
+        return SecretCipher(props.secretKey)
+    }
+
+    @Bean
+    fun tenantSettings(): TenantSettings = NoTenantSettings()
+
     @Bean
     fun tenantJobRunner(registry: TenantRegistry, props: MultiUserProperties) = TenantJobRunner(registry, props.tenantPause)
 

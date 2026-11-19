@@ -119,6 +119,12 @@ class BestEffortService(
 
     private val usableStreamCache = ConcurrentHashMap<TenantKey<Long>, Boolean>()
 
+    /** Forgets everything cached for one tenant (reset, delete). */
+    fun evict(tenant: String) {
+        streamCache.keys.removeIf { it.tenant == tenant }
+        usableStreamCache.keys.removeIf { it.tenant == tenant }
+    }
+
     private fun hasUsableStreams(activityId: Long): Boolean = usableStreamCache.getOrPut(TenantKey.of(activityId)) {
         streamEfforts(activityId).isNotEmpty() || activityRepository.findStreams(activityId)?.let { it.time != null && it.distance != null } == true
     }

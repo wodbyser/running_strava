@@ -567,12 +567,12 @@ enabled, the app **refuses to start** (a silent fallback to plaintext storage is
 
 ```kotlin
 interface CredentialResolver {
-    fun garminKey(tenant: TenantId): String?   // tenant setting, else env if tenant is OWNER, else null
+    fun garminKey(tenant: TenantId): String?   // OWNER: env key only (never read from his DB); others: stored setting; no tenant: null
     fun stravaConfigured(tenant: TenantId): Boolean  // strava_tokens row exists in the tenant DB
 }
 ```
 
-`GarminProperties.apiKey` stops being the source of truth in multi-user mode. Keep the property and the env var for
+Implemented in Phase 3 (2026-11-19): the OWNER always uses the env key and his DB is never asked for a setting (he has no `app_settings` table before Phase 4, and invariant 5 forbids the extra query); `TenantSettings` is the port to `app_settings` that Phase 4 fills. `GarminProperties.apiKey` stops being the source of truth in multi-user mode. Keep the property and the env var for
 the owner (zero change for him) and for local dev.
 
 Strava tokens are read through `StravaTokenRepository` (row id 1) inside the tenant DB, so the Strava use cases
@@ -824,7 +824,7 @@ first-time backfill is one list call per 200 activities plus **two calls per act
 runner with 1,000 activities needs ~2,000 calls: that alone is a full day of the app's read budget, shared with the
 owner's own sync. It **must not run for several tenants at once** and must never starve the owner. Rules:
 
-- New setting `app.multi-user.tenant-pause` between tenants inside a job (design default `5s`; `application.yml` still has `0s`: set it in Phase 3 together with the rate budget; it only applies between tenants, never before the owner).
+- New setting `app.multi-user.tenant-pause` between tenants inside a job (default `5s`, set in Phase 3; it only applies between tenants, never before the owner).
 - First-time historical backfills are triggered per user from `/setup`, run on a per-tenant queue (not on the
   request thread, unlike today's `/fetch-all`), and are **serialized across tenants** by one global semaphore.
 - Tenant backfills stop for the day when the app has used ~70% of the 15-minute or daily read budget (read

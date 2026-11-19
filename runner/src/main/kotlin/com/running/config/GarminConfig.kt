@@ -8,8 +8,10 @@ import com.running.garmin.adapter.GarminTokenProvider
 import com.running.garmin.spi.GarminApiClient
 import com.running.garmin.usecase.BackfillGarminData
 import com.running.garmin.usecase.SyncGarminData
-import com.running.tenant.TenantContext
+import com.running.tenant.CredentialResolver
+import com.running.tenant.SecretCipher
 import com.running.tenant.TenantRegistry
+import com.running.tenant.TenantSettings
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -35,9 +37,18 @@ class GarminConfig {
         return builder.clone().baseUrl(properties.baseUrl).requestFactory(factory).build()
     }
 
+    /** Flag off: no registry, so this is the env key as before. Flag on: per-tenant rules (design §7.3). */
     @Bean
-    fun garminTokenProvider(builder: RestClient.Builder, properties: GarminProperties, garminClock: Clock, mapper: ObjectMapper) =
-        GarminTokenProvider(garminRestClient(builder, properties), properties, garminClock, mapper)
+    fun credentialResolver(
+        properties: GarminProperties,
+        registry: ObjectProvider<TenantRegistry>,
+        settings: ObjectProvider<TenantSettings>,
+        cipher: ObjectProvider<SecretCipher>,
+    ) = CredentialResolver(properties, registry.ifAvailable, settings.ifAvailable, cipher.ifAvailable)
+
+    @Bean
+    fun garminTokenProvider(builder: RestClient.Builder, properties: GarminProperties, garminClock: Clock, mapper: ObjectMapper, credentials: CredentialResolver) =
+        GarminTokenProvider(garminRestClient(builder, properties), properties, garminClock, mapper, credentials)
 
     @Bean
     fun garminApiClient(builder: RestClient.Builder, properties: GarminProperties, tokens: GarminTokenProvider, mapper: ObjectMapper): GarminApiClient =
@@ -53,9 +64,6 @@ class GarminConfig {
         properties: GarminProperties,
         sync: SyncGarminData,
         backfill: BackfillGarminData,
-        registry: ObjectProvider<TenantRegistry>,
-    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor()) {
-        val known = registry.ifAvailable
-        known == null || known.ownerId == TenantContext.current()
-    }
+        credentials: CredentialResolver,
+    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor()) { credentials.garminConfigured() }
 }

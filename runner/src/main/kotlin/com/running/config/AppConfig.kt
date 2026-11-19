@@ -37,6 +37,12 @@ import java.time.ZoneId
 class AppConfig {
 
     @Bean
+    fun stravaRateBudget() = com.running.strava.adapter.StravaRateBudget()
+
+    @Bean
+    fun backfillGate() = com.running.strava.adapter.BackfillGate()
+
+    @Bean
     fun restClient(): RestClient = RestClient.create()
 
     @Bean

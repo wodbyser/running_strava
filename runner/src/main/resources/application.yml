@@ -48,7 +48,8 @@ app:
   multi-user:
     enabled: ${APP_MULTI_USER_ENABLED:false}
     control-url: ${APP_CONTROL_DB_URL:}
-    tenant-pause: 0s
+    tenant-pause: 5s
+    secret-key: ${APP_TENANT_SECRET_KEY:}
 
 strava:
   client-id: ${STRAVA_CLIENT_ID:}

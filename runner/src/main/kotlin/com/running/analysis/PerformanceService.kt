@@ -159,6 +159,11 @@ class PerformanceService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val cache = ConcurrentHashMap<TenantKey<Triple<Long, Int?, String>>, RunAnalysis>()
+
+    /** Forgets everything cached for one tenant (reset, delete). */
+    fun evict(tenant: String) {
+        cache.keys.removeIf { it.tenant == tenant }
+    }
     private val config: PerformanceConfig get() = properties.performance.toConfig()
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))

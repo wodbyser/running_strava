@@ -1,6 +1,7 @@
 package com.running.garmin.web
 
 import com.running.config.GarminProperties
+import com.running.tenant.CredentialResolver
 import com.running.garmin.adapter.GarminStartOutcome
 import com.running.garmin.adapter.GarminSyncCoordinator
 import com.running.garmin.domain.GarminErrorCategory
@@ -74,6 +75,7 @@ data class GarminReviewView(
 @RequestMapping("/garmin")
 class GarminSyncController(
     private val properties: GarminProperties,
+    private val credentials: CredentialResolver,
     private val coordinator: GarminSyncCoordinator,
     private val statusRepository: GarminSyncStatusRepository,
     private val garminRepository: GarminRepository,
@@ -140,7 +142,7 @@ class GarminSyncController(
 
     private fun state(status: GarminSyncStatus): GarminState = when {
         !properties.enabled -> GarminState.DISABLED
-        !properties.configured -> GarminState.NOT_CONFIGURED
+        !credentials.garminConfigured() -> GarminState.NOT_CONFIGURED
         coordinator.isRunning -> GarminState.RUNNING
         status.lastRunFinishedAt == null -> GarminState.NEVER_RUN
         status.lastErrorCategory == GarminErrorCategory.AUTH -> GarminState.AUTH_FAILED
