@@ -1,6 +1,8 @@
 package com.running.config
 
+import com.running.tenant.TenantContextFilter
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -11,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.access.intercept.AuthorizationFilter
 import java.time.Duration
 
 /**
@@ -35,7 +38,12 @@ class SecurityConfig {
     }
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity, properties: AppSecurityProperties, users: UserDetailsService): SecurityFilterChain {
+    fun securityFilterChain(
+        http: HttpSecurity,
+        properties: AppSecurityProperties,
+        users: UserDetailsService,
+        tenantFilter: ObjectProvider<TenantContextFilter>,
+    ): SecurityFilterChain {
         http.csrf { it.disable() }
         http.headers { headers -> headers.frameOptions { it.sameOrigin() } }
         if (!properties.loginEnabled) {
@@ -54,6 +62,7 @@ class SecurityConfig {
                 .alwaysRemember(true)
                 .tokenValiditySeconds(REMEMBER_ME.seconds.toInt())
         }
+        tenantFilter.ifAvailable { http.addFilterAfter(it, AuthorizationFilter::class.java) }
         http.logout { it.logoutSuccessUrl("/login?logout").permitAll() }
         return http.build()
     }

@@ -8,6 +8,9 @@ import com.running.garmin.adapter.GarminTokenProvider
 import com.running.garmin.spi.GarminApiClient
 import com.running.garmin.usecase.BackfillGarminData
 import com.running.garmin.usecase.SyncGarminData
+import com.running.tenant.TenantContext
+import com.running.tenant.TenantRegistry
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.JdkClientHttpRequestFactory
@@ -50,5 +53,9 @@ class GarminConfig {
         properties: GarminProperties,
         sync: SyncGarminData,
         backfill: BackfillGarminData,
-    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor())
+        registry: ObjectProvider<TenantRegistry>,
+    ) = GarminSyncCoordinator(properties, sync, backfill, garminExecutor()) {
+        val known = registry.ifAvailable
+        known == null || known.ownerId == TenantContext.current()
+    }
 }

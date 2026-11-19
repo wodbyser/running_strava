@@ -420,9 +420,10 @@ Rules:
 4. `<tenantDb>` is empty → `TenantSchemaUpdater` creates the full schema inside `TenantContext.asTenant(tenantId)`
    (§8).
 5. Seed tenant settings: `data_mode = UNSET`, `onboarding_complete = false`.
-6. Set `status = ACTIVE`, add the tenant to `TenantRegistry`. If any step fails: close the tenant pool,
-   `DROP DATABASE` **only if the name starts with `running_u_` and the row is still `PENDING`**, delete the row,
-   report.
+6. Set `status = ACTIVE`, add the tenant to `TenantRegistry`. If any step fails: remove it from the registry, close the
+   tenant pool and report. **Nothing is dropped** (corrected in Phase 2: hard rule "the app never drops a database"
+   wins over the earlier cleanup idea): the `PENDING` row and the half-made database stay, and running the
+   provisioner again for the same name resumes (database exists → schema update → `ACTIVE`).
 7. Log an `auth_audit` row. Never log the password or any key.
 
 Idempotency: running the provisioner twice for the same user must be a no-op or a clean failure, never a second
@@ -446,9 +447,14 @@ thread, **before** any request or tenant exists. A fail-closed router makes star
 with a "default tenant". Instead, only when the flag is on:
 
 1. `spring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access=false` (Hibernate ≥ 6.5; the dialect is
-   already explicit in every profile), so Hibernate does not open a connection during bootstrap.
-2. `spring.jpa.hibernate.ddl-auto=none` **for the flag-on path only** (a `multi-user` profile or an
-   `EnvironmentPostProcessor` that sets it when the flag is true). Schema update is then done explicitly by
+   already explicit in every profile), so Hibernate does not open a connection during bootstrap. Also
+   `spring.sql.init.mode=never` (the SQL initializer would otherwise open a connection).
+2. `spring.jpa.hibernate.ddl-auto=none` **for the flag-on path only**. Implemented as `MultiUserEnvironmentPostProcessor`
+   (`META-INF/spring.factories`). Do **not** use a multi-document `spring.config.activate.on-property`: it only tests
+   that the property *exists* (not its value) and, because `application.yml` always defines `app.multi-user.enabled`,
+   it would also switch `ddl-auto` to `none` with the flag off (this happened in the first attempt and 37 tests caught it).
+   Measured on the restored owner copy: no other start-up connection needed fixing, and the SQL/timings are the same
+   as with metadata access on. Schema update is then done explicitly by
    `TenantSchemaUpdater` (§8), owner first, inside `TenantContext.asTenant(...)`, before `ApplicationReadyEvent`.
    The owner's schema result is identical to today's `ddl-auto: update`.
 3. Boot once with the flag on as the **first** step of Phase 2 and fix every other start-up connection the same
@@ -593,17 +599,24 @@ bound on the boot thread; the updater then does the same `update` per database e
 ### 8.2 `TenantSchemaUpdater` (flag on only)
 
 1. Capture Hibernate's `Metadata` and service registry during bootstrap with an `org.hibernate.integrator.spi.Integrator`
-   registered through `spring.jpa.properties.hibernate.integrator_provider` (or an equivalent
-   `HibernatePropertiesCustomizer`). No second EntityManagerFactory.
+   registered through a `HibernatePropertiesCustomizer` (`hibernate.integrator_provider`). No second EntityManagerFactory.
 2. For each database, inside `TenantContext.asTenant(id)`:
-   1. **Dry run:** `SchemaUpdate().setFormat(false).setOutputFile(tmp).execute(EnumSet.of(TargetType.SCRIPT), metadata, registry)`.
+   1. **Dry run:** Hibernate 6.6 has no `SchemaUpdate` class in `hibernate-core`; use the SPI instead:
+      `SchemaManagementTool.getSchemaMigrator(settings).doMigration(metadata, options, ContributableMatcher.ALL, target)`
+      with a script-only `TargetDescriptor` that collects the statements (nothing is executed). Exceptions halt the dry run.
+      **Unique-constraint churn:** Hibernate's default (`DROP_RECREATE_QUIETLY`) emits `alter table … drop constraint if
+      exists X` + `add constraint X unique …` for every unique constraint on every run (also today's `ddl-auto: update`
+      does this on every owner boot). `SKIP` is not usable (a new table would then lack its unique constraints), so
+      `UniqueConstraintChurn` removes the quiet drops and the add of a constraint that already exists. Verified: zero
+      statements on the restored owner copy and on an up-to-date tenant.
    2. **Guard:** every statement must start with `create table`, `create index`, `create unique index`,
       `alter table … add column` or `alter table … add constraint`. Anything else (`drop`, `alter column`,
       `rename`, `truncate`, `delete`) → do **not** execute, log the script, and for the owner **refuse to start**
       (for a tenant: mark it unhealthy, skip it, keep the owner running).
    3. Log the statements (count + text; no data involved). For the owner this is the same DDL `ddl-auto: update`
-      would have run today.
-   4. Execute: `execute(EnumSet.of(TargetType.DATABASE), …)`.
+      would have run today (minus the unique-constraint churn).
+   4. Execute exactly the vetted statements one by one over a plain connection of the routed DataSource (so what was
+      guarded is what runs).
 3. A new, empty tenant DB therefore receives the complete schema; an existing DB only receives additions.
 
 Phase 2 must prove on a **restored copy** of the owner's DB that the dry run against the current schema produces
@@ -811,7 +824,7 @@ first-time backfill is one list call per 200 activities plus **two calls per act
 runner with 1,000 activities needs ~2,000 calls: that alone is a full day of the app's read budget, shared with the
 owner's own sync. It **must not run for several tenants at once** and must never starve the owner. Rules:
 
-- New setting `app.multi-user.tenant-pause` (default `5s`) between tenants inside a job.
+- New setting `app.multi-user.tenant-pause` between tenants inside a job (design default `5s`; `application.yml` still has `0s`: set it in Phase 3 together with the rate budget; it only applies between tenants, never before the owner).
 - First-time historical backfills are triggered per user from `/setup`, run on a per-tenant queue (not on the
   request thread, unlike today's `/fetch-all`), and are **serialized across tenants** by one global semaphore.
 - Tenant backfills stop for the day when the app has used ~70% of the 15-minute or daily read budget (read
@@ -968,6 +981,13 @@ Steps:
 5. `TenantProvisioner` + a CLI entry point (`--provision-user=<name>`, no login, no credentials) so a tenant can be
    created without the UI. Owner assertion at boot (§5.6).
 6. Isolation and fail-closed tests (§15.2).
+
+Two things from Phase 3 had to be pulled forward, because the acceptance below (same activity id in two tenants, no
+cross-visibility; a provisioned tenant must never use the owner's Garmin key) is otherwise not true:
+the four per-activity caches already use `TenantKey` (tenant id + key, tenant null with the flag off), and
+`GarminSyncCoordinator` only starts a run when the current tenant is the OWNER (interim guard until
+`CredentialResolver` exists; all other tenants get `NOT_CONFIGURED` and no HTTP call). Phase 3 keeps `evict(tenant)`,
+per-tenant token provider/running flag and the real credential resolution.
 
 Acceptance:
 

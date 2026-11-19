@@ -18,4 +18,6 @@ dependencies {
     runtimeOnly("com.h2database:h2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    // 2.x on purpose: the 1.x docker client is rejected by current Docker engines (API version too old).
+    testImplementation("org.testcontainers:testcontainers-postgresql:2.0.5")
 }

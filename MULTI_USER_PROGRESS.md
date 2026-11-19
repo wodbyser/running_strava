@@ -4,18 +4,23 @@ Single source of truth for where this feature stands. **Read this first, update 
 Full design and rationale: `docs/multi-user-design.md` (self-contained, no session context needed).
 Prompt to start a fresh agent on the next phase: `MULTI_USER_PROMPT.md` (same prompt every time).
 
-**Last updated:** 2026-11-19 by: Phase 1 session (control plane + DB-backed login behind the flag).
+**Last updated:** 2026-11-19 by: Phase 2 session (routing, schema updater, tenant-aware jobs, provisioner CLI). Phase 2 is APPROVED (owner, 2026-11-19) and committed.
 
 ## Next session starts here
 
-- **Next action:** Phase 1 is APPROVED (2026-11-19). Start **Phase 2** (routing datasource, §5.7 boot with the flag on first). Phase 0 is APPROVED (owner deploys on Linux;
-  `backup.ps1` is irrelevant and was not run). Wiring `backup.sh` into the systemd timer stays a Phase 6 item.
-- **Phase 1 is DONE** (flag off by default). New package `runner/.../com/running/tenant/`; `SecurityConfig` has one
-  `@ConditionalOnProperty` on `userDetailsService`; `application.yml` got `app.multi-user.*`.
-- Phase 2 reminders: control DB test infrastructure so far is H2 in PostgreSQL mode (§15.3 decided by the owner
-  2026-11-19: use Testcontainers PostgreSQL, adding it as a test-only dependency in Phase 2). The owner-DB assertion of §5.6 is
-  already in `OwnerBootstrap` (refuses start if OWNER row's `tenant_db` differs from the URL database); Phase 2 only
-  needs to add the pool wrapping.
+- **Next action:** Phase 2 is APPROVED (2026-11-19). Start **Phase 3** (per-tenant Garmin token provider +
+  coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget, `evict(tenant)`). Phase 1 is APPROVED, Phase 0 is APPROVED.
+- Phase 2 facts for the next agent: everything is in `runner/.../com/running/tenant/` (`TenantContext`+`TenantKey`,
+  `TenantRegistry`, `TenantRoutingDataSource`, `TenantContextFilter`, `TenantSchemaUpdater`+`SchemaGuard`+
+  `UniqueConstraintChurn`, `TenantJobRunner`, `TenantProvisioner`, `MultiUserEnvironmentPostProcessor`; flag-on wiring in
+  `MultiUserConfig`). Schedulers/warm-ups reach the runner through `ObjectProvider`/an optional field, so with the flag off
+  the code path is the old one. Pulled forward from Phase 3 (needed for the Phase 2 acceptance): `TenantKey` cache keys in the
+  four services, and an interim guard in `GarminSyncCoordinator` (only the OWNER tenant may use the one env key).
+- Provision a tenant without UI (flag on, own port, exits when done):
+  `APP_MULTI_USER_ENABLED=true java -jar runner/build/libs/app.jar --provision-user=<name>` (same env as the app). The user
+  gets an unusable password; a failed run leaves a PENDING row and can simply be repeated. Nothing is ever dropped.
+- Test infrastructure: Testcontainers **2.0.5** (`testcontainers-postgresql`, test only). 1.x cannot talk to the current Docker engine.
+  `MultiUserIT` is the base class for flag-on tests (needs Docker; image `postgres:17`).
 - Owner preconditions before Phase 4 (not code, owner does these): Strava subscription, Strava athlete capacity
   1 → 10, `APP_SIGNUP_CODE` and `APP_TENANT_SECRET_KEY` in `deploy/.env` (see design §19).
 
@@ -65,7 +70,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 |---|---|---|---|
 | 0 | Backup/restore drill, row counts, schema snapshot, page-timing baseline, backup-all script (no code change) | APPROVED | Tests green, restore drill counts match, see log |
 | 1 | `running_control`, `app_user`/`invite_code`/`auth_audit`, DB login, owner bootstrap | APPROVED | 186 runner + 434 core tests green; flag-on manual run on restored copy, see log |
-| 2 | Routing datasource, fail-closed filter, Hibernate start-up, `TenantSchemaUpdater`, tenant-aware schedulers/warm-ups, provisioner CLI | NOT STARTED | |
+| 2 | Routing datasource, fail-closed filter, Hibernate start-up, `TenantSchemaUpdater`, tenant-aware schedulers/warm-ups, provisioner CLI | APPROVED | 434 core + 220 runner tests green; zero schema statements on restored owner copy; timings equal within noise, see log |
 | 3 | Per-tenant caches, Garmin token provider, coordinator, `SecretCipher`/`CredentialResolver`, Strava rate budget | NOT STARTED | |
 | 4 | `app_settings` + `activities.source`, `/register`, `/setup`, Strava OAuth `state`, Strava-only users, reset | NOT STARTED | |
 | 5 | GARMIN-only projection, mode guard, capability matrix + UI panels | NOT STARTED | |
@@ -98,19 +103,20 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 
 ## Phase 2 checklist
 
-- [ ] Boot with flag on, list every start-up connection; apply design §5.7 (`allow_jdbc_metadata_access=false`,
+- [x] Boot with flag on, list every start-up connection; apply design §5.7 (`allow_jdbc_metadata_access=false`,
       `ddl-auto: none` **only on the flag-on path**)
-- [ ] `TenantContext` (ThreadLocal, nested-safe)
-- [ ] `TenantRoutingDataSource` wrapping the auto-configured pool via `BeanPostProcessor` (owner pool size stays 2)
-- [ ] `TenantContextFilter` after `AuthorizationFilter`, not double-registered as a servlet filter
-- [ ] `TenantRegistry` (in memory, owner first)
-- [ ] `TenantSchemaUpdater` with dry run + statement guard; **zero statements** on the restored owner copy
-- [ ] `TenantJobRunner`; Strava cron, Garmin cron, race-log cron, load warm-up, race warm-up through it
-- [ ] Garmin executor captures the tenant at submit
-- [ ] `TenantProvisioner` + `--provision-user=<name>` CLI; owner assertion at boot
-- [ ] Tests: `TenantContextTest`, `TenantRoutingDataSourceTest`, `TenantContextFilterTest`, `RememberMeTenantTest`,
+- [x] `TenantContext` (ThreadLocal, nested-safe)
+- [x] `TenantRoutingDataSource` wrapping the auto-configured pool via `BeanPostProcessor` (owner pool size stays 2)
+- [x] `TenantContextFilter` after `AuthorizationFilter`, not double-registered as a servlet filter
+- [x] `TenantRegistry` (in memory, owner first)
+- [x] `TenantSchemaUpdater` with dry run + statement guard; **zero statements** on the restored owner copy
+- [x] `TenantJobRunner`; Strava cron, Garmin cron, race-log cron, load warm-up, race warm-up through it
+- [x] Garmin executor captures the tenant at submit
+- [x] `TenantProvisioner` + `--provision-user=<name>` CLI; owner assertion at boot
+- [x] Tests: `TenantContextTest`, `TenantRoutingDataSourceTest`, `TenantContextFilterTest`, `RememberMeTenantTest`,
       `OwnerPoolTest`, `SchemaUpdaterTest`, `OwnerTenantAssertionTest`, `IsolationIT`
-- [ ] Flag on, owner only: timings within 5% of Phase 0 (record numbers here)
+      (OwnerPoolTest = `MultiUserBootIT`, RememberMeTenantTest and TenantContextFilterTest = `IsolationIT`)
+- [x] Flag on, owner only: timings within 5% of Phase 0 (record numbers here)
 
 ## Phase 3 checklist
 
@@ -171,6 +177,9 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `BLOCKED`, `DONE`, `APPROVED` (owne
 | 2026-11-19 | Row counts live vs restored (`running_restore_test`) | 22 tables identical (activities 606, activity_laps 6062, activity_streams 586, garmin_body_battery_sample 81129, garmin_raw_payload 2464, others smaller) |
 | 2026-11-19 | Start-up of `running-coach:latest` (built 2026-11-18 22:02) against the restored copy, flag n/a | 6.4 s Spring "Started", /login reachable after 8 s |
 | 2026-11-19 | Warm median of 5 requests via curl, session cookie, app in Docker with 2 GB, restored copy | `/` 0.117 s, `/activities` 0.096 s, `/load` 0.745 s, `/race` 1.018 s (first/cold: 0.48, 0.35, 2.78, 1.43 s). Sub-100 ms pages are noisy (range 0.06-0.15 s); judge ±5% on `/load` and `/race` |
+| 2026-11-19 | Phase 2, flag ON, restored copy `running_restore_test`, local jar, owner only: start-up | 7.8-9.1 s "Started"; `Schema update 'wout': 0 statement(s)` on every boot (3 boots) |
+| 2026-11-19 | Phase 2 timings, same jar, same copy, curl with session, flag ON vs OFF, 70 warm requests each, median | `/activities` on 0.173 / 0.179 s vs off 0.177 / 0.180 s; `/` on 0.078 / 0.078 vs off 0.080 / 0.078 (differences 0-2%). Heavy pages are noisy between identical runs (`/load` 0.55-0.69, `/race` 0.76-1.02 s for BOTH flag values over 20-sample runs): on 0.55-0.68 / 0.76-0.89, off 0.58-0.69 / 0.83-1.02. A first run looked 10-20% slower on `/activities`; it was the per-connection `ObjectProvider` lookup in the router (now resolved once) plus run-to-run noise. `allow_jdbc_metadata_access=false` alone changes nothing (checked with the flag off) |
+| 2026-11-19 | Phase 2, provisioned empty tenant `testtenant` (scratch, local Postgres), flag ON | 20 schema statements, 18 tables; tenant `/activities` 0 rows, pages `/ /load /race /recovery /performance` 200; owner `/activities` still 606 rows; second boot `Schema update 'testtenant': 0 statement(s)`; both warm-ups logged `starting for 2 tenants`; scratch DBs `running_u_testtenant` and `running_control` dropped afterwards (not the owner's DB) |
 | 2026-11-19 | `deploy/backup.sh` run; `running.dump` of it restored into a scratch DB | counts identical to live; scratch DB dropped |
 
 ## Session log
@@ -225,6 +234,29 @@ Newest last. One entry per session: what was done, what was verified, what is ne
   the owner's DB); `running-db` was started for the test and stopped again; no timings compared (Phase 2 gate).
   Phase 1 does not change `ddl-auto` or add a `DataSource`. Owner answers (2026-11-19): Phase 1 approved; APP_USERNAME fits the regex; Testcontainers approved for Phase 2; commit requested. No backup needed: nothing ran against
   the owner's database `running`.
+
+- **2026-11-19** — Phase 2. Baseline suite green before starting. Built, in `runner/.../tenant/`: `TenantContext`/`TenantKey`,
+  `TenantRegistry`, `TenantRoutingDataSource` (wraps the auto-configured owner pool through a static `BeanPostProcessor`, tenant
+  pools 2/0/idle 2 min, fail closed), `TenantContextFilter` (after `AuthorizationFilter`, registration disabled so it is not added
+  twice), `TenantSchemaUpdater` (+ guard, + unique-constraint churn filter, runs owner first in a `SmartInitializingSingleton`,
+  owner refusal stops start-up, a broken tenant is skipped), `TenantJobRunner` (strava sync, garmin sync, race log, load/race
+  warm-ups; flag off = job runs once like before), `TenantProvisioner` + `--provision-user=` CLI, `MultiUserEnvironmentPostProcessor`.
+  Tests: 8 new classes (unit: context, routing, registry/jobs, schema guard, owner assertion + provisioner validation, Garmin gate;
+  Testcontainers: `MultiUserBootIT`, `IsolationIT` with login, remember-me-only cookie, disabled tenant, same activity id in two
+  tenants). Suite on Java 23: core 434, runner 220, 0 failures. Findings that changed the design (design updated, §5.5, §5.7,
+  §8.2, Phase 2 text): (1) Hibernate 6.6 has no `SchemaUpdate` in core, the migrator SPI is used; (2) Hibernate re-creates every
+  unique constraint on every run (also today's `ddl-auto: update`), so a literal "zero statements" needed
+  `UniqueConstraintChurn`; `SKIP` loses constraints on new tables; (3) `spring.config.activate.on-property` checks presence, not
+  value, and would have set `ddl-auto: none` with the flag OFF: replaced by an `EnvironmentPostProcessor` (37 tests caught the first
+  attempt); (4) provisioning never drops on failure (hard rule 1 over the old §5.5 cleanup); (5) two Phase 3 items pulled forward so
+  the Phase 2 acceptance is true: `TenantKey` cache keys and an interim OWNER-only guard on the Garmin coordinator. Flag-off check:
+  `FlagOffContextTest` (no multi-user bean, `ddl-auto` still `update`, owner pool size 2) + manual run of the same jar with the flag
+  off against the restored copy: login, `/ /activities /load /race` 200, no control DB created, no multi-user log lines. Manual,
+  flag ON: see Measurements log. Never connected to the owner's database `running`: no backup needed (nothing ran against it); all
+  runs used `running_restore_test` in the local container (stopped again). No secret in any log (grep 0). Open / left for later:
+  `tenant-pause` default is still `0s` (Phase 3); `OwnerBootstrap`'s `InitializingBean` was replaced by an `initMethod` bean so the
+  registry really starts after it (ordering bug found by the first IT run); `TenantContextFilter` answers 403 for a disabled tenant
+  but does not end the session (Phase 7). Questions asked: none. Owner approved Phase 2 and asked for a commit (2026-11-19).
 
 ## Guardrail checklist before any commit
 

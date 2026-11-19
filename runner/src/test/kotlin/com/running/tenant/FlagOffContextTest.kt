@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ApplicationContext
+import org.springframework.core.env.Environment
 import org.springframework.security.provisioning.InMemoryUserDetailsManager
 import javax.sql.DataSource
 
@@ -21,7 +22,7 @@ import javax.sql.DataSource
         "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
     ],
 )
-class FlagOffContextTest @Autowired constructor(private val context: ApplicationContext) {
+class FlagOffContextTest @Autowired constructor(private val context: ApplicationContext, private val env: Environment) {
     @Test
     fun `no multi-user bean exists and the in-memory user store is used`() {
         assertTrue(context.getBeansOfType(ControlDb::class.java).isEmpty())
@@ -36,5 +37,13 @@ class FlagOffContextTest @Autowired constructor(private val context: Application
         val pool = context.getBean(DataSource::class.java)
         assertTrue(pool is HikariDataSource)
         assertEquals(2, (pool as HikariDataSource).maximumPoolSize)
+    }
+
+    @Test
+    fun `flag off leaves Hibernate's own schema update and metadata access alone`() {
+        assertEquals("update", env.getProperty("spring.jpa.hibernate.ddl-auto"))
+        assertEquals(null, env.getProperty("spring.jpa.properties.hibernate.boot.allow_jdbc_metadata_access"))
+        assertFalse(context.getBeansOfType(TenantRoutingDataSource::class.java).isNotEmpty())
+        assertTrue(context.getBeansOfType(TenantContextFilter::class.java).isEmpty())
     }
 }

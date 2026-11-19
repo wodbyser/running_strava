@@ -1,5 +1,7 @@
 package com.running.analysis
 
+import com.running.tenant.TenantJobRunner
+import com.running.tenant.TenantKey
 import com.running.config.GarminProperties
 import com.running.garmin.recovery.DeviationBand
 import com.running.garmin.recovery.ReadinessKind
@@ -21,6 +23,7 @@ import com.running.strava.domain.Activity
 import com.running.strava.domain.SessionClassifier
 import com.running.strava.spi.ActivityRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -151,7 +154,7 @@ class RaceService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val config: RaceConfig get() = properties.race.toConfig()
-    private val halvesCache = ConcurrentHashMap<Long, Halves>()
+    private val halvesCache = ConcurrentHashMap<TenantKey<Long>, Halves>()
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
 
@@ -163,8 +166,8 @@ class RaceService(
     )
 
     /** Only found results are cached: a stream that is not downloaded yet may arrive later. */
-    private fun halves(a: Activity): Halves? = halvesCache[a.id]
-        ?: activityRepository.findStreams(a.id)?.let { Pacing.halves(it.time, it.distance) }?.also { halvesCache[a.id] = it }
+    private fun halves(a: Activity): Halves? = halvesCache[TenantKey.of(a.id)]
+        ?: activityRepository.findStreams(a.id)?.let { Pacing.halves(it.time, it.distance) }?.also { halvesCache[TenantKey.of(a.id)] = it }
 
     private fun base(): Base {
         val today = today()
@@ -314,6 +317,15 @@ class RaceService(
 
     /** Daily freeze, also when nobody opens the page. Same numbers as `/race` with the default periods. Returns the number of rows written. */
     @Scheduled(cron = "\${garmin.race.log-cron:0 0 7 * * *}")
+    fun recordTodayScheduled() {
+        val jobs = tenantJobs
+        if (jobs == null) recordToday() else jobs.runAll("race-log") { recordToday() }
+    }
+
+    /** Set only when multi-user is on: jobs then run once per tenant, owner first. */
+    @Autowired(required = false)
+    var tenantJobs: TenantJobRunner? = null
+
     fun recordToday(): Int {
         val b = base()
         val cfg = config
@@ -415,9 +427,11 @@ class RaceService(
     @EventListener(ApplicationReadyEvent::class)
     fun warmUpInBackground() {
         if (!properties.race.warmUp) return
-        Thread({
+        val job = {
             if (warmUp()) runCatching { recordToday() }.onFailure { log.warn("Race prediction log at start-up failed: {}", it.javaClass.simpleName) }
-        }, "race-warmup").apply { isDaemon = true; start() }
+            Unit
+        }
+        Thread({ tenantJobs?.runAll("race-warmup", job) ?: job() }, "race-warmup").apply { isDaemon = true; start() }
     }
 
     fun warmUp(): Boolean = try {

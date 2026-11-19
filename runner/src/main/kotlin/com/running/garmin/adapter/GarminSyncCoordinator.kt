@@ -4,6 +4,7 @@ import com.running.config.GarminProperties
 import com.running.garmin.domain.GarminSyncResult
 import com.running.garmin.usecase.BackfillGarminData
 import com.running.garmin.usecase.SyncGarminData
+import com.running.tenant.TenantContext
 import org.slf4j.LoggerFactory
 import java.time.LocalDate
 import java.util.concurrent.Executor
@@ -20,6 +21,8 @@ class GarminSyncCoordinator(
     private val syncGarminData: SyncGarminData,
     private val backfillGarminData: BackfillGarminData,
     private val executor: Executor,
+    /** Until per-tenant keys exist the one configured key belongs to the owner only (design §10.2, Phase 3). */
+    private val keyUsableByCurrentTenant: () -> Boolean = { true },
 ) {
     private val log = LoggerFactory.getLogger(GarminSyncCoordinator::class.java)
     private val running = AtomicBoolean(false)
@@ -33,7 +36,7 @@ class GarminSyncCoordinator(
 
     private fun launch(name: String, async: Boolean, job: () -> GarminSyncResult): GarminStartOutcome {
         if (!properties.enabled) return GarminStartOutcome.DISABLED
-        if (!properties.configured) return GarminStartOutcome.NOT_CONFIGURED
+        if (!properties.configured || !keyUsableByCurrentTenant()) return GarminStartOutcome.NOT_CONFIGURED
         if (!running.compareAndSet(false, true)) return GarminStartOutcome.BUSY
         val task = Runnable {
             try {
@@ -49,8 +52,10 @@ class GarminSyncCoordinator(
             }
         }
         if (async) {
+            val tenant = TenantContext.current()
+            val bound = if (tenant == null) task else Runnable { TenantContext.asTenant(tenant, task::run) }
             try {
-                executor.execute(task)
+                executor.execute(bound)
             } catch (e: RuntimeException) {
                 running.set(false)
                 throw e

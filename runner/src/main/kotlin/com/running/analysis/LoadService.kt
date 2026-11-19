@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.tenant.TenantKey
 import com.running.config.GarminProperties
 import com.running.garmin.domain.GarminSleepDay
 import com.running.garmin.matching.GarminActivityMatcher
@@ -28,7 +29,9 @@ import com.running.strava.domain.Lap
 import com.running.strava.domain.SessionClassifier
 import com.running.strava.domain.SessionType
 import com.running.strava.spi.ActivityRepository
+import com.running.tenant.TenantJobRunner
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -161,7 +164,7 @@ class LoadService(
 
     private data class Heavy(val trimp: Trimp.Result, val hardSeconds: Double?, val flatMeters: Double?, val kj: Double?)
 
-    private val cache = ConcurrentHashMap<Triple<Long, String, String>, Heavy>()
+    private val cache = ConcurrentHashMap<TenantKey<Triple<Long, String, String>>, Heavy>()
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
 
@@ -199,7 +202,7 @@ class LoadService(
     }
 
     private fun heavy(a: Activity, ref: HrReference, set: HrZoneSet?, cfg: LoadConfig): Heavy {
-        val key = Triple(a.id, "${ref.maxHr}/${ref.restHr}/${set?.floors}", LoadAlgorithm.VERSION + cfg.trimpB + cfg.minHrCoverage)
+        val key = TenantKey.of(Triple(a.id, "${ref.maxHr}/${ref.restHr}/${set?.floors}", LoadAlgorithm.VERSION + cfg.trimpB + cfg.minHrCoverage))
         cache[key]?.let { return it }
         val stream = activityRepository.findStreams(a.id)
         val trimp = Trimp.compute(stream, a.averageHeartrate?.toDouble(), a.movingTime, ref, cfg)
@@ -500,8 +503,12 @@ class LoadService(
     @EventListener(ApplicationReadyEvent::class)
     fun warmUpInBackground() {
         if (!properties.load.warmUp) return
-        Thread({ warmUp() }, "load-warmup").apply { isDaemon = true; start() }
+        Thread({ tenantJobs?.runAll("load-warmup") { warmUp() } ?: warmUp() }, "load-warmup").apply { isDaemon = true; start() }
     }
+
+    /** Set only when multi-user is on: warm-up then runs once per tenant, owner first. */
+    @Autowired(required = false)
+    var tenantJobs: TenantJobRunner? = null
 
     fun warmUp(): Boolean = try {
         overview(base(), LoadWindows.DEFAULT)

@@ -38,6 +38,20 @@ class AppUserRepository(private val jdbc: JdbcTemplate) {
         )
     }
 
+    fun insertUser(username: String, passwordHash: String, role: String, tenantId: String, tenantDb: String, status: String) {
+        jdbc.update(
+            "INSERT INTO app_user (username, password_hash, role, tenant_id, tenant_db, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            username, passwordHash, role, tenantId, tenantDb, status, OffsetDateTime.now(),
+        )
+    }
+
+    fun setStatus(username: String, status: String) {
+        jdbc.update("UPDATE app_user SET status = ? WHERE username = ?", status, username)
+    }
+
+    fun findActive(): List<AppUserRow> =
+        jdbc.query("SELECT * FROM app_user WHERE status = 'ACTIVE' ORDER BY CASE WHEN role = 'OWNER' THEN 0 ELSE 1 END, created_at, id", mapper)
+
     fun updatePasswordHash(id: Long, passwordHash: String) {
         jdbc.update("UPDATE app_user SET password_hash = ? WHERE id = ?", passwordHash, id)
     }

@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.tenant.TenantKey
 import com.running.strava.analysis.ActivityTime
 import com.running.strava.analysis.BestEffortFinder
 import com.running.strava.analysis.Format
@@ -53,10 +54,10 @@ class BestEffortService(
         val treadmillExcluded: Int,
     )
 
-    private val streamCache = ConcurrentHashMap<Long, Map<Double, Double>>()
+    private val streamCache = ConcurrentHashMap<TenantKey<Long>, Map<Double, Double>>()
 
     /** Own best-effort times (seconds) per standard distance, from streams; empty map if no usable streams. */
-    fun streamEfforts(activityId: Long): Map<Double, Double> = streamCache.getOrPut(activityId) {
+    fun streamEfforts(activityId: Long): Map<Double, Double> = streamCache.getOrPut(TenantKey.of(activityId)) {
         val s = activityRepository.findStreams(activityId)
         if (s?.time == null || s.distance == null) emptyMap()
         else BestEffortFinder.STANDARD_DISTANCES.mapNotNull { (_, d) ->
@@ -116,9 +117,9 @@ class BestEffortService(
         )
     }
 
-    private val usableStreamCache = ConcurrentHashMap<Long, Boolean>()
+    private val usableStreamCache = ConcurrentHashMap<TenantKey<Long>, Boolean>()
 
-    private fun hasUsableStreams(activityId: Long): Boolean = usableStreamCache.getOrPut(activityId) {
+    private fun hasUsableStreams(activityId: Long): Boolean = usableStreamCache.getOrPut(TenantKey.of(activityId)) {
         streamEfforts(activityId).isNotEmpty() || activityRepository.findStreams(activityId)?.let { it.time != null && it.distance != null } == true
     }
 }

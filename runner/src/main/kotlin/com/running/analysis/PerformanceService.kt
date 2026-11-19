@@ -1,5 +1,6 @@
 package com.running.analysis
 
+import com.running.tenant.TenantKey
 import com.running.config.GarminProperties
 import com.running.garmin.spi.GarminRepository
 import com.running.strava.analysis.EfVerdict
@@ -157,7 +158,7 @@ class PerformanceService(
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val cache = ConcurrentHashMap<Triple<Long, Int?, String>, RunAnalysis>()
+    private val cache = ConcurrentHashMap<TenantKey<Triple<Long, Int?, String>>, RunAnalysis>()
     private val config: PerformanceConfig get() = properties.performance.toConfig()
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
@@ -165,7 +166,7 @@ class PerformanceService(
     private fun eligibleRuns(): List<Activity> = activityRepository.findAll().filter { it.isRun() && !it.isManual && !it.isFlagged }
 
     private fun analyze(a: Activity, laps: List<Lap>, maxHr: Int?): RunAnalysis {
-        val key = Triple(a.id, maxHr, PerformanceAlgorithm.VERSION + config.hashCode())
+        val key = TenantKey.of(Triple(a.id, maxHr, PerformanceAlgorithm.VERSION + config.hashCode()))
         cache[key]?.let { return it }
         val result = compute(a, laps, maxHr)
         if (result.hasStream) cache[key] = result

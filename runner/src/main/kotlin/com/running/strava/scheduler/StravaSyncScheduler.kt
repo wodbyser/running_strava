@@ -2,7 +2,10 @@ package com.running.strava.scheduler
 
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.sync.SyncStravaData
+import com.running.tenant.TenantJobRunner
+import com.running.tenant.runPerTenant
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
@@ -10,12 +13,15 @@ import org.springframework.stereotype.Component
 class StravaSyncScheduler(
     private val syncStravaData: SyncStravaData,
     private val tokenRepository: StravaTokenRepository,
+    private val tenantJobs: ObjectProvider<TenantJobRunner>,
 ) {
 
     private val log = LoggerFactory.getLogger(StravaSyncScheduler::class.java)
 
     @Scheduled(cron = "\${strava.sync.cron:0 0 6 * * *}")
-    fun syncNewActivities() {
+    fun syncNewActivities() = tenantJobs.runPerTenant("strava-sync") { syncOnce() }
+
+    private fun syncOnce() {
         if (tokenRepository.get() == null) {
             log.info("No Strava token configured, skipping scheduled sync")
             return
