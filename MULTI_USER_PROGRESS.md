@@ -27,8 +27,9 @@ Prompt to start a fresh agent on the next phase: `MULTI_USER_PROMPT.md` (same pr
   gets an unusable password; a failed run leaves a PENDING row and can simply be repeated. Nothing is ever dropped.
 - Test infrastructure: Testcontainers **2.0.5** (`testcontainers-postgresql`, test only). 1.x cannot talk to the current Docker engine.
   `MultiUserIT` is the base class for flag-on tests (needs Docker; image `postgres:17`).
-- Owner preconditions before Phase 4 (not code, owner does these): Strava subscription, Strava athlete capacity
-  1 → 10, `APP_SIGNUP_CODE` and `APP_TENANT_SECRET_KEY` in `deploy/.env` (see design §19).
+- Owner preconditions before Phase 4: Strava subscription and Strava athlete capacity 1 → 10 (owner does these, design §19).
+  `APP_SIGNUP_CODE` and `APP_TENANT_SECRET_KEY` were appended to `deploy/.env` on 2026-11-19 with the owner's explicit permission
+  (random values, never printed; old file in `deploy/backups/env-before-multiuser-20261119`). Do not edit or print them.
 
 ## Hard rules for this feature (never violate)
 
