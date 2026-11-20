@@ -246,7 +246,7 @@ class FrontendController(
         detail["id"] = a.id
         detail["name"] = a.name
         detail["date"] = PerfDates.dayTime(ActivityTime.local(a).toLocalDateTime()) + " (lokale tijd)"
-        detail["type"] = a.type
+        detail["type"] = displayType(a.type)
         detail["typeClass"] = typeClass(a.type)
         detail["distance"] = "%.2f km".format(Locale.ROOT, a.distance / 1000)
         detail["pace"] = Format.pace(a.speedMs())
@@ -323,7 +323,7 @@ class FrontendController(
         val labels = lapLabels(laps, activity)
         return laps.mapIndexed { i, lap ->
             LapRow(
-                index = lap.lapIndex,
+                index = i + 1,
                 distance = "%.0f m".format(Locale.ROOT, lap.distance),
                 duration = Format.duration(lap.movingTime),
                 pace = Format.pace(lap.speedMs()),
@@ -909,6 +909,10 @@ class FrontendController(
         "Ride" -> "Fiets"
         "VirtualRide" -> "Virtueel"
         "Swim" -> "Zwem"
+        "Walk" -> "Wandeling"
+        "Hike" -> "Wandeltocht"
+        "WeightTraining" -> "Kracht"
+        "EBikeRide" -> "E-bike"
         else -> type
     }
 

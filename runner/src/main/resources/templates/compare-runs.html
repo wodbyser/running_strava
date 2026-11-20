@@ -174,7 +174,7 @@
                 <h2 id="h-aspects">Per onderdeel</h2>
                 <span class="badge badge-calc" title="Met een vaste formule berekend uit je gemeten data.">berekend</span>
             </div>
-            <p class="lead">Elke run staat op dezelfde as: <strong>hoe verder naar rechts, hoe beter</strong>. De lichtgroene band naast de beste waarde is de meetruis: wie daarin valt, is even goed. <th:block th:replace="~{fragments :: help(${g['meetruis']})}"/> Een gestippelde rand betekent onder voorbehoud. <th:block th:replace="~{fragments :: help(${g['voorbehoud']})}"/></p>
+            <div class="lead">Elke run staat op dezelfde as: <strong>hoe verder naar rechts, hoe beter</strong>. De lichtgroene band naast de beste waarde is de meetruis: wie daarin valt, is even goed. <th:block th:replace="~{fragments :: help(${g['meetruis']})}"/> Een gestippelde rand betekent onder voorbehoud. <th:block th:replace="~{fragments :: help(${g['voorbehoud']})}"/></div>
             <div class="aspect-grid">
                 <article class="aspect" th:each="a : ${v.aspects}" th:id="'a-' + ${a.key}" th:classappend="${a.caution} ? 'is-caution'" th:attr="aria-labelledby='h-a-' + ${a.key}">
                     <header class="aspect-head">

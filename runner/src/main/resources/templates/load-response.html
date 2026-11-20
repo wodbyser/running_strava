@@ -25,7 +25,7 @@
         <a href="#begrippen">Begrippen</a>
     </nav>
 
-    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="disclaimer" th:text="${safety}">Geen medische beoordeling.</p>
     <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
     <!--/* 1. Conclusion */-->
@@ -39,7 +39,7 @@
             <li th:each="f : ${p.findings}" th:text="${f}">-</li>
         </ul>
         <p class="note mt-2" th:text="${p.periodLine}">-</p>
-        <p class="note-xs">Een verschil telt alleen als het groter is dan het toeval (onzekerheidsmarge) en er genoeg trainingen zijn. <th:block th:replace="~{fragments :: help(${g['marge']})}"/> Verband, geen oorzaak. <th:block th:replace="~{fragments :: help(${g['verband']})}"/></p>
+        <div class="note-xs">Een verschil telt alleen als het groter is dan het toeval (onzekerheidsmarge) en er genoeg trainingen zijn. <th:block th:replace="~{fragments :: help(${g['marge']})}"/> Verband, geen oorzaak. <th:block th:replace="~{fragments :: help(${g['verband']})}"/></div>
     </section>
 
     <!--/* 2. Reaction per session type */-->

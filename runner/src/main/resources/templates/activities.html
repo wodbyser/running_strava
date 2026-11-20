@@ -51,7 +51,7 @@
     </form>
     <section class="card" aria-labelledby="h-list">
         <h2 id="h-list" class="sr-only">Lijst van trainingen</h2>
-        <div class="table-wrap table-stack table-stack--sortable">
+        <div class="table-wrap table-stack table-stack--sortable" data-paginate="50">
         <table>
             <thead>
                 <tr>
@@ -69,7 +69,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr th:each="a : ${activities}">
+                <tr th:each="a : ${activities}" class="row-click" th:attr="data-href=@{'/activity/' + ${a.id}}">
                     <td class="nowrap stack-meta" th:text="${a.date}">-</td>
                     <td class="stack-title"><a class="row-link" th:href="@{'/activity/' + ${a.id}}" th:text="${a.name}">-</a></td>
                     <td class="stack-meta"><span class="badge" th:classappend="'badge-' + ${a.typeClass}" th:text="${a.type}">-</span></td>

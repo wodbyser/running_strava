@@ -41,7 +41,7 @@
     </div>
 
     <p class="callout mb-2" th:if="${fellBackNote != null}" th:text="${fellBackNote}">-</p>
-    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="disclaimer" th:text="${safety}">Geen medische beoordeling.</p>
     <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
     <section class="card link-card mb-2" aria-label="Welke training past vandaag?">

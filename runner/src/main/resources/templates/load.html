@@ -25,7 +25,7 @@
         <a href="#begrippen">Begrippen</a>
     </nav>
 
-    <p class="callout mb-2" th:text="${safety}">Geen medische beoordeling.</p>
+    <p class="disclaimer" th:text="${safety}">Geen medische beoordeling.</p>
     <p class="note mb-2" th:if="${windowsChanged}">Je bekijkt aangepaste periodes. <a th:href="${resetUrl}">Alle periodes terug naar standaard</a></p>
 
     <!--/* 1. Conclusion */-->
@@ -68,7 +68,7 @@
         </div>
         <div class="chart-box chart-box--tall mt-2"><canvas id="cLoad" role="img" aria-label="Dagelijkse belasting met de belasting van de laatste dagen en je gemiddelde week"></canvas></div>
         <p class="legend"><span>Blauw: runs</span><span>Paars: andere sport met hartslag</span><span>Grijs: geen hartslagdata, dus onbekend (geen 0)</span><span>Gestippeld: je eigen norm voor de laatste dagen</span><span>Klik op een dag om de trainingen te zien</span></p>
-        <p class="note-xs">De vergelijking van de laatste dagen met je gemiddelde week is een gewone vergelijking, geen risicozone. <th:block th:replace="~{fragments :: help(${g['week-vergelijking']})}"/></p>
+        <div class="note-xs">De vergelijking van de laatste dagen met je gemiddelde week is een gewone vergelijking, geen risicozone. <th:block th:replace="~{fragments :: help(${g['week-vergelijking']})}"/></div>
     </section>
 
     <!--/* 4. Weekly build-up */-->

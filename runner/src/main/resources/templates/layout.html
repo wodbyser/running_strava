@@ -55,6 +55,10 @@
             monthYear: function (iso) {
                 var d = new Date(iso + 'T00:00:00');
                 return isNaN(d) ? iso : d.toLocaleDateString('nl-BE', { month: 'short', year: '2-digit' });
+            },
+            monthLong: function (iso) {
+                var d = new Date(iso + 'T00:00:00');
+                return isNaN(d) ? iso : d.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' });
             }
         };
         if (window.Chart) {
@@ -64,8 +68,15 @@
             Chart.defaults.borderColor = '#e1e6ea';
             Chart.defaults.plugins.legend.labels.usePointStyle = true;
             Chart.defaults.plugins.legend.labels.boxHeight = 8;
-            Chart.defaults.plugins.tooltip.backgroundColor = '#15202b';
-            Chart.defaults.plugins.tooltip.padding = 10;
+            Chart.defaults.plugins.legend.labels.padding = 14;
+            Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(16, 27, 36, 0.94)';
+            Chart.defaults.plugins.tooltip.padding = { x: 12, y: 10 };
+            Chart.defaults.plugins.tooltip.cornerRadius = 8;
+            Chart.defaults.plugins.tooltip.caretSize = 5;
+            Chart.defaults.plugins.tooltip.boxPadding = 4;
+            Chart.defaults.plugins.tooltip.usePointStyle = true;
+            Chart.defaults.plugins.tooltip.titleFont = { weight: '600', size: 13 };
+            Chart.defaults.plugins.tooltip.titleMarginBottom = 6;
             Chart.defaults.animation = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : Chart.defaults.animation;
         }
     </script>
@@ -252,40 +263,64 @@
             b.addEventListener('click', function () { b.closest('.flash-wrap').remove(); });
         });
 
-        // Long tables: <div class="table-wrap" data-paginate> gets a page-size picker and previous/next buttons.
-        document.querySelectorAll('.table-wrap[data-paginate]').forEach(function (wrap) {
+        // Long tables: <div class="table-wrap" data-paginate="50"> gets a page-size picker and previous/next buttons
+        // (the value is the default page size, 10 when empty). Page and size survive a visit to a row and back.
+        document.querySelectorAll('.table-wrap[data-paginate]').forEach(function (wrap, w) {
             var body = wrap.querySelector('tbody');
             if (!body) return;
-            var rows = Array.prototype.slice.call(body.rows);
-            var size = 10, page = 0;
-            if (rows.length <= size) return;
-            var bar = document.createElement('div');
+            var rows = Array.prototype.slice.call(body.rows).filter(function (r) { return !r.classList.contains('table-empty'); });
+            var base = parseInt(wrap.getAttribute('data-paginate'), 10) || 10;
+            var sizes = [10, 20, 50, 100].filter(function (n) { return n >= Math.min(base, 20); });
+            if (rows.length <= base) return;
+            var key = 'pager:' + location.pathname + location.search + ':' + w;
+            var size = base, page = 0;
+            var navType = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0] || {}).type;
+            try {
+                var saved = navType === 'back_forward' || navType === 'reload' ? JSON.parse(sessionStorage.getItem(key) || 'null') : null;
+                if (saved && sizes.indexOf(saved.size) >= 0) { size = saved.size; page = saved.page || 0; }
+            } catch (e) {}
+            var bar = document.createElement('nav');
             bar.className = 'pager';
+            bar.setAttribute('aria-label', 'Pagina\'s');
             var info = document.createElement('span');
+            info.className = 'pager-info';
+            info.setAttribute('aria-live', 'polite');
             var sel = document.createElement('select');
-            sel.setAttribute('aria-label', 'Trainingen per pagina');
-            [10, 20, 50, 100].forEach(function (n) {
+            sel.setAttribute('aria-label', 'Rijen per pagina');
+            sizes.forEach(function (n) {
                 var o = document.createElement('option');
                 o.value = n; o.textContent = n + ' per pagina';
                 sel.appendChild(o);
             });
+            sel.value = String(size);
+            var nav = document.createElement('span');
+            nav.className = 'pager-nav';
             var prev = document.createElement('button');
-            prev.type = 'button'; prev.className = 'btn'; prev.textContent = '‹ Vorige';
+            prev.type = 'button'; prev.className = 'btn btn-secondary btn-sm'; prev.textContent = '‹ Vorige';
             var next = document.createElement('button');
-            next.type = 'button'; next.className = 'btn'; next.textContent = 'Volgende ›';
-            bar.append(info, sel, prev, next);
-            wrap.insertAdjacentElement('afterend', bar);
+            next.type = 'button'; next.className = 'btn btn-secondary btn-sm'; next.textContent = 'Volgende ›';
+            nav.append(prev, next);
+            bar.append(info, sel, nav);
+            var after = wrap.nextElementSibling && wrap.nextElementSibling.classList.contains('scroll-hint') ? wrap.nextElementSibling : wrap;
+            after.insertAdjacentElement('afterend', bar);
             function render() {
                 var pages = Math.ceil(rows.length / size);
-                page = Math.min(page, pages - 1);
+                page = Math.max(0, Math.min(page, pages - 1));
                 rows.forEach(function (r, i) { r.hidden = i < page * size || i >= (page + 1) * size; });
                 info.textContent = (page * size + 1) + '–' + Math.min(rows.length, (page + 1) * size) + ' van ' + rows.length;
                 prev.disabled = page === 0;
                 next.disabled = page >= pages - 1;
+                try { sessionStorage.setItem(key, JSON.stringify({ size: size, page: page })); } catch (e) {}
+            }
+            // After paging from the bottom of a long list, start reading at the top of the new page.
+            function turn(delta) {
+                page += delta; render();
+                var top = wrap.getBoundingClientRect().top;
+                if (top < 0) wrap.scrollIntoView({ block: 'start' });
             }
             sel.addEventListener('change', function () { size = parseInt(sel.value, 10); page = 0; render(); });
-            prev.addEventListener('click', function () { page--; render(); });
-            next.addEventListener('click', function () { page++; render(); });
+            prev.addEventListener('click', function () { turn(-1); });
+            next.addEventListener('click', function () { turn(1); });
             render();
         });
 

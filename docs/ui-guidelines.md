@@ -133,6 +133,14 @@ extras, and only then the explanation of the data and the glossary. Jump links f
   `.seg` segmented control with `aria-current="page"` on the active option — not a row of buttons.
 - Long pages: `.toc` is one scrolling row of jump links, sticky under the topbar, and `layout.html` marks the section you
   are reading. Do not turn it back into a wall of pills.
+- The standing safety text ("Geen medische beoordeling…") is a quiet `.disclaimer` line, not a `.callout`: yellow with
+  a dashed edge means "app estimate" and is kept for that.
+- Folded content (`details.explain`, `details.more`, `details.picker`) shows a turning chevron from the stylesheet; do
+  not add your own arrow to the summary text.
+- A dropdown with actions (Dashboard "Meer opties") uses `.menu-item` rows: the action as title plus one muted line,
+  like the navigation panels. No stacked bordered buttons.
+- Long lists use the client-side pager: `<div class="table-wrap" data-paginate="50">` (the value is the default page
+  size). Rows that open a page get `class="row-click" data-href="…"` and keep a real link in the name cell.
 
 ## 11. On a phone (≤ 640px)
 
