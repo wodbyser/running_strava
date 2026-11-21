@@ -235,7 +235,7 @@
                         return { label: s.label, data: s.z, borderColor: s.enough || s.dashed ? col : col + '55', backgroundColor: col, borderDash: s.dashed ? [5, 4] : [], borderWidth: s.dashed ? 1.5 : 2, pointRadius: 3, tension: 0, spanGaps: false, _s: s };
                     });
                     new Chart(cv, { type: 'line', data: { labels: labels, datasets: ds }, options: { maintainAspectRatio: false,
-                        scales: { y: { title: RC.axisTitle('Afwijking van je norm (SD)', 'SD'), grid: { color: function (c) { return c.tick.value === 0 ? '#5b6875' : '#e1e6ea'; } } } },
+                        scales: { y: { title: RC.axisTitle('Afwijking van je norm (SD)', 'SD'), grid: { color: function (c) { return c.tick.value === 0 ? RC.css('--muted', '#5b6875') : RC.css('--line', '#e1e6ea'); } } } },
                         plugins: { legend: { display: i === 0, labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: function (c) {
                             var s = c.dataset._s, k = c.dataIndex;
                             if (s.z[k] === null) return s.label + ': geen data';
@@ -249,7 +249,7 @@
                 var cols = labels.map(function (_, i) { return verdict[i] === 'onvoldoende data' ? '#c9d1d855' : verdict[i] === 'duidelijk verschil' ? '#c2410c' : '#8aa6a0'; });
                 var whisk = { id: 'whisk', afterDatasetsDraw: function (chart) {
                     var meta = chart.getDatasetMeta(0), ctx = chart.ctx, y = chart.scales.y;
-                    ctx.save(); ctx.strokeStyle = '#15202b'; ctx.lineWidth = 1.5;
+                    ctx.save(); ctx.strokeStyle = RC.css('--ink', '#15202b'); ctx.lineWidth = 1.5;
                     meta.data.forEach(function (bar, i) { if (lo[i] === null || hi[i] === null) return; var a = y.getPixelForValue(lo[i]), b = y.getPixelForValue(hi[i]);
                         ctx.beginPath(); ctx.moveTo(bar.x, a); ctx.lineTo(bar.x, b); ctx.moveTo(bar.x - 5, a); ctx.lineTo(bar.x + 5, a); ctx.moveTo(bar.x - 5, b); ctx.lineTo(bar.x + 5, b); ctx.stroke(); });
                     ctx.restore(); } };

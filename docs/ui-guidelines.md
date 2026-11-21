@@ -125,6 +125,13 @@ extras, and only then the explanation of the data and the glossary. Jump links f
 - One stylesheet: `runner/src/main/resources/static/css/app.css`. Templates never carry a `<style>` block.
 - Use the tokens at the top of that file (`--ink`, `--muted`, `--accent`, `--sp-*`, `--radius`, ...) instead of hard-coded
   values, so the palette and spacing stay consistent.
+- **Light and dark are both first-class.** `static/js/theme.js` sets `data-theme` on `<html>` before the stylesheet loads
+  (stored choice, otherwise the operating system) and the topbar toggle switches it. The dark palette is the
+  `html[data-theme="dark"]` token block; new components must use tokens, and a literal light colour needs a dark
+  override next to the other `Dark theme: components with a literal light colour` rules.
+- Charts keep their configs in the light palette (`RC.s1`, `RC.line`, `RC.ink`, ...). `RC.themeChart()` maps those
+  values onto the active theme at creation and on every switch, so a new chart gets dark mode for free; a colour
+  function must read `RC.css('--token')` so it follows the theme when the chart is redrawn.
 - Solid = measured or computed, dashed = app estimate. That rule lives in the components (`.badge-est`, `.stat.is-est`,
   dashed borders on uncertain results) — do not invent a second visual language.
 - Actions: `.btn-primary` for the one thing you want the user to do, `.btn-secondary` for alternatives, `.btn-ghost` for

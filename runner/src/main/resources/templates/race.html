@@ -284,7 +284,7 @@
                 });
                 var raceData = C.labels.map(function () { return null; });
                 C.races.forEach(function (r) { raceData[r.index] = r.pace; });
-                ds.push({ type: 'line', label: 'Wedstrijden', data: raceData, showLine: false, borderColor: '#15202b', backgroundColor: '#fff', borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 });
+                ds.push({ type: 'line', label: 'Wedstrijden', data: raceData, showLine: false, borderColor: RC.ink, backgroundColor: '#fff', borderWidth: 2, pointRadius: 6, pointHoverRadius: 8 });
                 var raceAt = {};
                 C.races.forEach(function (r) { raceAt[r.index] = r; });
                 new Chart(c1, { data: { labels: C.labels, datasets: ds }, options: { maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false },
