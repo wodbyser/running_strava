@@ -36,12 +36,18 @@ class FakeGarminClient : GarminApiClient {
     var hrvHandler: (LocalDate, LocalDate) -> List<GarminHrvDay> = { s, e -> days(s, e).map { hrv(it) } }
     var batteryHandler: (LocalDate, LocalDate) -> List<GarminBodyBatterySeriesDay> = { s, e -> days(s, e).map { GarminBodyBatterySeriesDay(it, listOf(GarminBodyBatterySample(1, 50), GarminBodyBatterySample(2, 51)), source()) } }
     var activityHandler: (Int, Int) -> List<GarminActivityRef> = { _, _ -> emptyList() }
+    /** Override to simulate records Garmin returned that could not be mapped to a [GarminActivityRef]. */
+    var activityRawCountHandler: ((Int, Int) -> Int)? = null
 
     override fun getDailySummaries(start: LocalDate, end: LocalDate): List<GarminDailySummary> { calls += "daily $start $end"; return dailyHandler(start, end) }
     override fun getSleepSummaries(start: LocalDate, end: LocalDate): List<GarminSleepDay> { calls += "sleep $start $end"; return sleepHandler(start, end) }
     override fun getBodyBatterySeries(start: LocalDate, end: LocalDate): List<GarminBodyBatterySeriesDay> { calls += "battery $start $end"; return batteryHandler(start, end) }
     override fun getHrvSummaries(start: LocalDate, end: LocalDate): List<GarminHrvDay> { calls += "hrv $start $end"; return hrvHandler(start, end) }
-    override fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): List<GarminActivityRef> { calls += "activities $offset $limit"; return activityHandler(offset, limit) }
+    override fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): GarminActivityPage {
+        calls += "activities $offset $limit"
+        val activities = activityHandler(offset, limit)
+        return GarminActivityPage(activities, activityRawCountHandler?.invoke(offset, limit) ?: activities.size)
+    }
     override fun getHeartRateZones(): List<GarminHeartRateZones> { calls += "zones"; return emptyList() }
 
     private fun days(s: LocalDate, e: LocalDate) = generateSequence(s) { it.plusDays(1) }.takeWhile { !it.isAfter(e) }.toList()

@@ -1,6 +1,6 @@
 package com.running.garmin.spi
 
-import com.running.garmin.domain.GarminActivityRef
+import com.running.garmin.domain.GarminActivityPage
 import com.running.garmin.domain.GarminBodyBatterySeriesDay
 import com.running.garmin.domain.GarminDailySummary
 import com.running.garmin.domain.GarminHeartRateZones
@@ -17,6 +17,6 @@ interface GarminApiClient {
     fun getSleepSummaries(start: LocalDate, end: LocalDate): List<GarminSleepDay>
     fun getBodyBatterySeries(start: LocalDate, end: LocalDate): List<GarminBodyBatterySeriesDay>
     fun getHrvSummaries(start: LocalDate, end: LocalDate): List<GarminHrvDay>
-    fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): List<GarminActivityRef>
+    fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): GarminActivityPage
     fun getHeartRateZones(): List<GarminHeartRateZones>
 }

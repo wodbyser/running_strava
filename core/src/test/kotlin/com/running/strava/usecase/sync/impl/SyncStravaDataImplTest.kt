@@ -28,6 +28,10 @@ class SyncStravaDataImplTest {
 
     private class Repo(initial: List<Activity>) : ActivityRepository {
         val store = initial.associateBy { it.id }.toMutableMap()
+        val missingDetail = mutableSetOf<Long>()
+        val marked = mutableListOf<Long>()
+        override fun findIdsMissingDetail() = missingDetail.toSet()
+        override fun markDetailFetched(activityId: Long, at: ZonedDateTime) { marked += activityId }
         override fun save(activity: Activity) { store[activity.id] = activity }
         override fun saveAll(activities: List<Activity>) { activities.forEach { save(it) } }
         override fun saveStreams(activityId: Long, streams: ActivityStream) {}
@@ -46,6 +50,7 @@ class SyncStravaDataImplTest {
     private class Api(val summaries: List<Activity>) : StravaApiClient {
         val detailCalls = mutableListOf<Long>()
         var lastAfter: Long? = null
+        var failingDetails: Set<Long> = emptySet()
         override fun exchangeToken(code: String) = error("unused")
         override fun refreshToken(refreshToken: String) = error("unused")
         override fun getAthleteActivities(token: StravaToken, page: Int, perPage: Int, after: Long?): List<Activity> {
@@ -54,6 +59,7 @@ class SyncStravaDataImplTest {
         }
         override fun getActivity(token: StravaToken, activityId: Long): Activity {
             detailCalls += activityId
+            if (activityId in failingDetails) error("404")
             return summaries.first { it.id == activityId }.copy(description = "detail")
         }
         override fun getActivityStreams(token: StravaToken, activityId: Long) = ActivityStream(null, null, null, null, null, null, null, null, null)
@@ -88,6 +94,24 @@ class SyncStravaDataImplTest {
         assertEquals("mijn notitie", repo.store.getValue(1).description) // detail field kept, no detail call
         assertEquals(9500f, repo.store.getValue(3).distance)
         assertEquals(listOf(4L, 3L), api.detailCalls) // new + cropped; not the renamed or unchanged one
+    }
+
+    @Test
+    fun `a summary whose detail fetch failed earlier is retried and marked only on success`() {
+        val repo = Repo(listOf(activity(1)))
+        repo.missingDetail += 1L
+        val failing = Api(listOf(activity(1)))
+        failing.failingDetails = setOf(1L)
+        val first = SyncStravaDataImpl(failing, tokens, repo).execute()
+        assertEquals(listOf(1L), failing.detailCalls)
+        assertEquals(emptyList<Long>(), repo.marked)
+        assertEquals(1, first.errors.size)
+
+        val retry = Api(listOf(activity(1)))
+        SyncStravaDataImpl(retry, tokens, repo).execute()
+        assertEquals(listOf(1L), retry.detailCalls)
+        assertEquals(listOf(1L), repo.marked)
+        assertEquals("detail", repo.store.getValue(1).description)
     }
 
     @Test

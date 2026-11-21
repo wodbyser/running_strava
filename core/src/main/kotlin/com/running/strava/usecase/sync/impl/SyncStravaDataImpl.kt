@@ -47,6 +47,9 @@ class SyncStravaDataImpl(
             minOf(it.minusDays(OVERLAP_DAYS), ZonedDateTime.now().minusDays(RECHECK_DAYS)).toEpochSecond()
         }
         val knownIds = activityRepository.findAllIds().toMutableSet()
+        // Summaries whose detail call failed earlier are already in knownIds, so without this set they would
+        // never get a second attempt. Rows with streams are excluded by the adapter (legacy rows have details).
+        val missingDetailIds = activityRepository.findIdsMissingDetail()
 
         var page = 1
         var hasMore = true
@@ -75,8 +78,14 @@ class SyncStravaDataImpl(
                         if (summaryChanged(stored, summary)) {
                             activityRepository.save(mergeSummary(stored, summary))
                             totalUpdated++
-                            if (recordingChanged(stored, summary)) needDetails += summary
                             log.info("Activity {} was edited on Strava; updated", summary.id)
+                        }
+                        // A crop needs a detail re-fetch, and so does an earlier detail call that failed. Without
+                        // the second condition those rows stay incomplete forever: the summary is already stored.
+                        if ((recordingChanged(stored, summary) || summary.id in missingDetailIds) &&
+                            needDetails.none { it.id == summary.id }
+                        ) {
+                            needDetails += summary
                         }
                     }
 
@@ -113,6 +122,7 @@ class SyncStravaDataImpl(
                             val streams = stravaApiClient.getActivityStreams(refreshedToken, activity.id)
                             activityRepository.saveStreams(activity.id, streams)
                             streamsFetched++
+                            activityRepository.markDetailFetched(activity.id, ZonedDateTime.now())
 
                             log.info("Fetched details + streams for activity {}", activity.id)
                         } catch (e: RateLimitExceededException) {

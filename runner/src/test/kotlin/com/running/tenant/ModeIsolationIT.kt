@@ -2,6 +2,7 @@ package com.running.tenant
 
 import com.running.analysis.Fixtures
 import com.running.garmin.adapter.GarminSyncCoordinator
+import com.running.garmin.domain.GarminActivityPage
 import com.running.garmin.domain.GarminActivityRef
 import com.running.garmin.domain.GarminSource
 import com.running.garmin.scheduler.GarminSyncScheduler
@@ -125,7 +126,9 @@ class ModeIsolationIT @Autowired constructor(
     fun `garmin sync projects activities into a garmin only tenant, never into a BOTH tenant`() {
         tenant("mi_proj", DataMode.GARMIN)
         tenant("mi_both", DataMode.BOTH)
-        `when`(garmin.searchActivities(anyInt(), anyInt(), any(), any())).thenAnswer { inv -> if (inv.getArgument<Int>(0) == 0) listOf(ref(5001)) else emptyList<GarminActivityRef>() }
+        `when`(garmin.searchActivities(anyInt(), anyInt(), any(), any())).thenAnswer { inv ->
+            if (inv.getArgument<Int>(0) == 0) GarminActivityPage(listOf(ref(5001)), 1) else GarminActivityPage(emptyList(), 0)
+        }
 
         TenantContext.asTenant("mi_proj") { assertEquals(com.running.garmin.adapter.GarminStartOutcome.STARTED, coordinator.startSync(async = false)) }
         val projected = TenantContext.asTenant("mi_proj") { activities.findById(5001) }

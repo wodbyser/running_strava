@@ -153,7 +153,9 @@ class GarminApiClientImplTest {
         val t = GarminTestSupport()
         t.token()
         t.json("$BASE/activitylist-service/activities/search/activities?start=0&limit=100&startDate=2026-10-18&endDate=2026-10-19", fixture("activity_search"))
-        val acts = t.client.searchActivities(0, 100, start, end)
+        val page = t.client.searchActivities(0, 100, start, end)
+        assertEquals(3, page.rawCount)
+        val acts = page.activities
         assertEquals(3, acts.size)
         val a = acts.first()
         assertEquals(1000000001L, a.activityId)
@@ -164,6 +166,18 @@ class GarminApiClientImplTest {
         val raw = a.source.rawJson!!
         assertFalse(raw.contains("ownerProfileImageUrl"))
         assertTrue(raw.contains("ownerFullName"))
+    }
+
+    @Test
+    fun `activity search reports the raw page size when a record cannot be mapped`() {
+        val t = GarminTestSupport()
+        t.token()
+        val body = """[{"activityId":1000000001,"startTimeGMT":"2026-10-11 08:02:15"},{"startTimeGMT":"2026-10-11 08:03:15"}]"""
+        t.json("$BASE/activitylist-service/activities/search/activities?start=0&limit=100&startDate=2026-10-18&endDate=2026-10-19", body)
+        val page = t.client.searchActivities(0, 100, start, end)
+        assertEquals(2, page.rawCount)
+        assertEquals(1, page.activities.size)
+        assertEquals(1000000001L, page.activities.single().activityId)
     }
 
     @Test

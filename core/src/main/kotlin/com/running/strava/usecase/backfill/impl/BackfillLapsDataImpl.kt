@@ -7,6 +7,7 @@ import com.running.strava.spi.StravaApiClient
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.backfill.BackfillLapsData
 import org.slf4j.LoggerFactory
+import java.time.ZonedDateTime
 
 private val runTypes = listOf("Run", "TrailRun", "VirtualRun")
 
@@ -28,16 +29,15 @@ class BackfillLapsDataImpl(
         var updated = 0
         var skipped = 0
 
-        val candidates = activityRepository.findAll()
-            .filter { it.type in runTypes }
+        val missingDetail = activityRepository.findIdsMissingDetail()
+        val runs = activityRepository.findAll().filter { it.type in runTypes }
+        val withLaps = activityRepository.findLapsForActivities(runs.map { it.id }).keys
+        // Either the detail call failed earlier, or laps were never stored. Rows that already have laps are done.
+        val candidates = runs.filter { it.id in missingDetail || it.id !in withLaps }
             .sortedByDescending { it.startDate }
+        skipped = runs.size - candidates.size
 
         for (activity in candidates) {
-            if (activityRepository.findLaps(activity.id).isNotEmpty()) {
-                skipped++
-                continue
-            }
-
             checked++
             try {
                 val detail = stravaApiClient.getActivity(refreshedToken, activity.id)
@@ -47,6 +47,8 @@ class BackfillLapsDataImpl(
                     updated++
                     log.info("Backfilled {} laps for activity {}", laps.size, activity.id)
                 }
+                // Also mark runs without laps on Strava: otherwise they are fetched on every backfill.
+                activityRepository.markDetailFetched(activity.id, ZonedDateTime.now())
             } catch (e: RateLimitExceededException) {
                 log.warn("Rate limit exceeded during lap backfill, stopping after {} checked", checked)
                 errors.add("Rate limit exceeded — stopped after checking $checked activities. Klik later opnieuw om verder te gaan.")

@@ -7,6 +7,7 @@ import com.running.strava.spi.StravaApiClient
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.fetch.FetchRemainingData
 import org.slf4j.LoggerFactory
+import java.time.ZonedDateTime
 
 class FetchRemainingDataImpl(
     private val stravaApiClient: StravaApiClient,
@@ -22,6 +23,8 @@ class FetchRemainingDataImpl(
 
         val refreshedToken = ensureValidToken(token)
         val existingIds = activityRepository.findAllIds().toMutableSet()
+        // Their summary is stored, so an id alone looks complete. Retry the detail of rows where it failed.
+        val missingDetailIds = activityRepository.findIdsMissingDetail()
         val errors = mutableListOf<String>()
         var newCount = 0
         var streamsCount = 0
@@ -44,13 +47,15 @@ class FetchRemainingDataImpl(
                 }
 
                 val newActivities = activities.filter { it.id !in existingIds }
+                val retryDetails = activities.filter { it.id in existingIds && it.id in missingDetailIds }
 
-                if (newActivities.isNotEmpty()) {
-                    log.info("Page {}: found {} new activities out of {}", page, newActivities.size, activities.size)
+                if (newActivities.isNotEmpty() || retryDetails.isNotEmpty()) {
+                    log.info("Page {}: {} new activities, {} incomplete details out of {}", page,
+                        newActivities.size, retryDetails.size, activities.size)
 
                     activityRepository.saveAll(newActivities)
 
-                    newActivities.forEach { activity ->
+                    (newActivities + retryDetails).forEach { activity ->
                         try {
                             val detail = stravaApiClient.getActivity(refreshedToken, activity.id)
                             activityRepository.save(detail)
@@ -58,6 +63,7 @@ class FetchRemainingDataImpl(
                             val streams = stravaApiClient.getActivityStreams(refreshedToken, activity.id)
                             activityRepository.saveStreams(activity.id, streams)
                             streamsCount++
+                            activityRepository.markDetailFetched(activity.id, ZonedDateTime.now())
 
                             log.info("Fetched details + streams for activity {}", activity.id)
                         } catch (e: RateLimitExceededException) {

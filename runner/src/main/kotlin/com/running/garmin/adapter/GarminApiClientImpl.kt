@@ -13,6 +13,7 @@ import com.running.garmin.domain.EP_DAILY_SUMMARIES
 import com.running.garmin.domain.EP_HEART_RATE_ZONES
 import com.running.garmin.domain.EP_HRV_SUMMARIES
 import com.running.garmin.domain.EP_SLEEP_SUMMARIES
+import com.running.garmin.domain.GarminActivityPage
 import com.running.garmin.domain.GarminActivityRef
 import com.running.garmin.domain.GarminApiException
 import com.running.garmin.domain.GarminBodyBatteryDay
@@ -72,10 +73,12 @@ class GarminApiClientImpl(
         return elements(root.path("hrvSummaries"), EP_HRV_SUMMARIES).mapNotNull { mapHrv(it) }.also { count(EP_HRV_SUMMARIES, it.size) }
     }
 
-    override fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): List<GarminActivityRef> {
+    override fun searchActivities(offset: Int, limit: Int, startDate: LocalDate?, endDate: LocalDate?): GarminActivityPage {
         val query = linkedMapOf<String, Any?>("start" to offset, "limit" to limit, "startDate" to startDate, "endDate" to endDate)
-        val root = get("/activitylist-service/activities/search/activities", query) ?: return emptyList()
-        return elements(root, EP_ACTIVITY_SEARCH).mapNotNull { mapActivity(it) }.also { count(EP_ACTIVITY_SEARCH, it.size) }
+        val root = get("/activitylist-service/activities/search/activities", query) ?: return GarminActivityPage(emptyList(), 0)
+        val raw = elements(root, EP_ACTIVITY_SEARCH)
+        count(EP_ACTIVITY_SEARCH, raw.size)
+        return GarminActivityPage(raw.mapNotNull { mapActivity(it) }, raw.size)
     }
 
     override fun getHeartRateZones(): List<GarminHeartRateZones> {

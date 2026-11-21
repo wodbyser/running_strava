@@ -16,6 +16,14 @@ interface ActivityRepository {
 
     /** Ids of activities that have stored streams. Adapters should override this with a query that skips the stream data. */
     fun findIdsWithStreams(): Set<Long> = findAllIds().filter { findStreams(it) != null }.toSet()
+
+    /**
+     * Ids whose Strava detail call has not completed successfully. Adapters should override this with a query.
+     * Legacy rows (no marker yet) that already have streams are assumed complete and excluded, so introducing this
+     * column does not trigger a refetch of the whole history. New rows are marked only after a successful detail call.
+     */
+    fun findIdsMissingDetail(): Set<Long> = emptySet()
+    fun markDetailFetched(activityId: Long, at: ZonedDateTime) {}
     fun findLaps(activityId: Long): List<Lap>
     fun findLapsForActivities(activityIds: Collection<Long>): Map<Long, List<Lap>>
     fun findAll(after: ZonedDateTime? = null): List<Activity>

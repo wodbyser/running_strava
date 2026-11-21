@@ -88,6 +88,17 @@ class GarminRangeSyncTest {
     }
 
     @Test
+    fun `unmappable records count towards the page size and the next offset`() {
+        // Garmin returns 100 raw records per page, but three of them have no usable id/date on every page.
+        client.activityHandler = { offset, limit -> if (offset < 200) (1..(limit - 3)).map { activity(offset + it.toLong()) } else listOf(activity(999)) }
+        client.activityRawCountHandler = { offset, limit -> if (offset < 200) limit else 1 }
+        val r = backfill.execute(d("2026-10-01"), d("2026-10-01"))
+        assertEquals(listOf("activities 0 100", "activities 100 100", "activities 200 100"), client.calls.filter { it.startsWith("activities") })
+        assertEquals(195, r.recordsPerEndpoint[DS_ACTIVITIES])
+        assertEquals(195, repo.activities.size)
+    }
+
+    @Test
     fun `incremental sync without a previous success uses the default range, then re-fetches the last 3 days`() {
         val sync = SyncGarminDataImpl(engine(), statusRepo, settings)
         val first = sync.execute()

@@ -147,6 +147,16 @@ data class GarminDailySummary(
     val steps: GarminStepsDay?,
 )
 
+/**
+ * One page from Garmin's activity search. [rawCount] is the number of elements Garmin returned, before mapping.
+ * Paging must use it: a record without an id or a parseable start time is dropped from [activities] but still
+ * occupies a position in Garmin's result set.
+ */
+data class GarminActivityPage(
+    val activities: List<GarminActivityRef>,
+    val rawCount: Int,
+)
+
 data class GarminActivityRef(
     val activityId: Long,
     val startTimeGmt: Instant,

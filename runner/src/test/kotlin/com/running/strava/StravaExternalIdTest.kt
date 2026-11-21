@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.running.config.StravaProperties
 import com.running.strava.adapter.StravaApiClientImpl
 import com.running.strava.db.*
+import com.running.strava.domain.ActivityStream
 import com.running.strava.domain.StravaToken
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -16,6 +17,7 @@ import org.springframework.test.web.client.MockRestServiceServer
 import org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.web.client.RestClient
+import java.time.ZonedDateTime
 
 @DataJpaTest(properties = ["spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect"])
 @Import(ActivityRepositoryImpl::class, com.fasterxml.jackson.databind.ObjectMapper::class)
@@ -51,5 +53,20 @@ class StravaExternalIdTest @Autowired constructor(private val repo: ActivityRepo
         val back = repo.findById(42)!!
         assertEquals("e1", back.externalId)
         assertEquals("Some Watch", back.deviceName)
+    }
+
+    @Test
+    fun `a detail marker excludes rows with streams and is preserved by later summary saves`() {
+        val a = client(detail("")).getActivity(token, 42)
+        repo.save(a)
+        repo.save(a.copy(id = 43))
+        repo.saveStreams(43, ActivityStream(null, null, null, null, null, null, null, null, null))
+        assertEquals(setOf(42L), repo.findIdsMissingDetail(), "43 has streams, so it is a legacy row with details")
+
+        repo.markDetailFetched(42, ZonedDateTime.parse("2026-11-01T10:00:00Z"))
+        assertEquals(emptySet<Long>(), repo.findIdsMissingDetail())
+
+        repo.saveAll(listOf(a)) // a later summary save must not wipe the marker
+        assertEquals(emptySet<Long>(), repo.findIdsMissingDetail())
     }
 }

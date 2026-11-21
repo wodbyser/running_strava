@@ -8,13 +8,25 @@ import com.running.strava.domain.Lap
 import com.running.strava.domain.SyncStatus
 import com.running.strava.spi.ActivityRepository
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 import java.time.ZonedDateTime
 
 interface ActivityJpaRepository : JpaRepository<ActivityEntity, Long> {
     @Query("SELECT a.id FROM ActivityEntity a")
     fun findAllIds(): List<Long>
+
+    /** Unmarked rows with streams are legacy rows: assume their detail was fetched, so no mass refetch on deploy. */
+    @Query("SELECT a.id FROM ActivityEntity a WHERE a.detailFetchedAt IS NULL AND a.id NOT IN (SELECT s.activityId FROM ActivityStreamEntity s)")
+    fun findIdsMissingDetail(): List<Long>
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("UPDATE ActivityEntity a SET a.detailFetchedAt = :at WHERE a.id = :id")
+    fun markDetailFetched(@Param("id") id: Long, @Param("at") at: ZonedDateTime)
 }
 interface ActivityStreamJpaRepository : JpaRepository<ActivityStreamEntity, Long> {
     @Query("SELECT s.activityId FROM ActivityStreamEntity s")
@@ -85,6 +97,10 @@ class ActivityRepositoryImpl(
     }
 
     override fun findIdsWithStreams(): Set<Long> = streamJpaRepository.findAllActivityIds().toSet()
+
+    override fun findIdsMissingDetail(): Set<Long> = activityJpaRepository.findIdsMissingDetail().toSet()
+
+    override fun markDetailFetched(activityId: Long, at: ZonedDateTime) = activityJpaRepository.markDetailFetched(activityId, at)
 
     override fun findStreams(activityId: Long): ActivityStream? {
         return streamJpaRepository.findById(activityId)
@@ -165,6 +181,7 @@ class ActivityRepositoryImpl(
         isFlagged = activity.isFlagged,
         workoutType = activity.workoutType,
         bestEffortsJson = activity.bestEfforts?.let { toJson(it) } ?: existing?.bestEffortsJson,
+        detailFetchedAt = existing?.detailFetchedAt,
         externalId = activity.externalId ?: existing?.externalId,
         deviceName = activity.deviceName ?: existing?.deviceName,
         source = activity.source ?: existing?.source,

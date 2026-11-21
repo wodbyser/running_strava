@@ -7,6 +7,7 @@ import com.running.strava.spi.StravaApiClient
 import com.running.strava.spi.StravaTokenRepository
 import com.running.strava.usecase.fetch.FetchAllHistoricalData
 import org.slf4j.LoggerFactory
+import java.time.ZonedDateTime
 
 class FetchAllHistoricalDataImpl(
     private val stravaApiClient: StravaApiClient,
@@ -45,6 +46,7 @@ class FetchAllHistoricalDataImpl(
 
                         val streams = stravaApiClient.getActivityStreams(refreshedToken, activity.id)
                         activityRepository.saveStreams(activity.id, streams)
+                        activityRepository.markDetailFetched(activity.id, ZonedDateTime.now())
 
                         log.info("Fetched activity {}: {}", activity.id, activity.name)
                     } catch (e: RateLimitExceededException) {

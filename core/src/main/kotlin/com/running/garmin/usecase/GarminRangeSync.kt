@@ -120,9 +120,11 @@ class GarminRangeSync(
             val page = guarded(DS_ACTIVITIES, from, to) {
                 client.searchActivities(offset, settings.activityPageSize, from, to)
             } ?: break
-            store(DS_ACTIVITIES, repository.upsertActivities(page, clock.instant()), page.sumOf { it.nullFieldCount() })
-            if (page.size < settings.activityPageSize) break
-            offset += page.size
+            store(DS_ACTIVITIES, repository.upsertActivities(page.activities, clock.instant()), page.activities.sumOf { it.nullFieldCount() })
+            // Garmin drops nothing: an unmappable element still occupies a slot in the result set.
+            // Using the mapped size here stops paging early and misaligns the next offset.
+            if (page.rawCount < settings.activityPageSize) break
+            offset += page.rawCount
             pause(settings.pauseMillis)
         }
         guarded(DS_HR_ZONES, null, null) { client.getHeartRateZones() }?.let { zones ->

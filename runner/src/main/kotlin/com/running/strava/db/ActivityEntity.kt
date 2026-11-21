@@ -71,6 +71,9 @@ class ActivityEntity(
     /** Strava best efforts (JSON), only present for activities fetched with details after this column existed. */
     @Column(name = "best_efforts_json", columnDefinition = "TEXT")
     var bestEffortsJson: String? = null,
+    /** Set after a successful Strava detail fetch. Null on legacy rows and on rows whose detail call failed. */
+    @Column(name = "detail_fetched_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    var detailFetchedAt: ZonedDateTime? = null,
     /** Strava `external_id`. Additive, nullable. Used by the Garmin match dry run. */
     @Column(name = "external_id")
     var externalId: String? = null,
