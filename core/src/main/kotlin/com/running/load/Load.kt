@@ -242,6 +242,19 @@ object Rolling {
         return WindowSum(days, known, sum, sum / days * 7)
     }
 
+    /**
+     * Sum of the [days] days ending on [end] that must be complete: when any day is unknown the result is null instead of
+     * counting the missing day as 0. Used for a weekly load total, because a week with 5 of 7 known days is not a low
+     * week but an unknown one. The normal window sum stays the right tool for a long average (a 28-day chronic load),
+     * where one missing day barely moves the average.
+     */
+    fun completeWindow(daily: Map<LocalDate, Double>, end: LocalDate, days: Int): WindowSum {
+        val known = (0 until days).count { daily.containsKey(end.minusDays(it.toLong())) }
+        if (known < days) return WindowSum(days, known, null, null)
+        val sum = (0 until days).sumOf { daily[end.minusDays(it.toLong())]!! }
+        return WindowSum(days, known, sum, sum / days * 7)
+    }
+
     /** Acute against chronic as a plain percentage difference of the weekly amount. Null when either is unavailable or zero. */
     fun differencePct(acute: WindowSum, chronic: WindowSum): Double? {
         val a = acute.perWeek ?: return null

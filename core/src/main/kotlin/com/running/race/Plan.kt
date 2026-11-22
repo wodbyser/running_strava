@@ -120,6 +120,13 @@ data class Feasibility(
     val gapSecondsPerKm: Double?,
     /** Goal against today's prediction in % (negative = needs to get faster). */
     val needPct: Double,
+    /** Days left until the race; 0 or negative means the race is today or already past. */
+    val daysToGo: Long,
+    /**
+     * Whole weeks used for the history comparison, never 0: the weekly series can only be compared over whole weeks,
+     * so a race inside the coming week uses the shortest window (1). Rounded down, so the comparison is never more
+     * optimistic than the time actually left.
+     */
     val weeksToGo: Int,
     val historyWindows: Int?,
     val historyQualifying: Int?,
@@ -128,9 +135,12 @@ data class Feasibility(
 
 /** #51. No verdict word: a band, the needed change and how often the owner's own history did that. */
 object GoalFeasibility {
+    /** The history comparison runs over whole weeks; anything inside the coming week uses the shortest window (1). */
+    fun historyWeeks(daysToGo: Long): Int = maxOf(1, (daysToGo / 7).toInt())
+
     fun evaluate(
         goalSeconds: Double, distanceMeters: Double, predictionSeconds: Double, lowSeconds: Double, highSeconds: Double,
-        weeksToGo: Int, weeklySeries: List<Double?>, cfg: RaceConfig = RaceConfig.DEFAULT,
+        daysToGo: Long, weeklySeries: List<Double?>, cfg: RaceConfig = RaceConfig.DEFAULT,
     ): Feasibility {
         val km = distanceMeters / 1000
         val (band, gap, gapKm) = when {
@@ -139,15 +149,16 @@ object GoalFeasibility {
             else -> Triple(GoalBand.INSIDE, null, null)
         }
         val need = (goalSeconds / predictionSeconds - 1) * 100
+        val weeks = historyWeeks(daysToGo)
         val known = weeklySeries.count { it != null }
         var windows: Int? = null
         var qualifying: Int? = null
         val note = when {
-            weeksToGo < 1 -> "De wedstrijd is deze week: geen periode meer om te verbeteren."
+            daysToGo < 1 -> "De wedstrijd is vandaag of is al voorbij: geen periode meer om te verbeteren."
             need >= 0 -> "Je doel is niet sneller dan je huidige voorspelling."
             known < cfg.minFeasibilityWeeks -> "Te weinig geschiedenis voor een vergelijking (${known} weken met een voorspelling, minstens ${cfg.minFeasibilityWeeks} nodig)."
             else -> {
-                val w = weeksToGo
+                val w = weeks
                 val pairs = weeklySeries.indices.mapNotNull { i ->
                     val a = weeklySeries[i]
                     val b = weeklySeries.getOrNull(i + w)
@@ -158,6 +169,6 @@ object GoalFeasibility {
                 if (pairs.isEmpty()) "Geen vergelijkbare periodes in je geschiedenis." else null
             }
         }
-        return Feasibility(band, gap, gapKm, need, weeksToGo, windows, qualifying, note)
+        return Feasibility(band, gap, gapKm, need, daysToGo, weeks, windows, qualifying, note)
     }
 }

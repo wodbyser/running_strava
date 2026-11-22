@@ -112,6 +112,35 @@ class LoadServiceTest {
     }
 
     @Test
+    fun `a week with an unknown day has no weekly load instead of a too low one`() {
+        // the run 3 days ago has no heart rate: that day is unknown, not 0
+        val gap = regular.filter { it.id != 2L } + run(2, 3, hr = null)
+        val o = service(gap).first.overview()
+        assertNull(o.acute.sum, "6 known days of 7 are not a week")
+        assertNull(o.differencePct)
+        assertEquals(OwnLevel.UNKNOWN, o.acuteBand.level)
+        assertNull(o.days.first { it.date == today.minusDays(1) }.acute)
+        val page = LoadPageBuilder.build(o)
+        assertTrue(page.hero.lines.any { it.contains("elke dag moet bekend zijn") })
+        // the load signal has no data rather than comparing a partial week with the own norm
+        assertNull(o.signals?.set?.signals?.first { it.key == com.running.load.SignalKey.LOAD }?.active)
+
+        // the same week complete: known again
+        val full = service(regular).first.overview()
+        assertNotNull(full.acute.sum)
+    }
+
+    @Test
+    fun `the load signal rule names the band window that was chosen`() {
+        val (s, _) = service(regular)
+        val def = LoadPageBuilder.build(s.overview()).signalRows.first { it.title.startsWith("Belasting") }
+        assertTrue(def.rule.contains("90e percentiel van de laatste 26 weken"))
+        val short = LoadPageBuilder.build(s.overview(com.running.load.LoadWindows(bandWeeks = 12))).signalRows.first { it.title.startsWith("Belasting") }
+        assertTrue(short.rule.contains("laatste 12 weken"), short.rule)
+        assertFalse(short.rule.contains("26"))
+    }
+
+    @Test
     fun `session classes and coverage counts are reported`() {
         val (s, _) = service(regular + walk(600, 3) + run(601, 10, hr = null))
         val o = s.overview()

@@ -358,7 +358,35 @@ class PlanTest {
 
 class FeasibilityTest {
     private fun eval(goal: Double, weeks: Int = 5, series: List<Double?> = emptyList()) =
-        GoalFeasibility.evaluate(goal, 5000.0, 1200.0, 1180.0, 1230.0, weeks, series)
+        GoalFeasibility.evaluate(goal, 5000.0, 1200.0, 1180.0, 1230.0, weeks * 7L, series)
+
+    @Test
+    fun `six days left is one whole week for the history comparison, not zero`() {
+        val six = GoalFeasibility.evaluate(1170.0, 5000.0, 1200.0, 1180.0, 1230.0, 6, emptyList())
+        assertEquals(6, six.daysToGo)
+        assertEquals(1, six.weeksToGo)
+        assertNull(six.historyNote?.takeIf { it.contains("vandaag of is al voorbij") })
+
+        val thirteen = GoalFeasibility.evaluate(1170.0, 5000.0, 1200.0, 1180.0, 1230.0, 13, emptyList())
+        assertEquals(13, thirteen.daysToGo)
+        assertEquals(1, thirteen.weeksToGo)
+
+        assertEquals(2, GoalFeasibility.historyWeeks(14))
+        assertEquals(1, GoalFeasibility.historyWeeks(1))
+        assertEquals(1, GoalFeasibility.historyWeeks(0))
+    }
+
+    @Test
+    fun `a race today or in the past gets no improvement period`() {
+        val today = GoalFeasibility.evaluate(1140.0, 5000.0, 1200.0, 1180.0, 1230.0, 0, emptyList())
+        assertEquals(0, today.daysToGo)
+        assertEquals(1, today.weeksToGo) // never 0: the comparison always uses at least one week
+        assertTrue(today.historyNote!!.contains("vandaag of is al voorbij"))
+
+        val past = GoalFeasibility.evaluate(1140.0, 5000.0, 1200.0, 1180.0, 1230.0, -3, emptyList())
+        assertEquals(-3, past.daysToGo)
+        assertTrue(past.historyNote!!.contains("vandaag of is al voorbij"))
+    }
 
     @Test
     fun `the three bands at their boundaries`() {
@@ -381,12 +409,12 @@ class FeasibilityTest {
     fun `history share counted by hand on a synthetic weekly series`() {
         // 30 weeks falling 0.5 % per week: any 5 week window improves 2.48 %, windows needing at most that qualify
         val series: List<Double?> = (0 until 30).map { 1300.0 * Math.pow(0.995, it.toDouble()) }
-        val f = GoalFeasibility.evaluate(1170.0, 5000.0, 1200.0, 1180.0, 1230.0, 5, series)
+        val f = GoalFeasibility.evaluate(1170.0, 5000.0, 1200.0, 1180.0, 1230.0, 35, series)
         assertEquals(-2.5, f.needPct, 1e-9)
         assertEquals(25, f.historyWindows)
         // improvement of 5 weeks = 0.995^5 - 1 = -2.4876 %, which is slower than -2.5 %: none qualify
         assertEquals(0, f.historyQualifying)
-        val f2 = GoalFeasibility.evaluate(1180.0, 5000.0, 1200.0, 1180.0, 1230.0, 5, series)
+        val f2 = GoalFeasibility.evaluate(1180.0, 5000.0, 1200.0, 1180.0, 1230.0, 35, series)
         assertEquals(25, f2.historyQualifying)
         assertNull(f2.historyNote)
     }
@@ -483,6 +511,21 @@ class ReadinessTest {
         // 28 days: 7 x 50 + 21 x 100 = 2450, week average 612.5; last 7 = 350
         assertEquals(350.0 / 612.5 * 100, RaceWeek.loadPct(daily, today)!!, 1e-9)
         assertNull(RaceWeek.loadPct(emptyMap(), today))
+    }
+
+    @Test
+    fun `the race week percentage needs all 7 days, not 70 percent of them`() {
+        val today = LocalDate.of(2026, 12, 3)
+        val full = (1..28).associate { today.minusDays(it.toLong()) to 100.0 }
+        assertNotNull(RaceWeek.loadPct(full, today))
+
+        // one unknown day inside the last 7: the old 70 % rule reported 6 x 100 against 612.5 = 98 %
+        val gap = full - today.minusDays(4)
+        assertNull(RaceWeek.loadPct(gap, today))
+
+        // the 28-day average keeps tolerating a gap; only the 7-day total is strict
+        val gapOutsideWeek = full - today.minusDays(20)
+        assertNotNull(RaceWeek.loadPct(gapOutsideWeek, today))
     }
 }
 

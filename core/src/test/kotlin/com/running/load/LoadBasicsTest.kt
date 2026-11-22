@@ -161,6 +161,31 @@ class RollingTest {
     }
 
     @Test
+    fun `a weekly total needs every day, a missing day is unknown and not zero`() {
+        val week = (0 until 7).associate { end.minusDays(it.toLong()) to 10.0 }
+        val complete = Rolling.completeWindow(week, end, 7)
+        assertEquals(70.0, complete.sum)
+        assertEquals(70.0, complete.perWeek)
+        assertEquals(7, complete.knownDays)
+        assertTrue(complete.ok)
+
+        // 6 of 7 days: the old 70 % rule would report 60 points for a week that is not known
+        val six = week - end
+        val incomplete = Rolling.completeWindow(six, end, 7)
+        assertNull(incomplete.sum)
+        assertNull(incomplete.perWeek)
+        assertEquals(6, incomplete.knownDays)
+        assertFalse(incomplete.ok)
+
+        // rest days that are known (0 points) still count as known days
+        val withRest = week + (end to 0.0)
+        assertEquals(60.0, Rolling.completeWindow(withRest, end, 7).sum)
+
+        assertNull(Rolling.completeWindow(emptyMap(), end, 7).sum)
+        assertEquals(0, Rolling.completeWindow(emptyMap(), end, 7).knownDays)
+    }
+
+    @Test
     fun `exponential average with tau 7 by hand`() {
         val from = LocalDate.of(2026, 3, 1)
         val daily = mapOf(from to 100.0, from.plusDays(1) to 0.0, from.plusDays(2) to 0.0)

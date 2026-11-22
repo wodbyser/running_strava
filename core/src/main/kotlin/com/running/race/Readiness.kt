@@ -99,10 +99,14 @@ object RaceWeek {
 
     fun visible(goalDate: LocalDate, today: LocalDate, checkDays: Int = 7): Boolean = daysToGo(goalDate, today) in 0..checkDays.toLong()
 
-    /** Last 7 days of load as a percentage of the average week of the 28 days ending yesterday (plain percentage, no zone). */
+    /**
+     * Last 7 days of load as a percentage of the average week of the 28 days ending yesterday (plain percentage, no
+     * zone). The 7 days must be complete: a week with missing days is not a low week, so it gives null instead. The
+     * 28-day average tolerates gaps ([minKnownShare]).
+     */
     fun loadPct(daily: Map<LocalDate, Double>, today: LocalDate, minKnownShare: Double = 0.70): Double? {
         val yesterday = today.minusDays(1)
-        val last7 = com.running.load.Rolling.window(daily, yesterday, 7, minKnownShare)
+        val last7 = com.running.load.Rolling.completeWindow(daily, yesterday, 7)
         val chronic = com.running.load.Rolling.window(daily, yesterday, 28, minKnownShare)
         val a = last7.sum ?: return null
         val c = chronic.perWeek ?: return null

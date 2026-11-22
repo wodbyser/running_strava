@@ -394,13 +394,14 @@ object PerformancePageBuilder {
     // ------------------------------------------------------------ 4. drift
 
     private fun drift(r: PerformanceReport, charts: MutableMap<String, Any?>): DriftSection {
+        // Same population for drift and decoupling: only runs where the pace of both halves was equal.
         val ok = r.driftRows.filter { it.drift.driftAvailable }
         val medDrift = Stats.median(ok.map { it.drift.driftPct })
-        val medDec = Stats.median(r.driftRows.map { it.drift.decouplingPct })
+        val medDec = Stats.median(ok.map { it.drift.decouplingPct })
         val tiles = listOf(
             Tile("Mediaan hartslagdrift", medDrift?.let { "%.1f %%".format(ROOT, it) } ?: "-", "over ${ok.size} runs met gelijk tempo", "drift"),
-            Tile("Mediaan ontkoppeling", medDec?.let { "%.1f %%".format(ROOT, it) } ?: "-", "over ${r.driftRows.size} stabiele runs", "ontkoppeling"),
-            Tile("Runs onder 5 % ontkoppeling", if (r.driftRows.isEmpty()) "-" else "${r.driftRows.count { it.drift.decouplingPct < 5.0 }} van ${r.driftRows.size}", "vuistregel, niet gevalideerd", "ontkoppeling"),
+            Tile("Mediaan ontkoppeling", medDec?.let { "%.1f %%".format(ROOT, it) } ?: "-", "over ${ok.size} van ${r.driftRows.size} stabiele runs", "ontkoppeling"),
+            Tile("Runs onder 5 % ontkoppeling", if (ok.isEmpty()) "-" else "${ok.count { it.drift.decouplingPct < 5.0 }} van ${ok.size}", "vuistregel, niet gevalideerd", "ontkoppeling"),
         )
         val chrono = r.driftRows.sortedBy { it.date }
         charts["driftLabels"] = chrono.map { PerfDates.dayShort(it.date) }

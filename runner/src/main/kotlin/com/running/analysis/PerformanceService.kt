@@ -263,10 +263,14 @@ class PerformanceService(
         val driftAll = steadyRuns.filter { it.drift != null }
         val driftRows = driftAll.filter { inLast(it.date, w.driftDays.toLong()) }
             .map { DriftRow(it.id, it.date, it.ef!!.windowMinutes, it.drift!!, it.tempC, it.name) }.sortedByDescending { it.date }
+        // Drift and decoupling only mean something when both halves had the same pace (driftAvailable). Both medians
+        // therefore use the same population: mixing in runs with a pace change would explain the decoupling by the pace.
         val driftOk = driftRows.filter { it.drift.driftAvailable }
-        val driftSummary = if (driftOk.size >= cfg.minRunsDrift) {
-            "Mediaan over ${driftOk.size} stabiele runs (${w.driftDays} dagen): drift ${"%.1f".format(java.util.Locale.ROOT, Stats.median(driftOk.map { it.drift.driftPct })!!)} %, " +
-                "ontkoppeling ${"%.1f".format(java.util.Locale.ROOT, Stats.median(driftRows.map { it.drift.decouplingPct })!!)} %."
+        val driftMedian = Stats.median(driftOk.map { it.drift.driftPct })
+        val decouplingMedian = Stats.median(driftOk.map { it.drift.decouplingPct })
+        val driftSummary = if (driftOk.size >= cfg.minRunsDrift && driftMedian != null && decouplingMedian != null) {
+            "Mediaan over ${driftOk.size} stabiele runs (${w.driftDays} dagen): drift ${"%.1f".format(java.util.Locale.ROOT, driftMedian)} %, " +
+                "ontkoppeling ${"%.1f".format(java.util.Locale.ROOT, decouplingMedian)} %."
         } else "Onvoldoende data voor een samenvatting (n = ${driftOk.size} runs met bruikbare drift, minimum ${cfg.minRunsDrift})."
 
         // critical speed

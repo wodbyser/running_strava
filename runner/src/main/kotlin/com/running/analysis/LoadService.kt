@@ -326,11 +326,15 @@ class LoadService(
         return Triple(points, longEf, best.text)
     }
 
+    /**
+     * Trailing 7-day load totals, one per day. A total only exists for a day whose whole week is known: a week with
+     * missing days is unknown, not low.
+     */
     private fun trailing7(daily: Map<LocalDate, Double>, from: LocalDate, to: LocalDate): Map<LocalDate, Double> {
         val out = LinkedHashMap<LocalDate, Double>()
         var d = from
         while (!d.isAfter(to)) {
-            Rolling.window(daily, d, 7).sum?.let { out[d] = it }
+            Rolling.completeWindow(daily, d, 7).sum?.let { out[d] = it }
             d = d.plusDays(1)
         }
         return out
@@ -345,19 +349,20 @@ class LoadService(
         val today = b.today
         val yesterday = today.minusDays(1)
         val daily = DailyLoad.trimpMap(b.days.filter { it.date != today })
-        val acute = Rolling.window(daily, yesterday, w.acuteDays, b.cfg.minKnownShare)
+        // The short window is a load total, so every day must be known; the chronic window is an average and tolerates gaps.
+        val acute = Rolling.completeWindow(daily, yesterday, w.acuteDays)
         val chronic = Rolling.window(daily, yesterday, w.chronicDays, b.cfg.minKnownShare)
         val diff = Rolling.differencePct(acute, chronic)
 
         val t7 = trailing7(daily, yesterday.minusWeeks(w.bandWeeks.toLong()), yesterday)
-        val last7 = Rolling.window(daily, yesterday, 7).sum
+        val last7 = Rolling.completeWindow(daily, yesterday, 7).sum
         val acuteBand = OwnBand.evaluate(t7.filterKeys { it.isBefore(yesterday) }.values.toList(), last7, MIN_BAND_DAYS)
 
         val chartFrom = today.minusDays(w.chartDays.toLong() - 1)
         val byDate = b.days.associateBy { it.date }
         val points = generateSequence(chartFrom) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.map { d ->
             val day = byDate[d]
-            val a = if (d == today) null else Rolling.window(daily, d, w.acuteDays, b.cfg.minKnownShare).perWeek
+            val a = if (d == today) null else Rolling.completeWindow(daily, d, w.acuteDays).perWeek
             val c = if (d == today) null else Rolling.window(daily, d, w.chronicDays, b.cfg.minKnownShare).perWeek
             val known = day?.trimp != null
             DayPoint(d, if (known) day?.runTrimp else null, if (known) day?.otherTrimp else null, day?.trimp, a, c, d == today, day?.sessions?.map { it.name }.orEmpty())
@@ -409,13 +414,15 @@ class LoadService(
             val v = efPct.filter { it.first.date.isAfter(d.minusDays(w.efSignalDays.toLong())) && !it.first.date.isAfter(d) }.map { it.second }
             return LoadStats.median(v) to v.size
         }
-        val load90 = LoadStats.percentile(t7.values.toList(), b.cfg.hardPercentile)
-        val mono90 = LoadStats.percentile(monoHistory, b.cfg.hardPercentile)
+        // The owner's own 90th percentile of the weekly load over the band window (default 26 weeks), exactly the rule
+        // the signal text names. Not a 90-day window: the lookback is `bandWeeks`.
+        val loadP90 = LoadStats.percentile(t7.values.toList(), b.cfg.hardPercentile)
+        val monotonyP90 = LoadStats.percentile(monoHistory, b.cfg.hardPercentile)
         val (efMed, efN) = efMedian(today.minusDays(1))
         val report = recovery?.first
         val input = SignalInput(
             report?.hrv?.metric?.trend?.sustained, report?.restingHr?.metric?.trend?.sustained, report?.sleepDebt?.target?.band,
-            efMed, efN, last7, load90, lastMon?.monotony, mono90,
+            efMed, efN, last7, loadP90, lastMon?.monotony, monotonyP90,
         )
         val set = FatigueSignals.evaluate(input)
 
@@ -428,11 +435,11 @@ class LoadService(
             val hrv = Trend.evaluate(b.series.hrv, d, rw).sustained
             val rhr = Trend.evaluate(b.series.restingHr, d, rw, NormSide.HIGHER_ONLY).sustained
             val sleepBand = SleepAnalysis.debt(b.sleepDays, d, target, rw).target?.band
-            val lp90 = LoadStats.percentile(t7.filterKeys { it.isBefore(d) && !it.isBefore(d.minusWeeks(w.bandWeeks.toLong())) }.values.toList(), b.cfg.hardPercentile)
+            val loadP90At = LoadStats.percentile(t7.filterKeys { it.isBefore(d) && !it.isBefore(d.minusWeeks(w.bandWeeks.toLong())) }.values.toList(), b.cfg.hardPercentile)
             val lastWeek = monoByWeek.lastOrNull { it.weekStart.plusDays(6).isBefore(d) }
-            val mp90 = lastWeek?.let { lw -> LoadStats.percentile(monoByWeek.filter { it.weekStart.isBefore(lw.weekStart) && !it.weekStart.isBefore(lw.weekStart.minusWeeks(w.bandWeeks.toLong())) }.map { it.monotony!! }, b.cfg.hardPercentile) }
+            val monotonyP90At = lastWeek?.let { lw -> LoadStats.percentile(monoByWeek.filter { it.weekStart.isBefore(lw.weekStart) && !it.weekStart.isBefore(lw.weekStart.minusWeeks(w.bandWeeks.toLong())) }.map { it.monotony!! }, b.cfg.hardPercentile) }
             val (em, en) = efMedian(d)
-            FatigueSignals.evaluate(SignalInput(hrv, rhr, sleepBand, em, en, t7[d], lp90, lastWeek?.monotony, mp90)).active
+            FatigueSignals.evaluate(SignalInput(hrv, rhr, sleepBand, em, en, t7[d], loadP90At, lastWeek?.monotony, monotonyP90At)).active
         }
         val view = SignalView(set, input, FatigueSignals.baseRate(counts), counts.size)
 

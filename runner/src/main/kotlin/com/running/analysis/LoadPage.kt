@@ -118,7 +118,7 @@ object LoadPageBuilder {
             val head = "Je belasting van de laatste ${w.acuteDays} dagen is ${if (level == OwnLevel.UNKNOWN) "bekend, maar er is te weinig geschiedenis voor je eigen norm" else level.text}"
             lines += "$head (${n0(load)} punten${cmp?.let { ", $it" } ?: ""})."
             if (level == OwnLevel.HIGH || level == OwnLevel.LOW) flags++
-        } else lines += "Voor de laatste ${w.acuteDays} dagen is de belasting niet voor alle dagen bekend (minstens 70 % van de dagen nodig)."
+        } else lines += "Voor de laatste ${w.acuteDays} dagen is de belasting niet te berekenen: elke dag moet bekend zijn, want een ontbrekende dag als 0 tellen maakt de week te laag."
 
         val r = o.readiness
         val dev = r?.deviating
@@ -208,7 +208,7 @@ object LoadPageBuilder {
     private fun signalRows(o: LoadOverview): List<SignalRow> = o.signals?.let { s ->
         s.set.signals.map { sig ->
             SignalRow(
-                sig.key.label, sig.key.rule,
+                sig.key.label, sig.key.ruleFor(o.windows.bandWeeks),
                 when (sig.active) { true -> "actief"; false -> "niet actief"; null -> "geen data" },
                 when (sig.active) { true -> "tone-bad"; false -> "tone-good"; null -> "tone-none" },
                 signalValue(sig.key, s.input),

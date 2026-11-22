@@ -271,7 +271,7 @@ object RacePageBuilder {
         if (targetSeconds != null && feas != null) {
             lines += "Je doel ${RaceFmt.time(targetSeconds.toDouble())} ligt ${feas.band.text}" +
                 (feas.gapPct?.let { " (${RaceFmt.pct(it)}, ${RaceFmt.d1(abs(feas.gapSecondsPerKm ?: 0.0))} seconden per km ${if (feas.band == GoalBand.FASTER) "sneller" else "trager"} dan de rand)" } ?: "") + "."
-            if (feas.needPct < 0 && feas.weeksToGo >= 1) lines += "Je voorspelling moet nog ${RaceFmt.d1(abs(feas.needPct))} % sneller worden in ${feas.weeksToGo} ${if (feas.weeksToGo == 1) "week" else "weken"}."
+            if (feas.needPct < 0 && feas.daysToGo >= 1) lines += "Je voorspelling moet nog ${RaceFmt.d1(abs(feas.needPct))} % sneller worden in ${feas.daysToGo} ${if (feas.daysToGo == 1L) "dag" else "dagen"}."
             if (feas.historyWindows != null && feas.historyQualifying != null) {
                 lines += "In je geschiedenis gebeurde zo'n verbetering in ${feas.historyQualifying} van de ${feas.historyWindows} periodes van ${feas.weeksToGo} ${if (feas.weeksToGo == 1) "week" else "weken"}."
             } else feas.historyNote?.let { lines += it }

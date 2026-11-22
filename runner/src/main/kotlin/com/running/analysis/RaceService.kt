@@ -226,15 +226,15 @@ class RaceService(
         val goalViews = goals.map { g ->
             val past = g.date.isBefore(today)
             val f = if (past) null else forecasts.firstOrNull { it.distanceMeters == g.distanceMeters } ?: forecast(g.distanceMeters, anchors, accuracy, perf.cs.outcome)
-            val weeks = (ChronoUnit.DAYS.between(today, g.date) / 7).toInt()
+            val daysToGo = ChronoUnit.DAYS.between(today, g.date)
             val target = g.targetSeconds
             val feas = if (f?.prediction != null && target != null && f.rangeLowSeconds != null && f.rangeHighSeconds != null) {
                 GoalFeasibility.evaluate(
-                    target.toDouble(), g.distanceMeters, f.prediction.rawSeconds, f.rangeLowSeconds, f.rangeHighSeconds, weeks,
+                    target.toDouble(), g.distanceMeters, f.prediction.rawSeconds, f.rangeLowSeconds, f.rangeHighSeconds, daysToGo,
                     weekly.map { it.seconds[g.distanceMeters] }, cfg,
                 )
             } else null
-            GoalView(g, ChronoUnit.DAYS.between(today, g.date), past, f, feas, Races.match(g, b.runs, cfg))
+            GoalView(g, daysToGo, past, f, feas, Races.match(g, b.runs, cfg))
         }
         val focus = goalViews.firstOrNull { it.goal.id == focusGoal?.id }
 

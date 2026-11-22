@@ -18,7 +18,9 @@ import kotlin.math.abs
  * Fallback / cross-check: Strava's own best efforts, when they were stored (only for activities fetched with
  * details after the `best_efforts_json` column was added).
  *
- * Streams never change for a given activity, so results are cached in memory per activity id.
+ * Only results of an activity that already has streams are cached. A stream that is not downloaded yet can arrive
+ * later (backfill, sync), so a missing stream is never remembered as "no best efforts" — that would keep the record
+ * list empty until the cache is evicted.
  */
 @Service
 class BestEffortService(
@@ -54,15 +56,29 @@ class BestEffortService(
         val treadmillExcluded: Int,
     )
 
-    private val streamCache = ConcurrentHashMap<TenantKey<Long>, Map<Double, Double>>()
+    /** One activity's own stream results: the best-effort times and whether a usable stream exists at all. */
+    private data class Own(val efforts: Map<Double, Double>, val usable: Boolean)
 
-    /** Own best-effort times (seconds) per standard distance, from streams; empty map if no usable streams. */
-    fun streamEfforts(activityId: Long): Map<Double, Double> = streamCache.getOrPut(TenantKey.of(activityId)) {
+    private val streamCache = ConcurrentHashMap<TenantKey<Long>, Own>()
+
+    /**
+     * Own best-effort times (seconds) per standard distance, from streams; empty map if no usable streams.
+     * A result is only cached when the stream exists: an activity whose stream is still to be downloaded is looked up
+     * again on the next call.
+     */
+    fun streamEfforts(activityId: Long): Map<Double, Double> = own(activityId).efforts
+
+    private fun own(activityId: Long): Own {
+        val key = TenantKey.of(activityId)
+        streamCache[key]?.let { return it }
         val s = activityRepository.findStreams(activityId)
-        if (s?.time == null || s.distance == null) emptyMap()
-        else BestEffortFinder.STANDARD_DISTANCES.mapNotNull { (_, d) ->
-            BestEffortFinder.fastest(s.time, s.distance, d)?.let { d to it.seconds }
+        val time = s?.time
+        val distance = s?.distance
+        if (time == null || distance == null) return Own(emptyMap(), false)
+        val efforts = BestEffortFinder.STANDARD_DISTANCES.mapNotNull { (_, meters) ->
+            BestEffortFinder.fastest(time, distance, meters)?.let { meters to it.seconds }
         }.toMap()
+        return Own(efforts, true).also { streamCache[key] = it }
     }
 
     /** Strava best effort (elapsed time) for a distance, matched within 1 %. */
@@ -70,11 +86,13 @@ class BestEffortService(
         a.bestEfforts?.filter { abs(it.distance - meters) <= meters * 0.01 && it.elapsedTime > 0 }
             ?.minOfOrNull { it.elapsedTime.toDouble() }
 
-    fun effort(a: Activity, meters: Double): Effort? {
-        val own = streamEfforts(a.id)[meters]
+    fun effort(a: Activity, meters: Double): Effort? = effort(a, meters, streamEfforts(a.id))
+
+    private fun effort(a: Activity, meters: Double, ownEfforts: Map<Double, Double>): Effort? {
+        val streamSeconds = ownEfforts[meters]
         val strava = stravaEffort(a, meters)
         return when {
-            own != null -> Effort(a, meters, own, Source.STREAM, strava)
+            streamSeconds != null -> Effort(a, meters, streamSeconds, Source.STREAM, strava)
             strava != null -> Effort(a, meters, strava, Source.STRAVA, strava)
             else -> null
         }
@@ -85,11 +103,14 @@ class BestEffortService(
 
     fun personalRecords(runs: List<Activity>): PersonalRecords {
         val eligible = runs.filter { eligible(it) }
-        val withStreams = eligible.count { hasUsableStreams(it.id) }
-        val stravaOnly = eligible.count { !hasUsableStreams(it.id) && !it.bestEfforts.isNullOrEmpty() }
+        // One stream lookup per activity for the whole page: a missing stream is not cached, so this keeps the retry
+        // cheap without asking the database nine times (once per standard distance) for the same activity.
+        val streams = eligible.associate { it.id to own(it.id) }
+        val withStreams = streams.values.count { it.usable }
+        val stravaOnly = eligible.count { !streams.getValue(it.id).usable && !it.bestEfforts.isNullOrEmpty() }
 
         val records = BestEffortFinder.STANDARD_DISTANCES.map { (label, meters) ->
-            val best = eligible.mapNotNull { effort(it, meters) }.minByOrNull { it.seconds }
+            val best = eligible.mapNotNull { effort(it, meters, streams.getValue(it.id).efforts) }.minByOrNull { it.seconds }
             if (best == null) {
                 PersonalRecord(label, "-", "-", "-", "-", null, "-", null)
             } else {
@@ -117,15 +138,8 @@ class BestEffortService(
         )
     }
 
-    private val usableStreamCache = ConcurrentHashMap<TenantKey<Long>, Boolean>()
-
     /** Forgets everything cached for one tenant (reset, delete). */
     fun evict(tenant: String) {
         streamCache.keys.removeIf { it.tenant == tenant }
-        usableStreamCache.keys.removeIf { it.tenant == tenant }
-    }
-
-    private fun hasUsableStreams(activityId: Long): Boolean = usableStreamCache.getOrPut(TenantKey.of(activityId)) {
-        streamEfforts(activityId).isNotEmpty() || activityRepository.findStreams(activityId)?.let { it.time != null && it.distance != null } == true
     }
 }

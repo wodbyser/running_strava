@@ -67,6 +67,44 @@ class PerformanceServiceTest {
     }
 
     @Test
+    fun `drift and decoupling medians use the same runs, those with an equal pace in both halves`() {
+        // runs 1-5: constant pace (decoupling 0). runs 6-11: 10 % faster in the second half at the same heart rate:
+        // the pace explains the decoupling, so these runs must stay out of both medians.
+        fun fastEnd(): ActivityStream {
+            val t = (0..2400).toList()
+            var d = 0f
+            val dist = t.map { s -> d += if (s <= 1500) 3.0f else 3.3f; d }
+            return ActivityStream(t, dist, null, null, t.map { 150 + if (it % 2 == 0) -1 else 1 }, null, null, null, null)
+        }
+        val acts = (1..11).map { run(it.toLong(), 2L + it * 3) }
+        val streams = acts.associate { it.id to if (it.id <= 5) stream(2400) else fastEnd() }
+        val s = PerformanceService(FakeActivityRepository(acts, streams = streams), GarminStub(), GarminProperties(), clock)
+        val r = s.report()
+        val ok = r.driftRows.filter { it.drift.driftAvailable }
+        val skipped = r.driftRows.filter { !it.drift.driftAvailable }
+        assertEquals(5, ok.size)
+        assertTrue(skipped.isNotEmpty(), "the speed-up runs are steady but have no usable drift")
+        assertTrue(skipped.all { it.drift.decouplingPct < -5.0 })
+        // decoupling summary equals the median of the same population as the drift: about 0, not the -9 of the mixed set
+        assertTrue(r.driftSummary.contains("ontkoppeling 0.0 %"), r.driftSummary)
+        assertTrue(r.driftSummary.contains("over 5 stabiele runs"), r.driftSummary)
+        val tiles = PerformancePageBuilder.build(r).drift.tiles
+        assertEquals("0.0 %", tiles[1].value)
+    }
+
+    @Test
+    fun `without any usable drift the summary and tiles stay empty and do not crash`() {
+        val s = PerformanceService(FakeActivityRepository(emptyList()), GarminStub(), GarminProperties(), clock)
+        val r = s.report()
+        assertTrue(r.driftRows.isEmpty())
+        assertTrue(r.driftSummary.startsWith("Onvoldoende data"))
+        val tiles = PerformancePageBuilder.build(r).drift.tiles
+        assertEquals("-", tiles[0].value)
+        assertEquals("-", tiles[1].value)
+        assertEquals("-", tiles[2].value)
+    }
+
+    @Test
     fun `per run results are cached`() {
         val (s, repo) = service()
         s.report()

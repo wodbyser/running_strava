@@ -18,6 +18,21 @@ enum class SignalKey(val label: String, val rule: String) {
     EFFICIENCY("Efficiëntie lager", "stabiele runs van de laatste 14 dagen gemiddeld meer dan 3 % onder je eigen niveau (minstens 3 runs)"),
     LOAD("Belasting hoog voor jou", "belasting van de laatste 7 dagen boven je eigen 90e percentiel van de laatste 26 weken"),
     MONOTONY("Monotonie hoog voor jou", "monotonie van de laatste volledige week boven je eigen 90e percentiel van de laatste 26 weken"),
+    ;
+
+    /**
+     * The rule text with the band lookback that was actually used. The load pages let the owner change that window, so
+     * the text must not keep saying "26 weken" when the percentile came from, say, 8 weeks. The 90th percentile is
+     * taken over weekly loads from the band window (`LoadWindows.bandWeeks`), not over 90 days.
+     */
+    fun ruleFor(bandWeeks: Int): String = when (this) {
+        LOAD, MONOTONY -> rule.replace(DEFAULT_BAND_WEEKS, "$bandWeeks weken")
+        else -> rule
+    }
+
+    private companion object {
+        const val DEFAULT_BAND_WEEKS = "26 weken"
+    }
 }
 
 data class SignalInput(
