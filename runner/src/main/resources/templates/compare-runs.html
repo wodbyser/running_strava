@@ -166,6 +166,9 @@
                     <p><strong>Waar de cijfers vandaan komen.</strong> Snelheid uit je Strava-samenvatting (bewegingstijd); meter per hartslag, ontkoppeling, temposchommeling, GAP en reps uit dezelfde berekening als de Prestatie-analyse; de uitvoering uit Training beoordelen. Een onderdeel verschijnt alleen als minstens twee runs er een waarde voor hebben.</p>
                 </div>
             </details>
+            <div class="card-foot" th:if="${promptUrl != null}">
+                <a th:href="${promptUrl}" class="btn btn-secondary btn-sm">AI-prompt voor deze vergelijking</a>
+            </div>
         </section>
 
         <!--/* ============================== aspects ============================== */-->

@@ -26,7 +26,8 @@
         </div>
         <label for="aiPrompt" class="sr-only">Gegenereerde prompt</label>
         <textarea id="aiPrompt" class="prompt-box" readonly th:text="${prompt}"></textarea>
-        <p class="callout mt-2" th:unless="${includesRecovery}">
+        <p class="callout mt-2" th:if="${promptNote != null}" th:text="${promptNote}">-</p>
+        <p class="callout mt-2" th:if="${promptNote == null}" th:unless="${includesRecovery}">
             De prompt bevat enkel Strava-data (geen weer, slaap, HRV of klachten) en markeert elke waarde als
             gemeten, berekend of app-schatting. Een AI-antwoord blijft een interpretatie, geen diagnose of meting.
         </p>

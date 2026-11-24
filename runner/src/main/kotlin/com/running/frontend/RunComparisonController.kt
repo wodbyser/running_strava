@@ -1,5 +1,6 @@
 package com.running.frontend
 
+import com.running.analysis.AiAnalysisService
 import com.running.analysis.PerfDates
 import com.running.analysis.RunComparisonGlossary
 import com.running.analysis.RunComparisonPage
@@ -10,6 +11,9 @@ import com.running.strava.analysis.performance.RunComparison
 import com.running.strava.analysis.speedMs
 import com.running.strava.domain.Activity
 import com.running.strava.domain.SessionType
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,7 +21,10 @@ import org.springframework.web.bind.annotation.RequestParam
 
 /** "Trainingen vergelijken": 2 to 6 chosen runs side by side. Read only, computed on demand. */
 @Controller
-class RunComparisonController(private val service: RunComparisonService) {
+class RunComparisonController(
+    private val service: RunComparisonService,
+    private val aiAnalysisService: AiAnalysisService,
+) {
 
     data class PickRow(
         val id: Long,
@@ -76,8 +83,42 @@ class RunComparisonController(private val service: RunComparisonService) {
         val glossary = RunComparisonGlossary.all
         model.addAttribute("glossary", glossary)
         model.addAttribute("g", RunComparisonGlossary.terms)
+        model.addAttribute("promptUrl", view?.let { "/compare-runs/prompt?ids=" + shownIds.joinToString(",") })
         return "compare-runs"
     }
+
+    @GetMapping("/compare-runs/prompt")
+    fun compareRunsPrompt(model: Model, @RequestParam(required = false) ids: List<String>?): String {
+        val wanted = service.normalize(RunComparisonService.parseIds(ids))
+        val prompt = aiAnalysisService.buildRunComparisonPrompt(wanted) ?: return redirectToComparison(wanted)
+        model.addAttribute("title", "Vergelijk-prompt trainingen")
+        model.addAttribute(
+            "promptIntro",
+            "Deze prompt bevat de gekozen trainingen met al hun rondes, hun berekende waarden en de vergelijking die de app zelf maakte.",
+        )
+        model.addAttribute(
+            "promptNote",
+            "De app stuurt niets door: je plakt de tekst zelf in een AI-chat. Een AI-antwoord blijft een interpretatie, geen meting.",
+        )
+        model.addAttribute("prompt", prompt)
+        model.addAttribute("backUrl", "/compare-runs" + query(wanted))
+        model.addAttribute("downloadUrl", "/compare-runs/prompt/download" + query(wanted))
+        return "ai"
+    }
+
+    @GetMapping("/compare-runs/prompt/download")
+    fun compareRunsPromptDownload(@RequestParam(required = false) ids: List<String>?): ResponseEntity<ByteArray> {
+        val wanted = service.normalize(RunComparisonService.parseIds(ids))
+        val prompt = aiAnalysisService.buildRunComparisonPrompt(wanted) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"trainingen-vergelijken-prompt.txt\"")
+            .contentType(MediaType.TEXT_PLAIN)
+            .body(prompt.toByteArray())
+    }
+
+    private fun redirectToComparison(ids: List<Long>) = "redirect:/compare-runs" + query(ids)
+
+    private fun query(ids: List<Long>) = if (ids.isEmpty()) "" else "?ids=" + ids.joinToString(",")
 
     /** Where the run took place: trail and treadmill/virtual runs are a different kind of running than the road. */
     private fun sport(a: Activity) = when {

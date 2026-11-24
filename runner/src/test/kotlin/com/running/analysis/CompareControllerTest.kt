@@ -78,6 +78,27 @@ class CompareControllerTest @Autowired constructor(
     }
 
     @Test
+    fun `the prompt page contains the chosen runs and the compare page links to it`() {
+        val a = Fixtures.run(901, at("2026-05-01"), 10000.0, 3000, 150.0, maxHr = 190.0)
+        val b = Fixtures.run(902, at("2026-05-08"), 10000.0, 3060, 150.0, maxHr = 190.0)
+        activityRepository.saveAll(listOf(a, b))
+
+        val page = mvc.perform(get("/compare-runs?ids=901,902")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(page.contains("/compare-runs/prompt?ids=901,902"))
+
+        val html = mvc.perform(get("/compare-runs/prompt?ids=901,902")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("VERGELIJKING VAN 2 TRAININGEN"))
+        assertTrue(html.contains("### Training A: run 901"))
+        assertTrue(html.contains("## Vergelijking van de app"))
+        assertTrue(html.contains("De app stuurt niets door"), "custom prompt callout")
+        assertTrue(html.contains("Aanpassen"), "back link to the comparison")
+        assertFalse(html.contains("\${"))
+
+        // One run is not a comparison: back to the chooser instead of a half-empty prompt.
+        mvc.perform(get("/compare-runs/prompt?ids=901")).andExpect(status().is3xxRedirection)
+    }
+
+    @Test
     fun `the page is GET only and keeps a custom period`() {
         mvc.perform(post("/compare")).andExpect(status().isMethodNotAllowed)
     }

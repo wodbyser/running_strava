@@ -1,6 +1,7 @@
 package com.running.analysis
 
 import com.running.strava.analysis.performance.TerrainClass
+import com.running.strava.analysis.performance.ZoneSource
 import com.running.strava.analysis.ActivityTime
 import java.util.Locale
 import com.running.strava.analysis.Cadence
@@ -12,6 +13,7 @@ import com.running.strava.analysis.speedMs
 import com.running.strava.analysis.HrZones
 import com.running.strava.analysis.RUN_TYPES
 import com.running.strava.analysis.RunAggregates
+import com.running.strava.analysis.TrainingAssessment
 import com.running.strava.analysis.WeeklyVolume
 import com.running.strava.domain.Activity
 import com.running.strava.domain.Lap
@@ -46,6 +48,7 @@ class AiAnalysisService(
     private val recoveryService: RecoveryService? = null,
     private val garminProperties: com.running.config.GarminProperties? = null,
     private val caps: com.running.tenant.web.TenantCapabilities? = null,
+    private val runComparisonService: RunComparisonService? = null,
 ) {
 
     companion object {
@@ -105,7 +108,7 @@ class AiAnalysisService(
     }
 
     /** Instructions that keep the AI within what the data can support. */
-    private fun guardrailsBlock(withLaps: Boolean, withRecovery: Boolean = false): String = buildString {
+    private fun guardrailsBlock(withLaps: Boolean, withRecovery: Boolean = false, withTemperature: Boolean = false): String = buildString {
         appendLine("<werkwijze>")
         if (withRecovery) {
             appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, ziekte, pijn/klachten,")
@@ -115,6 +118,11 @@ class AiAnalysisService(
             appendLine("  gelabeld met $TAG_MEASURED, $TAG_COMPUTED of $TAG_ESTIMATE. Slaapfasen, Body Battery, stress en HRV zijn Garmin-schattingen.")
             appendLine("  Conclusies over blessure, ziekte of trainingsgereedheid zijn niet bepaalbaar uit deze data; geef daar geen oordeel over.")
             appendLine("  Rapporteer afwijkingen in beide richtingen zonder te zeggen dat hoger of lager 'beter' is; enige uitzondering: een lagere rusthartslag dan de norm is geen afwijking.")
+        } else if (withTemperature) {
+            appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN slaap, HRV, rusthartslag, ziekte, pijn/klachten,")
+            appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")
+            appendLine("  De temperatuur per training is de enige weersfactor die in de data staat; wind, regen en luchtvochtigheid ontbreken.")
+            appendLine("  Hangt een conclusie daarvan af, zeg dan expliciet 'niet bepaalbaar uit deze data' in plaats van te gokken.")
         } else {
             appendLine("- Baseer je enkel op de data hieronder. Deze data bevat GEEN weer, slaap, HRV, rusthartslag, ziekte, pijn/klachten,")
             appendLine("  gevoel (RPE), voeding, schoenen, lactaat- of VO2max-metingen, tenzij de gebruiker die zelf in de opmerkingen vermeldt.")
@@ -482,6 +490,272 @@ class AiAnalysisService(
             |$context
             |</trainingsvergelijking>
         """.trimMargin()
+    }
+
+    /**
+     * Prompt for the "Trainingen vergelijken" page: the 2 to 6 chosen runs with everything the page shows, plus the
+     * comparison the app itself made. Returns null when there is nothing to compare (fewer than two known runs) or
+     * when no comparison service is wired.
+     */
+    fun buildRunComparisonPrompt(ids: List<Long>): String? {
+        val comparison = runComparisonService?.compare(ids) ?: return null
+        val entries = comparison.entries
+        val letters = RunComparisonPage.LETTERS
+        val lapsByRun = activityRepository.findLapsForActivities(entries.map { it.analysis.id })
+        val withLaps = entries.any { lapsByRun[it.analysis.id].orEmpty().size > 1 }
+        val withTemperature = entries.any { it.analysis.tempC != null }
+
+        val context = buildString {
+            appendLine("VERGELIJKING VAN ${entries.size} TRAININGEN")
+            appendLine("=".repeat(50))
+            appendLine("De letters A tot en met ${letters[entries.size - 1]} volgen de volgorde van de keuze.")
+            appendLine("Per training staat eerst de samenvatting $TAG_MEASURED, dan de berekende analyse $TAG_COMPUTED, de tijd in")
+            appendLine("hartslagzones en de rondes/laps. Sessiesoort, rollen bij de laps en de vergelijking van de app zijn $TAG_ESTIMATE.")
+            appendLine("Seconde- en GPS-stromen, de loop- en hartslagcurves en je gevoel zitten NIET in deze prompt.")
+            entries.forEachIndexed { i, e ->
+                appendLine()
+                append(runPromptDetail(letters[i], e, lapsByRun[e.analysis.id].orEmpty(), comparison.zoneSet))
+            }
+            appendLine()
+            append(comparisonPromptSummary(comparison))
+        }
+
+        return """
+            |Je bent een ervaren hardloopcoach. Vergelijk onderstaande trainingen van dezelfde loper met elkaar. De
+            |trainingen staan als A, B, C, ... in de data. Behandel minimaal deze punten:
+            |1. Zeg eerst hoe vergelijkbaar de runs zijn (soort training, afstand, terrein, ondergrond, temperatuur,
+            |   hartslag) en welke verschillen een eerlijk vergelijk in de weg staan. Vergelijk alleen gelijksoortige
+            |   trainingen op tempo: een interval is niet 'beter' dan een rustige loop.
+            |2. Intervaltrainingen: vergelijk de reps alleen bij dezelfde opbouw (aantal reps, afstand of duur, herstel).
+            |   Vergelijk tempo en hartslag per rep, de spreiding en het verval over de reps, en het hartslagherstel na de
+            |   reps (alleen bij dezelfde herstelwijze: staan, wandelen of joggen). Houd er rekening mee dat de hartslag bij
+            |   korte reps achterloopt op de inspanning.
+            |3. Rustige lopen en duurlopen: vergelijk tempo bij dezelfde hartslag (meter per hartslag/EF), het
+            |   efficiëntieverlies in de tweede helft (ontkoppeling), de gelijkmatigheid en de tijd in hartslagzones. Een
+            |   hogere hartslag bij hetzelfde tempo kan door warmte, terrein, vermoeidheid of een minder goede
+            |   hartslagmeting komen; noem dat als mogelijke verklaring, niet als feit.
+            |4. Tempotrainingen: vergelijk tempo, hartslag en ontkoppeling van het tempoblok, en let op de lengte van dat
+            |   blok.
+            |5. Benoem per onderdeel wie het best was en met hoeveel marge in echte eenheden, en waar het verschil binnen de
+            |   meetruis valt. De vergelijking van de app onderaan is een referentie: controleer ze aan de hand van de ruwe
+            |   data en zeg het expliciet als je het oneens bent.
+            |6. Sluit af met een eindoordeel in één alinea: wat zeggen deze trainingen over het huidige niveau en de
+            |   ontwikkeling, en wat is de eerstvolgende logische trainingsprikkel. Zijn de runs te verschillend voor een
+            |   eerlijk oordeel, zeg dat dan in plaats van een winnaar te kiezen.
+            |7. Als je context mist die niet in de data staat (gevoel/RPE, weer, slaap, ziekte, schoenen, voeding), vraag
+            |   die aan de gebruiker in plaats van te gokken.
+            |
+            |Geef je antwoord in het Nederlands, met concrete cijfers. Gebruik de letters A, B, C, ... om de trainingen
+            |aan te duiden.
+            |
+            |${definitionsBlock(withLaps = withLaps, withEf = true)}
+            |${guardrailsBlock(withLaps = withLaps, withTemperature = withTemperature)}
+            |<trainingsvergelijking>
+            |$context
+            |</trainingsvergelijking>
+        """.trimMargin()
+    }
+
+    /** One chosen training for the comparison prompt: summary, computed values, zones, reps and laps. */
+    private fun runPromptDetail(
+        letter: String,
+        entry: RunComparisonService.Entry,
+        laps: List<Lap>,
+        zoneSet: com.running.strava.analysis.performance.HrZoneSet?,
+    ): String = buildString {
+        val a = entry.activity
+        val r = entry.analysis
+        val local = ActivityTime.local(a)
+        appendLine("### Training $letter: ${a.name}")
+        appendLine("Datum: ${Format.date(local.toLocalDate())} (lokale starttijd ${local.toLocalTime().withSecond(0).withNano(0)})")
+        appendLine("Type (Strava): ${a.type}" + raceSuffix(a) + if (a.isTrainer) " (loopband: tempo/afstand onbetrouwbaar)" else "")
+        appendLine("Sessiesoort $TAG_ESTIMATE: ${RunComparisonPage.typeLabel(r.sessionType)}")
+        appendLine("Afstand: ${"%.2f".format(Locale.ROOT, a.distance / 1000)} km")
+        appendLine("Bewegingstijd: ${Format.duration(a.movingTime)} (totale tijd ${Format.duration(a.elapsedTime)})")
+        appendLine("Gem. tempo: ${Format.pace(a.speedMs())}")
+        appendLine("Gem. HR: ${a.averageHeartrate?.let { Format.hr(it) } ?: "onbekend (geen HR)"}")
+        a.maxHeartrate?.let { appendLine("Max HR: ${Format.hr(it)}") }
+        Cadence.toSpm(a.averageCadence, a.type)?.let { appendLine("Gem. cadans: ${"%.0f".format(Locale.ROOT, it)} spm") }
+        a.averageWatts?.let { appendLine("Gem. vermogen: ${"%.0f".format(Locale.ROOT, it)} W") }
+        appendLine(
+            "Hoogtemeters: ${"%.0f".format(Locale.ROOT, a.totalElevationGain)} m " +
+                "(${"%.0f".format(Locale.ROOT, TerrainClass.elevationPerKm(a))} m/km, ${TerrainClass.of(a).text})",
+        )
+        r.tempC?.let { appendLine("Temperatuur: ${"%.1f".format(Locale.ROOT, it)} °C $TAG_MEASURED (Garmin)") }
+        a.sufferScore?.let { appendLine("Suffer score: $it (Strava-berekening op basis van HR; geen app-waarde)") }
+        entry.assessment?.let {
+            appendLine("Uitvoering $TAG_ESTIMATE: ${assessmentLevelText(it.level)} (zekerheid ${confidenceText(it.confidence)})")
+        }
+        if (laps.size > 1) {
+            formatIntervalSummary(laps, a.workoutType, TerrainClass.elevationPerKm(a))?.let {
+                appendLine("Opbouw $TAG_ESTIMATE: $it")
+            }
+        }
+
+        appendLine()
+        appendLine("Analyse $TAG_COMPUTED:")
+        var analysisLines = 0
+        r.gap?.gapSpeed?.takeIf { it > 0 }?.let {
+            appendLine("- GAP (tempo omgerekend naar vlak terrein): ${Format.pace(it)}")
+            analysisLines++
+        }
+        r.ef?.let { ef ->
+            appendLine(
+                "- EF van het stabiele deel (na de opwarming): ${EfficiencyFactor.format(ef.ef)} " +
+                    "= ${PerformanceText.efMetres(ef.ef)} per hartslag, gem. HR ${Format.hr(ef.avgHr)}, " +
+                    "over ${"%.0f".format(Locale.ROOT, ef.windowMinutes)} min",
+            )
+            analysisLines++
+        }
+        if (r.ef == null) {
+            entry.compared.wholeEf?.let { ef ->
+                appendLine(
+                    "- EF van de hele run (gem. tempo / gem. HR): ${EfficiencyFactor.format(ef)} " +
+                        "= ${PerformanceText.efMetres(ef)} per hartslag (onder voorbehoud: opwarming en tempowissels tellen mee)",
+                )
+                analysisLines++
+            }
+        }
+        r.drift?.let { d ->
+            if (d.driftAvailable) {
+                appendLine(
+                    "- Ontkoppeling (efficiëntieverlies tweede helft): ${"%+.1f".format(Locale.ROOT, d.decouplingPct)} % " +
+                        "(HR ${Format.hr(d.hr1)} -> ${Format.hr(d.hr2)}, tempo-ratio ${"%.2f".format(Locale.ROOT, d.speedRatio)})",
+                )
+            } else {
+                appendLine(
+                    "- Ontkoppeling: niet betrouwbaar, want het tempo wisselde te veel tussen de helften " +
+                        "(tempo-ratio ${"%.2f".format(Locale.ROOT, d.speedRatio)})",
+                )
+            }
+            analysisLines++
+        }
+        r.speedCv?.let {
+            appendLine("- Tempo-variatie tussen 5-minutenblokken: ${"%.1f".format(Locale.ROOT, it * 100)} %")
+            analysisLines++
+        }
+        entry.compared.interval?.let { i ->
+            appendLine("- Intervalopbouw: ${i.signature ?: "gemengd of ladder"} (${i.repCount} reps)")
+            appendLine("- Tempo van de reps: ${Format.pace(i.repSpeed)}")
+            i.repSpeedCv?.let { appendLine("- Spreiding tussen de reps (variatiecoëfficiënt): ${"%.1f".format(Locale.ROOT, it * 100)} %") }
+            i.fadePct?.let { appendLine("- Verval laatste tegenover eerste rep: ${"%+.1f".format(Locale.ROOT, it)} %") }
+            appendLine(
+                if (i.hrr60 != null) {
+                    "- Hartslagherstel 60 s na de reps (mediaan, herstelwijze ${i.hrrProtocol?.text ?: "onbekend"}): ${Format.hr(i.hrr60)}"
+                } else {
+                    "- Hartslagherstel 60 s na de reps: geen betrouwbare meting"
+                },
+            )
+            analysisLines++
+        }
+        if (analysisLines == 0) appendLine("- Geen berekende analyse: te weinig seconde- of hartslagdata voor deze run.")
+
+        appendZones(zoneSet, entry)
+
+        val reps = r.intervals?.reps.orEmpty()
+        if (reps.isNotEmpty()) {
+            appendLine()
+            appendLine("Reps $TAG_MEASURED met per rep het herstel erna en het hartslagherstel (rol en herstelwijze $TAG_ESTIMATE):")
+            reps.forEach { rep ->
+                appendLine(
+                    "  Rep ${rep.number}: ${"%.0f".format(Locale.ROOT, rep.distanceMeters)} m in ${Format.duration(rep.seconds)}, " +
+                        "${Format.pace(rep.speed)}, gem. HR ${rep.avgHr?.let { Format.hr(it) } ?: "onbekend"}, " +
+                        "max HR ${rep.maxHr?.let { Format.hr(it) } ?: "onbekend"}" +
+                        (rep.cadenceSpm?.let { ", cadans ${"%.0f".format(Locale.ROOT, it)} spm" } ?: "") +
+                        (rep.recoverySeconds?.let { ", herstel erna ${Format.duration(it)}" } ?: "") +
+                        (rep.hrr?.let { ", HRR60 ${Format.hr(it.hrr60)} (${it.protocol.text})" } ?: ", HRR60 onbekend"),
+                )
+            }
+        }
+
+        appendLine()
+        if (laps.size > 1) {
+            val labels = lapLabels(laps, a.workoutType, TerrainClass.elevationPerKm(a))
+            appendLine("Rondes/laps (${laps.size}): afstand, tijd, tempo en HR zijn $TAG_MEASURED; de rol na '->' is $TAG_ESTIMATE:")
+            laps.forEachIndexed { i, lap ->
+                appendLine(
+                    "  Lap ${lap.lapIndex}: ${"%.0f".format(Locale.ROOT, lap.distance)} m in ${Format.duration(lap.movingTime)}, " +
+                        "${Format.pace(lap.speedMs())}, gem. HR ${lap.averageHeartrate?.let { Format.hr(it) } ?: "onbekend"}, " +
+                        "max HR ${lap.maxHeartrate?.let { Format.hr(it) } ?: "onbekend"}" +
+                        (Cadence.toSpm(lap.averageCadence, a.type)?.let { ", cadans ${"%.0f".format(Locale.ROOT, it)} spm" } ?: "") +
+                        " -> ${labels[i]}",
+                )
+            }
+        } else {
+            appendLine("Geen rondes/laps: de opbouw (intervallen, tempo) is niet te bepalen uit deze data.")
+        }
+    }
+
+    private fun StringBuilder.appendZones(
+        zoneSet: com.running.strava.analysis.performance.HrZoneSet?,
+        entry: RunComparisonService.Entry,
+    ) {
+        val seconds = entry.zoneSeconds ?: return
+        if (zoneSet == null) return
+        val total = seconds.sum()
+        if (total <= 0) return
+        val source = when (zoneSet.source) {
+            ZoneSource.GARMIN -> "Garmin-instelling"
+            ZoneSource.APP -> "app-schatting: procenten van je geschatte max-HR"
+        }
+        appendLine()
+        appendLine("Tijd in hartslagzones $TAG_COMPUTED (zone-instelling: $source):")
+        (1..5).forEach { z ->
+            val range = when (z) {
+                1 -> "tot ${zoneSet.floors[0] - 1} bpm"
+                5 -> "vanaf ${zoneSet.floors[4]} bpm"
+                else -> "${zoneSet.floors[z - 2]}-${zoneSet.floors[z - 1] - 1} bpm"
+            }
+            val pct = seconds[z - 1] / total * 100
+            appendLine("- Zone $z ($range): ${Format.duration(seconds[z - 1])} (${"%.0f".format(Locale.ROOT, pct)} %)")
+        }
+    }
+
+    /** The comparison the app itself made, as plain text. The AI is told to check it against the raw data. */
+    private fun comparisonPromptSummary(comparison: RunComparisonService.Comparison): String = buildString {
+        val view = RunComparisonPage.build(comparison, comparison.entries.map { it.analysis.id })
+        appendLine("## Vergelijking van de app (referentie, geen vervanging voor je eigen analyse)")
+        appendLine("Uitkomst: ${view.hero.headline}")
+        appendLine(view.hero.sub)
+        appendLine("Vergelijkbaarheid: ${view.hero.levelLabel}")
+        view.hero.checks.forEach { c ->
+            appendLine("- ${when (c.ok) { true -> "ja"; false -> "nee"; null -> "onbekend" }}: ${c.text}")
+        }
+        if (view.hero.compared > 0) {
+            appendLine(
+                "Telling over ${view.hero.compared} vergelijkbare onderdelen: " + view.hero.tally.joinToString("; ") {
+                    "${it.run.letter}: ${it.wins} keer alleen de beste, ${it.shared} keer gedeeld"
+                },
+            )
+        }
+        appendLine("Conclusie van de app:")
+        view.hero.conclusion.forEach { appendLine("- $it") }
+        appendLine()
+        appendLine("Per onderdeel:")
+        view.aspects.forEach { a ->
+            appendLine("- ${a.title}: ${a.statusLabel}. ${a.verdict}")
+            if (a.cautions.isNotEmpty()) appendLine("  Onder voorbehoud: ${a.cautions.joinToString("; ")}.")
+            a.rows.forEach { row ->
+                appendLine("    ${row.run.letter} (${row.run.dateShort}): ${row.value}" + (row.note?.let { " ($it)" } ?: ""))
+            }
+        }
+        if (view.skipped.isNotEmpty()) {
+            appendLine()
+            appendLine("Niet vergeleken: ${view.skipped.joinToString("; ")}.")
+        }
+    }
+
+    private fun assessmentLevelText(level: TrainingAssessment.RatingLevel) = when (level) {
+        TrainingAssessment.RatingLevel.SOUND -> "uitvoering klopt"
+        TrainingAssessment.RatingLevel.MIXED -> "aandachtspunt"
+        TrainingAssessment.RatingLevel.OFF -> "wijkt af"
+        TrainingAssessment.RatingLevel.INSUFFICIENT -> "geen oordeel"
+    }
+
+    private fun confidenceText(confidence: TrainingAssessment.DataConfidence) = when (confidence) {
+        TrainingAssessment.DataConfidence.HIGH -> "hoog"
+        TrainingAssessment.DataConfidence.MEDIUM -> "middelmatig"
+        TrainingAssessment.DataConfidence.LOW -> "laag"
     }
 
     private fun weeksIn(from: LocalDate?, till: LocalDate?): Double? {
