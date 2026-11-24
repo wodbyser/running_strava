@@ -1,11 +1,10 @@
 /* Running Coach — light/dark theme.
    Runs in <head> before the stylesheet so the first paint already has the right colours.
-   No stored choice = follow the operating system. A click stores an explicit choice. */
+   No stored choice = follow the operating system, and light when it says nothing. A click stores an explicit choice. */
 (function () {
     var KEY = 'rc-theme';
     var root = document.documentElement;
     var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-    var lightMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
     var listeners = [];
 
     function stored() {
@@ -23,9 +22,9 @@
         return m ? m[1] : null;
     }
 
-    /* Only an explicit "light" preference gives light; no preference at all means dark. */
+    /* Light unless the operating system explicitly asks for dark. */
     function system() {
-        return lightMedia && lightMedia.matches ? 'light' : 'dark';
+        return media && media.matches ? 'dark' : 'light';
     }
 
     function current() {

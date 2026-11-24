@@ -125,8 +125,9 @@ extras, and only then the explanation of the data and the glossary. Jump links f
 - One stylesheet: `runner/src/main/resources/static/css/app.css`. Templates never carry a `<style>` block.
 - Use the tokens at the top of that file (`--ink`, `--muted`, `--accent`, `--sp-*`, `--radius`, ...) instead of hard-coded
   values, so the palette and spacing stay consistent.
-- **Light and dark are both first-class.** `static/js/theme.js` sets `data-theme` on `<html>` before the stylesheet loads
-  (stored choice, otherwise the operating system) and the topbar toggle switches it. The dark palette is the
+- **Light and dark are both first-class, light is the default.** `static/js/theme.js` sets `data-theme` on `<html>`
+  before the stylesheet loads (stored choice, otherwise the operating system, and light when it has no preference) and
+  the topbar toggle switches it. The dark palette is the
   `html[data-theme="dark"]` token block; new components must use tokens, and a literal light colour needs a dark
   override next to the other `Dark theme: components with a literal light colour` rules.
 - Charts keep their configs in the light palette (`RC.s1`, `RC.line`, `RC.ink`, ...). `RC.themeChart()` maps those
