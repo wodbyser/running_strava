@@ -136,7 +136,7 @@
             </tr></thead>
             <tbody>
             <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'"
-                th:attr="data-search=${m.name} + ' ' + ${m.date},data-date=${m.iso},data-km=${m.distanceMeters / 1000},data-sport=${m.sport}">
+                th:attr="data-search=${#strings.toLowerCase(m.name + ' ' + m.date)},data-date=${m.iso},data-km=${m.distanceMeters / 1000},data-sport=${m.sport}">
                 <td class="pick-cell">
                     <label class="pick-check" th:unless="${m.self}" th:title="'Naast deze run leggen: ' + ${m.name}"><input type="checkbox" name="ids" th:value="${m.id}" th:attr="aria-label='Vergelijk met ' + ${m.name} + ' van ' + ${m.date}"></label>
                     <span class="pick-check" th:if="${m.self}" title="Deze run zit altijd in de vergelijking" aria-hidden="true">&#10003;</span>

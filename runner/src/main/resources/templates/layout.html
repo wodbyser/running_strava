@@ -515,7 +515,7 @@
                 rows.forEach(function (li) {
                     var d = li.getAttribute('data-date') || '';
                     var km = parseFloat(li.getAttribute('data-km'));
-                    var hit = (!q || (li.getAttribute('data-search') || '').toLowerCase().indexOf(q) >= 0)
+                    var hit = (!q || li.getAttribute('data-search').indexOf(q) >= 0)
                         && (!from || d >= from) && (!till || d <= till)
                         && (!kind || li.getAttribute('data-kind') === kind)
                         && (!sport || li.getAttribute('data-sport') === sport)

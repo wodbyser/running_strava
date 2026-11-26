@@ -1177,7 +1177,7 @@ details.picker[open] > summary { margin-bottom: var(--sp-3); }
 .pick-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4); min-height: 34px; }
 .pick-status [data-pick-shown] { font-weight: 600; color: var(--ink-2); }
 .pick-list {
-    list-style: none; max-height: 30rem; overflow-y: auto; overscroll-behavior: contain;
+    list-style: none; max-height: 26rem; overflow-y: auto; overscroll-behavior: contain;
     border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
 }
 .pick-list li + li { border-top: 1px solid var(--line); }
