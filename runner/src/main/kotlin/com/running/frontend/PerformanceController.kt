@@ -6,6 +6,7 @@ import com.running.analysis.PerformanceReport
 import com.running.analysis.PerformanceService
 import com.running.analysis.PerformanceText
 import com.running.analysis.PerformanceWindows
+import com.running.analysis.CmpSort
 import com.running.analysis.RunPageBuilder
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Controller
@@ -55,15 +56,17 @@ class PerformanceController(private val service: PerformanceService) {
         @PathVariable id: Long,
         @RequestParam(required = false) zones: String?,
         @RequestParam(required = false) days: String?,
+        @RequestParam(required = false) cmpSort: String?,
     ): String {
         val d = days?.trim()?.toIntOrNull()?.coerceIn(PerformanceService.MIN_TYPICAL_DAYS, PerformanceService.MAX_TYPICAL_DAYS)
             ?: PerformanceService.DEFAULT_TYPICAL_DAYS
+        val sort = cmpSort?.let { runCatching { CmpSort.valueOf(it.uppercase()) }.getOrNull() } ?: CmpSort.SIMILARITY
         val r = service.runReport(id, zones, d) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Run niet gevonden")
         model.addAttribute("title", "Prestatie-analyse")
         model.addAttribute("safety", PerformanceText.SAFETY)
         model.addAttribute("association", PerformanceText.ASSOCIATION)
         model.addAttribute("a", r.run)
-        model.addAttribute("v", RunPageBuilder.build(r))
+        model.addAttribute("v", RunPageBuilder.build(r, sort, service::sportOf))
         model.addAttribute("g", PerformanceGlossary.terms)
         model.addAttribute("cmp", r.comparable)
         model.addAttribute("days", d)
@@ -71,6 +74,13 @@ class PerformanceController(private val service: PerformanceService) {
         model.addAttribute("minDays", PerformanceService.MIN_TYPICAL_DAYS)
         model.addAttribute("maxDays", PerformanceService.MAX_TYPICAL_DAYS)
         model.addAttribute("zonesParam", zones ?: "")
+        val keep = listOfNotNull(
+            zones?.takeIf { it.isNotBlank() }?.let { "zones" to it },
+            days?.takeIf { it.isNotBlank() && it.trim().toIntOrNull() != null }?.let { "days" to it },
+        ).toMap()
+        model.addAttribute("cmpSortUrls", CmpSort.entries.associate { s ->
+            s.name.lowercase() to (runUrl(id, keep + ("cmpSort" to s.name.lowercase())) + "#h-cmp")
+        })
         return "performance-run"
     }
 
@@ -78,6 +88,12 @@ class PerformanceController(private val service: PerformanceService) {
     @ResponseBody
     fun data(@RequestParam params: Map<String, String>): PerformanceReport =
         service.report(params["zones"]?.takeIf { it.isNotBlank() }, PerformanceWindows.from(params))
+
+    private fun runUrl(id: Long, params: Map<String, String>): String {
+        val b = UriComponentsBuilder.fromPath("/performance/run/$id")
+        params.forEach { (k, v) -> b.queryParam(k, v) }
+        return b.encode().build().toUriString()
+    }
 
     private fun url(params: Map<String, String>): String {
         val b = UriComponentsBuilder.fromPath("/performance")

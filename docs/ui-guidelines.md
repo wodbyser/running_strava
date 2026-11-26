@@ -147,8 +147,11 @@ extras, and only then the explanation of the data and the glossary. Jump links f
   not add your own arrow to the summary text.
 - A dropdown with actions (Dashboard "Meer opties") uses `.menu-item` rows: the action as title plus one muted line,
   like the navigation panels. No stacked bordered buttons.
-- Long lists use the client-side pager: `<div class="table-wrap" data-paginate="50">` (the value is the default page
-  size). Rows that open a page get `class="row-click" data-href="…"` and keep a real link in the name cell.
+- Long **comparison/analysis** lists (vergelijkbare runs, de run-kiezer) scroll inside a fixed-height box:
+  `<div class="table-wrap scroll-list" data-scroll>` or `ul.pick-list`. No pager — the reader must be able to scan all
+  candidates in one gesture. Long **administrative** lists (Trainingen) still use the client-side pager:
+  `<div class="table-wrap" data-paginate="50">` (the value is the default page size). Rows that open a page get
+  `class="row-click" data-href="…"` and keep a real link in the name cell.
 
 ## 11. On a phone (≤ 640px)
 

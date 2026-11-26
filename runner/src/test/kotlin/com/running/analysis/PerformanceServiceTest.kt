@@ -144,6 +144,27 @@ class PerformanceServiceTest {
     }
 
     @Test
+    fun `sorting comparable runs by date keeps the same selection and orders them newest first`() {
+        val (s, _) = service()
+        val report = s.runReport(1)!!
+        val bySimilarity = RunPageBuilder.build(report)
+        val byDate = RunPageBuilder.build(report, CmpSort.DATE, s::sportOf)
+        assertEquals(12, byDate.cmpRows.size)
+        assertEquals(
+            bySimilarity.cmpRows.drop(1).map { it.id }.toSet(),
+            byDate.cmpRows.drop(1).map { it.id }.toSet(),
+            "the same comparable runs, only the order changes",
+        )
+        val dates = byDate.cmpRows.map { it.iso }
+        assertEquals(dates.sortedDescending(), dates, "newest first, oldest last")
+        assertTrue(byDate.cmpRows.first().self, "the current run is the newest one in this fixture")
+        assertEquals(bySimilarity.cmpRows.map { it.id }.toSet(), byDate.cmpRows.map { it.id }.toSet())
+        assertTrue(byDate.cmpSports.isNotEmpty())
+        assertEquals(byDate.cmpRows.map { it.iso }.minOrNull(), byDate.cmpFrom)
+        assertEquals(byDate.cmpRows.map { it.iso }.maxOrNull(), byDate.cmpTill)
+    }
+
+    @Test
     fun `overview page uses dutch dates and the chosen comparison windows`() {
         val (s, _) = service()
         val r = s.report(w = PerformanceWindows(efShortDays = 14, efLongDays = 60))

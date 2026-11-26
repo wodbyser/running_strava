@@ -11,7 +11,7 @@ import com.running.strava.analysis.Format
 import com.running.strava.analysis.performance.RunComparison
 import com.running.strava.analysis.speedMs
 import com.running.strava.domain.Activity
-import com.running.strava.domain.SessionType
+import java.util.Locale
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -33,6 +33,7 @@ class RunComparisonController(
         val name: String,
         val date: String,
         val meta: String,
+        val km: Double,
         val similar: Boolean,
         val checked: Boolean,
         /** Lower-case text the search box filters on. */
@@ -72,16 +73,18 @@ class RunComparisonController(
             val meta = listOf(Format.km(a.distance), Format.pace(a.speedMs()), Format.hr(a.averageHeartrate), Format.duration(a.movingTime))
                 .filter { it != "-" }.joinToString(" · ")
             val kindLabel = RunComparisonPage.typeLabel(c.sessionType)
-            PickRow(a.id, a.name, date, meta, c.similar, a.id in shownIds, "${a.name} $date".lowercase(), day.toString(),
+            PickRow(a.id, a.name, date, meta, a.distance / 1000.0, c.similar, a.id in shownIds, "${a.name} $date".lowercase(), day.toString(),
                 c.sessionType.name.lowercase(), kindLabel, sport(a))
         }
         model.addAttribute("pick", rows)
         model.addAttribute("pickTotal", rows.size)
         model.addAttribute("pickFrom", rows.minOfOrNull { it.iso })
         model.addAttribute("pickTill", rows.maxOfOrNull { it.iso })
-        model.addAttribute("kinds", SessionType.entries.map { t -> t.name.lowercase() to RunComparisonPage.typeLabel(t) }
-            .map { (v, label) -> Option(v, label, rows.count { it.kind == v }) }.filter { it.count > 0 })
         model.addAttribute("sports", SPORTS.map { (v, label) -> Option(v, label, rows.count { it.sport == v }) }.filter { it.count > 0 })
+        // Same distance band as the comparable-run finder, without a training-kind filter: the list stays comparable.
+        model.addAttribute("distanceHint", chosen.firstOrNull()?.let { id ->
+            rows.firstOrNull { it.id == id }?.km?.let { km -> "%.1f–%.1f".format(Locale.ROOT, km * 0.8, km * 1.25) }
+        })
         val glossary = RunComparisonGlossary.all
         model.addAttribute("glossary", glossary)
         model.addAttribute("g", RunComparisonGlossary.terms)

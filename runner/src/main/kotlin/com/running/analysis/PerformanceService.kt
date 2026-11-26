@@ -168,6 +168,19 @@ class PerformanceService(
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZONE))
 
+    /**
+     * Where a run took place, using the same three values as the compare-runs picker: trail and treadmill/virtual runs
+     * are a different kind of running than the road. Used by the filters on both run lists.
+     */
+    fun sportOf(id: Long): String {
+        val a = activityRepository.findById(id) ?: return "weg"
+        return when {
+            a.isTrainer || a.type == "VirtualRun" -> "loopband"
+            a.type == "TrailRun" -> "trail"
+            else -> "weg"
+        }
+    }
+
     private fun eligibleRuns(): List<Activity> = activityRepository.findAll().filter { it.isRun() && !it.isManual && !it.isFlagged }
 
     private fun analyze(a: Activity, laps: List<Lap>, maxHr: Int?): RunAnalysis {

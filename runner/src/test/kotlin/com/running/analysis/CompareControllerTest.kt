@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -96,6 +97,21 @@ class CompareControllerTest @Autowired constructor(
 
         // One run is not a comparison: back to the chooser instead of a half-empty prompt.
         mvc.perform(get("/compare-runs/prompt?ids=901")).andExpect(status().is3xxRedirection)
+    }
+
+    @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    fun `run picker has comparable filters but no sort or training-kind filter`() {
+        activityRepository.saveAll((1..4).map { Fixtures.run(800L + it, at("2026-06-0$it"), 10000.0, 3300, 150.0, maxHr = 190.0) })
+
+        val html = mvc.perform(get("/compare-runs")).andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(html.contains("data-pick-filter=\"minKm\""))
+        assertTrue(html.contains("data-pick-filter=\"maxKm\""))
+        assertFalse(html.contains("data-pick-filter=\"kind\""), "training kind must not filter the comparable list")
+        assertFalse(html.contains("pick-sort"), "sorting belongs to the comparable runs on the detail page")
+        assertTrue(html.contains("pick-list"), "the list scrolls instead of paging")
+        assertFalse(html.contains("class=\"pager\""))
+        assertFalse(html.contains("\${"))
     }
 
     @Test

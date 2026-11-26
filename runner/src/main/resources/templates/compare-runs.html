@@ -56,11 +56,12 @@
                         <input type="date" id="pick-till" th:min="${pickFrom}" th:max="${pickTill}" data-pick-filter="till" aria-label="Trainingen tot en met">
                     </span>
                     <span class="filter-group">
-                        <label for="pick-kind">Soort training <th:block th:replace="~{fragments :: help(${g['sessietype']})}"/></label>
-                        <select id="pick-kind" data-pick-filter="kind">
-                            <option value="">Alle soorten</option>
-                            <option th:each="o : ${kinds}" th:value="${o.value}" th:text="${#strings.capitalize(o.label)} + ' (' + ${o.count} + ')'">Rustig</option>
-                        </select>
+                        <label for="pick-min-km">Afstand van</label>
+                        <span class="inline"><input type="number" id="pick-min-km" min="0" step="0.5" placeholder="km" inputmode="decimal" data-pick-filter="minKm" aria-label="Minimale afstand in kilometers"></span>
+                    </span>
+                    <span class="filter-group">
+                        <label for="pick-max-km">tot</label>
+                        <span class="inline"><input type="number" id="pick-max-km" min="0" step="0.5" placeholder="km" inputmode="decimal" data-pick-filter="maxKm" aria-label="Maximale afstand in kilometers"></span>
                     </span>
                     <span class="filter-group" th:if="${sports.size() > 1}">
                         <label for="pick-sport">Soort loop</label>
@@ -74,10 +75,11 @@
                     <span class="note-xs" data-pick-shown aria-live="polite" th:text="${pickTotal} + ' trainingen'">-</span>
                     <button type="button" class="btn btn-ghost btn-sm" data-pick-reset hidden>Filters wissen</button>
                     <span class="field-hint pick-hint">Aangevinkte trainingen blijven altijd zichtbaar en gekozen.</span>
+                    <span class="field-hint" th:if="${distanceHint != null}">Vergelijkbare afstand: <strong th:text="${distanceHint} + ' km'">-</strong> (0,8–1,25 keer je eerste keuze).</span>
                     <span class="field-hint" th:if="${hasSimilar}">Met <span class="badge badge-est">lijkt erop</span>: zelfde soort training, afstand en terrein als je eerste keuze.</span>
                 </div>
                 <ul class="pick-list">
-                    <li th:each="p : ${pick}" th:attr="data-search=${p.search},data-date=${p.iso},data-kind=${p.kind},data-sport=${p.sport}">
+                    <li th:each="p : ${pick}" th:attr="data-search=${p.search},data-date=${p.iso},data-km=${p.km},data-sport=${p.sport}">
                         <label class="pick-row">
                             <input type="checkbox" name="ids" th:value="${p.id}" th:checked="${p.checked}">
                             <span class="pick-main">

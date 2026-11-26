@@ -1158,6 +1158,14 @@ details.picker { margin-top: var(--sp-4); }
 details.picker > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-sm); color: var(--accent); min-height: 36px; display: inline-flex; align-items: center; }
 details.picker[open] > summary { margin-bottom: var(--sp-3); }
 .picker-form { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* The sort switch belongs to the comparable runs on the run analysis page. */
+.cmp-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) var(--sp-4); flex-wrap: wrap; }
+.cmp-filters { margin-top: var(--sp-3); }
+.cmp-status { margin-bottom: var(--sp-2); }
+.scroll-list { max-height: 30rem; overflow-y: auto; overscroll-behavior: contain; }
+.scroll-list thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+.table-empty td { padding: var(--sp-4); text-align: center; color: var(--muted); font-size: var(--fs-sm); }
+.table-empty[hidden] { display: none; }
 .pick-filters {
     display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--sp-3) var(--sp-4);
     padding: var(--sp-3) var(--sp-4); background: var(--surface-2); border-radius: var(--radius-sm);
@@ -1169,7 +1177,7 @@ details.picker[open] > summary { margin-bottom: var(--sp-3); }
 .pick-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-4); min-height: 34px; }
 .pick-status [data-pick-shown] { font-weight: 600; color: var(--ink-2); }
 .pick-list {
-    list-style: none; max-height: 26rem; overflow-y: auto; overscroll-behavior: contain;
+    list-style: none; max-height: 30rem; overflow-y: auto; overscroll-behavior: contain;
     border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
 }
 .pick-list li + li { border-top: 1px solid var(--line); }

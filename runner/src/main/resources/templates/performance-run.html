@@ -26,6 +26,7 @@
         <div class="lead">Wat elke waarde betekent, en hoe ze zich verhoudt tot je eigen stabiele runs van de laatste <span th:text="${days}">90</span> dagen. De meeste waarden bestaan alleen voor <strong>stabiele runs</strong> <th:block th:replace="~{fragments :: help(${g['stabiele-run']})}"/></div>
         <form method="get" th:action="@{/performance/run/{id}(id=${a.id})} + '#h-metrics'" class="window-form" aria-label="Periode voor je eigen mediaan">
             <input type="hidden" name="zones" th:if="${zonesParam != ''}" th:value="${zonesParam}">
+            <input type="hidden" name="cmpSort" th:value="${v.cmpSort.name.toLowerCase()}">
             <span class="filter-group">
                 <label for="w-days">Vergelijk met je runs van de laatste</label>
                 <span class="inline"><input type="number" id="w-days" name="days" th:value="${days}" th:min="${minDays}" th:max="${maxDays}" required><span class="unit">dagen</span></span>
@@ -77,12 +78,53 @@
     </section>
 
     <section class="card" aria-labelledby="h-cmp">
-        <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est" title="Een selectie van de app.">app-schatting</span></h2>
-        <p class="lead">Runs die op deze run lijken. Bovenaan staat deze run zelf. De ✓ en ✗ tonen op welke punten een run extra goed overeenkomt; runs met meer ✓ staan hoger. <strong>Vink runs aan en kies "Vergelijk geselecteerde runs"</strong> om te zien welke het snelst, het zuinigst en het best uitgevoerd was.</p>
+        <div class="card-head cmp-head">
+            <h2 id="h-cmp">Vergelijkbare runs <span class="badge badge-est" title="Een selectie van de app.">app-schatting</span></h2>
+            <div class="seg" role="group" aria-label="Sorteer vergelijkbare runs">
+                <a th:href="${cmpSortUrls['similarity']}" th:attr="aria-current=${v.cmpSort.name() == 'SIMILARITY'} ? 'page' : null">Gelijkenis</a>
+                <a th:href="${cmpSortUrls['date']}" th:attr="aria-current=${v.cmpSort.name() == 'DATE'} ? 'page' : null">Datum</a>
+            </div>
+        </div>
+        <p class="lead" th:if="${v.cmpSort.name() == 'SIMILARITY'}">Runs die op deze run lijken. Bovenaan staat deze run zelf. De ✓ en ✗ tonen op welke punten een run extra goed overeenkomt; runs met meer ✓ staan hoger. <strong>Vink runs aan en kies "Vergelijk geselecteerde runs"</strong> om te zien welke het snelst, het zuinigst en het best uitgevoerd was.</p>
+        <p class="lead" th:if="${v.cmpSort.name() == 'DATE'}">Dezelfde vergelijkbare runs, nu van nieuw naar oud gerangschikt; deze run staat op zijn eigen datum tussen de andere. De ✓ en ✗ tonen op welke punten een run overeenkomt; sorteren op datum verandert niet welke runs meetellen. <strong>Vink runs aan en kies "Vergelijk geselecteerde runs"</strong> om ze naast elkaar te zien.</p>
         <p class="callout" th:if="${v.cmpMessage != null}" th:text="${v.cmpMessage}">-</p>
-        <form method="get" action="/compare-runs" data-pick="6" th:if="${!v.cmpRows.isEmpty()}" aria-label="Runs kiezen om naast deze run te leggen">
+        <form method="get" action="/compare-runs" data-pick="6" data-pick-noun="runs" th:if="${!v.cmpRows.isEmpty()}" aria-label="Runs kiezen om naast deze run te leggen">
         <input type="hidden" name="ids" th:value="${a.id}">
-        <div class="table-wrap" data-paginate><table>
+        <div class="pick-filters cmp-filters" role="group" aria-label="Lijst met vergelijkbare runs filteren">
+            <span class="filter-group pick-search">
+                <label for="cmp-search">Zoeken</label>
+                <input type="search" id="cmp-search" placeholder="Naam of datum" autocomplete="off" data-pick-search>
+            </span>
+            <span class="filter-group">
+                <label for="cmp-from">Van</label>
+                <input type="date" id="cmp-from" th:min="${v.cmpFrom}" th:max="${v.cmpTill}" data-pick-filter="from" aria-label="Runs vanaf">
+            </span>
+            <span class="filter-group">
+                <label for="cmp-till">Tot en met</label>
+                <input type="date" id="cmp-till" th:min="${v.cmpFrom}" th:max="${v.cmpTill}" data-pick-filter="till" aria-label="Runs tot en met">
+            </span>
+            <span class="filter-group">
+                <label for="cmp-min-km">Afstand van</label>
+                <span class="inline"><input type="number" id="cmp-min-km" min="0" step="0.5" placeholder="km" inputmode="decimal" data-pick-filter="minKm" aria-label="Minimale afstand in kilometers"></span>
+            </span>
+            <span class="filter-group">
+                <label for="cmp-max-km">tot</label>
+                <span class="inline"><input type="number" id="cmp-max-km" min="0" step="0.5" placeholder="km" inputmode="decimal" data-pick-filter="maxKm" aria-label="Maximale afstand in kilometers"></span>
+            </span>
+            <span class="filter-group" th:if="${v.cmpSports.size() > 1}">
+                <label for="cmp-sport">Soort loop</label>
+                <select id="cmp-sport" data-pick-filter="sport">
+                    <option value="">Alles</option>
+                    <option th:each="o : ${v.cmpSports}" th:value="${o.value}" th:text="${o.label}">Weg</option>
+                </select>
+            </span>
+        </div>
+        <div class="pick-status cmp-status">
+            <span class="note-xs" data-pick-shown aria-live="polite" th:text="${v.cmpRows.size()} + ' runs'">-</span>
+            <button type="button" class="btn btn-ghost btn-sm" data-pick-reset hidden>Filters wissen</button>
+            <span class="field-hint">Aangevinkte runs blijven zichtbaar.</span>
+        </div>
+        <div class="table-wrap scroll-list" data-scroll data-cmp-list><table>
             <thead><tr>
                 <th class="pick-cell"><span class="sr-only">Vergelijken</span></th>
                 <th>Datum</th><th>Run</th><th class="num">Afstand</th><th class="num">Tempo</th>
@@ -93,7 +135,8 @@
                 <th class="crit" th:each="h : ${v.cmpHeads}" th:title="${h.long}" th:text="${h.short}">-</th>
             </tr></thead>
             <tbody>
-            <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'">
+            <tr th:each="m : ${v.cmpRows}" th:classappend="${m.self} ? 'row-highlight'"
+                th:attr="data-search=${m.name} + ' ' + ${m.date},data-date=${m.iso},data-km=${m.distanceMeters / 1000},data-sport=${m.sport}">
                 <td class="pick-cell">
                     <label class="pick-check" th:unless="${m.self}" th:title="'Naast deze run leggen: ' + ${m.name}"><input type="checkbox" name="ids" th:value="${m.id}" th:attr="aria-label='Vergelijk met ' + ${m.name} + ' van ' + ${m.date}"></label>
                     <span class="pick-check" th:if="${m.self}" title="Deze run zit altijd in de vergelijking" aria-hidden="true">&#10003;</span>
@@ -108,6 +151,7 @@
                 <td class="num" th:text="${m.drift}">-</td>
                 <td class="crit" th:each="c : ${m.cells}" th:classappend="${c.css}" th:title="${c.title}"><span th:text="${c.symbol}">-</span><span class="sr-only" th:text="${c.title}">-</span></td>
             </tr>
+            <tr class="table-empty" data-cmp-empty hidden><td colspan="99">Geen run gevonden met deze filters.</td></tr>
             </tbody>
         </table></div>
         <div class="compare-bar">
@@ -125,7 +169,7 @@
             <summary>Hoe kiest de app vergelijkbare runs?</summary>
             <div>
                 <p><strong>Altijd vereist</strong> (anders valt een run af): zelfde soort training, allebei buiten of allebei op de loopband, afstand tussen 0,8 en 1,25 keer deze run, zelfde terreinklasse, en allebei met of allebei zonder hartslag.</p>
-                <p><strong>Extra overeenkomsten</strong> (de vinkjes): bepalen alleen de volgorde. Bij een gelijk aantal vinkjes komt de run die het dichtst in de tijd ligt eerst. Er is geen gelijkenisscore.</p>
+                <p><strong>Extra overeenkomsten</strong> (de vinkjes): bepalen alleen de volgorde bij "Gelijkenis". Bij een gelijk aantal vinkjes komt de run die het dichtst in de tijd ligt eerst. Met "Datum" staan dezelfde runs van nieuw naar oud. Er is geen gelijkenisscore.</p>
                 <p th:if="${!v.hiddenCriteria.isEmpty()}" th:text="'Niet getoond omdat de data bij geen enkele run beschikbaar is: ' + ${#strings.listJoin(v.hiddenCriteria, ', ')} + '.'">-</p>
                 <p th:text="${association}">-</p>
             </div>

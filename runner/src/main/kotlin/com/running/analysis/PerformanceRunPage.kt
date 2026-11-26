@@ -23,6 +23,10 @@ data class CriterionCell(val symbol: String, val css: String, val title: String)
 data class CmpRow(
     val id: Long,
     val date: String,
+    /** ISO date, used by the list filter (never shown). */
+    val iso: String,
+    val distanceMeters: Double,
+    val sport: String,
     val name: String,
     val km: String,
     val pace: String,
@@ -47,9 +51,17 @@ data class RunPage(
     val reps: List<RepRow>,
     val cmpHeads: List<CriterionHead>,
     val cmpRows: List<CmpRow>,
+    val cmpSort: CmpSort,
+    /** Sport options present in the comparable list, for the same filter as the compare-runs picker. */
+    val cmpSports: List<CriterionHead>,
+    val cmpFrom: String,
+    val cmpTill: String,
     val cmpMessage: String?,
     val hiddenCriteria: List<String>,
 )
+
+/** Ordering of the comparable runs on the run analysis page. */
+enum class CmpSort { SIMILARITY, DATE }
 
 object RunPageBuilder {
     private val ROOT = Locale.ROOT
@@ -63,7 +75,7 @@ object RunPageBuilder {
         Criterion.ELEVATION to CriterionHead("Hoogte", "Hoogtemeters per km binnen 5 m van deze run"),
     )
 
-    fun build(report: RunReport): RunPage {
+    fun build(report: RunReport, sort: CmpSort = CmpSort.SIMILARITY, sportOf: (Long) -> String = { "weg" }): RunPage {
         val a = report.run
         val t = report.typical
         val pace = Format.pace(a.distanceMeters / a.movingSeconds)
@@ -157,20 +169,35 @@ object RunPageBuilder {
             c.matches.any { it.criteria[k] != Agreement.UNKNOWN }
         }
         val hidden = Criterion.entries.filter { it !in shown }.map { it.text }
+        val matches = c.matches
         val rows = buildList {
-            report.reference?.takeIf { c.matches.isNotEmpty() }?.let { add(row(it, null, shown, a.name, true)) }
-            c.matches.forEach { m -> add(row(m.run, m, shown, report.names[m.run.activityId] ?: "", false)) }
+            report.reference?.takeIf { matches.isNotEmpty() }?.let { add(row(it, null, shown, a.name, true, sportOf(it.activityId))) }
+            matches.forEach { m -> add(row(m.run, m, shown, report.names[m.run.activityId] ?: "", false, sportOf(m.run.activityId))) }
         }
+        val ordered = when (sort) {
+            CmpSort.SIMILARITY -> rows
+            // Same selection, newest first: the current run takes its own place in the chronology.
+            CmpSort.DATE -> rows.sortedWith(compareByDescending<CmpRow> { it.iso }.thenByDescending { it.self })
+        }
+        val sports = linkedMapOf<String, String>()
+        rows.forEach { s ->
+            val label = when (s.sport) { "trail" -> "Trail"; "loopband" -> "Loopband of virtueel"; else -> "Weg" }
+            sports.putIfAbsent(s.sport, label)
+        }
+        val dates = rows.map { it.iso }.sorted()
         return RunPage(
             PerfDates.dayLong(a.date), facts, metrics, shares, report.zoneNote,
-            a.intervals?.signature, reps, shown.map { SHORT.getValue(it) }, rows, c.message?.replaceFirstChar { it.uppercase() }, hidden,
+            a.intervals?.signature, reps, shown.map { SHORT.getValue(it) }, ordered, sort,
+            sports.map { (v, label) -> CriterionHead(v, label) }, dates.firstOrNull() ?: "", dates.lastOrNull() ?: "",
+            c.message?.replaceFirstChar { it.uppercase() }, hidden,
         )
     }
 
     private fun abs1(ratio: Double) = kotlin.math.abs(ratio - 1) * 100
 
-    private fun row(p: RunProfile, m: ComparableRuns.Match?, shown: List<Criterion>, name: String, self: Boolean) = CmpRow(
-        id = p.activityId, date = PerfDates.day(p.date), name = name, km = Format.km(p.distanceMeters), pace = Format.pace(p.speed),
+    private fun row(p: RunProfile, m: ComparableRuns.Match?, shown: List<Criterion>, name: String, self: Boolean, sport: String) = CmpRow(
+        id = p.activityId, date = PerfDates.day(p.date), iso = p.date.toString(),
+        distanceMeters = p.distanceMeters, sport = sport, name = name, km = Format.km(p.distanceMeters), pace = Format.pace(p.speed),
         gap = p.gapSpeed?.let { Format.pace(it) } ?: "-", hr = Format.hr(p.avgHr), ef = PerformanceText.efMetres(p.efWindow),
         drift = p.driftPct?.let { "%+.1f %%".format(ROOT, it) } ?: "-",
         cells = shown.map { k ->
