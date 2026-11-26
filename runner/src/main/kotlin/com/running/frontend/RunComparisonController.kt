@@ -1,5 +1,6 @@
 package com.running.frontend
 
+import com.running.ai.AiProperties
 import com.running.analysis.AiAnalysisService
 import com.running.analysis.PerfDates
 import com.running.analysis.RunComparisonGlossary
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam
 class RunComparisonController(
     private val service: RunComparisonService,
     private val aiAnalysisService: AiAnalysisService,
+    private val aiProperties: AiProperties,
 ) {
 
     data class PickRow(
@@ -98,7 +100,13 @@ class RunComparisonController(
         )
         model.addAttribute(
             "promptNote",
-            "De app stuurt niets door: je plakt de tekst zelf in een AI-chat. Een AI-antwoord blijft een interpretatie, geen meting.",
+            if (aiProperties.isConfigured) {
+                "De app stuurt niets door tenzij je hieronder op 'Vraag het aan de AI' klikt. " +
+                    "Een AI-antwoord blijft een interpretatie, geen meting."
+            } else {
+                "De app stuurt niets door: je plakt de tekst zelf in een AI-chat. " +
+                    "Een AI-antwoord blijft een interpretatie, geen meting."
+            },
         )
         model.addAttribute("prompt", prompt)
         model.addAttribute("backUrl", "/compare-runs" + query(wanted))

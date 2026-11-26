@@ -81,6 +81,11 @@ te genereren. `AiAnalysisService.buildTrainingContext()` genereert een complete 
 met al je trainingsdata, `buildAiPrompt()` wrapping die in een coach-instructie.
 Kopieer de prompt naar een AI-chatbot (ChatGPT, Claude, Gemini) voor analyse, planning, voorspellingen.
 
+Je kunt de prompt ook rechtstreeks vanuit de app versturen: op elke promptpagina staat een kaart
+**AI-antwoord**. Die gebruikt standaard het gratis model `particle-ai/particle-1:free` via OpenRouter.
+Zet daarvoor `AI_API_KEY` in `.env` (leeg = functie uit, de pagina blijft dan ongewijzigd).
+Volledige uitleg, gratis limieten, privacy en hoe je van provider/model wisselt: **`docs/ai-integration.md`**.
+
 Voorbeeldvragen die de AI kan beantwoorden:
 - Ben ik aan het overtrainen?
 - Hoe evolueert mijn lactaatdrempel?

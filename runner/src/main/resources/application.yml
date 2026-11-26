@@ -51,6 +51,17 @@ app:
     tenant-pause: 5s
     secret-key: ${APP_TENANT_SECRET_KEY:}
     signup-code: ${APP_SIGNUP_CODE:}
+  ai:
+    enabled: ${AI_ENABLED:true}
+    base-url: ${AI_BASE_URL:https://openrouter.ai/api/v1}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:particle-ai/particle-1:free}
+    provider-name: ${AI_PROVIDER_NAME:OpenRouter}
+    temperature: 0.3
+    max-output-tokens: 4000
+    timeout: 90s
+    max-prompt-chars: 60000
+    max-requests-per-hour: 10
 
 strava:
   client-id: ${STRAVA_CLIENT_ID:}

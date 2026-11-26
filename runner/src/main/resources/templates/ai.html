@@ -32,8 +32,45 @@
             gemeten, berekend of app-schatting. Een AI-antwoord blijft een interpretatie, geen diagnose of meting.
         </p>
         <p class="callout mt-2" th:if="${includesRecovery}">
-            Deze prompt bevat ook Garmin-gezondheidsgegevens (HRV, rusthartslag, slaap, Body Battery, stress). De app stuurt niets
-            door: je plakt de tekst zelf. Plak die enkel in een dienst waar je dat wilt. Een AI-antwoord blijft een interpretatie,
+            Deze prompt bevat ook Garmin-gezondheidsgegevens (HRV, rusthartslag, slaap, Body Battery, stress).
+            <span th:if="${aiEnabled}">Kopieer je de prompt, dan plak je de tekst zelf. Vraag je het antwoord in de app, dan gaat
+            de prompt naar de gekozen AI-dienst.</span>
+            <span th:unless="${aiEnabled}">De app stuurt niets door: je plakt de tekst zelf.</span>
+            Plak die enkel in een dienst waar je dat wilt. Een AI-antwoord blijft een interpretatie,
+            geen diagnose of meting.
+        </p>
+    </section>
+
+    <section class="card" aria-labelledby="h-ai-answer">
+        <h2 id="h-ai-answer">AI-antwoord</h2>
+        <p class="intro" th:if="${aiEnabled}">
+            Stuur deze prompt rechtstreeks naar de AI en lees het antwoord hieronder. Het blijft een interpretatie,
+            geen meting of diagnose.
+        </p>
+        <p class="page-meta" th:if="${aiEnabled}">
+            Model:
+            <code id="aiModelValue" th:text="${aiModel}">google/gemma-4-31b-it:free</code>
+            via <span id="aiProviderValue" th:text="${aiProvider}">OpenRouter</span>
+        </p>
+        <p class="callout" th:unless="${aiEnabled}" data-testid="ai-not-configured">
+            AI is niet ingesteld. Kopieer de prompt en gebruik een externe chatbot.
+        </p>
+        <div class="actions mb-2" th:if="${aiEnabled}">
+            <button id="askAiBtn" type="button" class="btn btn-primary btn-sm">Vraag het aan de AI</button>
+            <button id="copyAnswerBtn" type="button" class="btn btn-secondary btn-sm" hidden>Kopieer antwoord</button>
+            <span id="copyAnswerStatus" class="sr-only" role="status"></span>
+        </div>
+        <div id="aiStatus" class="ai-status" role="status" aria-live="polite" hidden>
+            <span class="spinner spinner-sm" aria-hidden="true"></span>
+            <span>Bezig met antwoorden…</span>
+            <span id="aiElapsed" class="note-xs">0 s</span>
+        </div>
+        <p id="aiError" class="ai-error" role="alert" hidden></p>
+        <div id="aiAnswer" class="ai-answer" hidden></div>
+        <p class="callout mt-2" th:if="${aiEnabled and includesRecovery == true}">
+            Als je de prompt verstuurt, gaan ook je Garmin-gezondheidsgegevens (HRV, rusthartslag, slaap,
+            Body Battery, stress) naar <span th:text="${aiProvider}">de AI-dienst</span>. De app bewaart de prompt
+            en het antwoord niet. Verstuur alleen als je dat wilt. Een AI-antwoord blijft een interpretatie,
             geen diagnose of meting.
         </p>
     </section>
@@ -53,6 +90,107 @@
             document.getElementById('copyStatus').textContent = 'Prompt gekopieerd naar klembord';
             setTimeout(() => { this.textContent = original; document.getElementById('copyStatus').textContent = ''; }, 2000);
         });
+    </script>
+
+    <script th:if="${aiEnabled}">
+        (function () {
+            const askBtn = document.getElementById('askAiBtn');
+            const copyAnswerBtn = document.getElementById('copyAnswerBtn');
+            const copyAnswerStatus = document.getElementById('copyAnswerStatus');
+            const answer = document.getElementById('aiAnswer');
+            const status = document.getElementById('aiStatus');
+            const elapsed = document.getElementById('aiElapsed');
+            const error = document.getElementById('aiError');
+            let running = false;
+            let timer = null;
+
+            function showError(text) {
+                error.textContent = text;
+                error.hidden = false;
+            }
+
+            function stopBusy() {
+                clearInterval(timer);
+                timer = null;
+                status.hidden = true;
+                askBtn.disabled = false;
+                askBtn.removeAttribute('aria-busy');
+                running = false;
+            }
+
+            askBtn.addEventListener('click', async function () {
+                if (running) return;
+                running = true;
+                askBtn.disabled = true;
+                askBtn.setAttribute('aria-busy', 'true');
+                error.hidden = true;
+                error.textContent = '';
+                answer.hidden = true;
+                answer.textContent = '';
+                copyAnswerBtn.hidden = true;
+                status.hidden = false;
+                const started = Date.now();
+                elapsed.textContent = '0 s';
+                timer = setInterval(() => {
+                    elapsed.textContent = Math.floor((Date.now() - started) / 1000) + ' s';
+                }, 1000);
+
+                try {
+                    let response;
+                    try {
+                        response = await fetch('/ai/answer', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: new URLSearchParams({prompt: document.getElementById('aiPrompt').value})
+                        });
+                    } catch (e) {
+                        showError('Geen verbinding met de app.');
+                        return;
+                    }
+
+                    let data = null;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        data = null;
+                    }
+                    if (!response.ok) {
+                        showError((data && data.error) || 'De AI-aanvraag is mislukt. Probeer het opnieuw.');
+                        return;
+                    }
+                    if (!data || !data.answer) {
+                        showError('Het model gaf een leeg antwoord. Probeer het opnieuw.');
+                        return;
+                    }
+
+                    answer.textContent = data.answer;
+                    answer.hidden = false;
+                    copyAnswerBtn.hidden = false;
+                    if (data.model) document.getElementById('aiModelValue').textContent = data.model;
+                    if (data.provider) document.getElementById('aiProviderValue').textContent = data.provider;
+                } finally {
+                    stopBusy();
+                }
+            });
+
+            copyAnswerBtn.addEventListener('click', async function () {
+                try {
+                    await navigator.clipboard.writeText(answer.textContent);
+                } catch (e) {
+                    const range = document.createRange();
+                    range.selectNodeContents(answer);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    document.execCommand('copy');
+                    selection.removeAllRanges();
+                }
+                const original = this.textContent;
+                this.textContent = 'Gekopieerd ✓';
+                copyAnswerStatus.textContent = 'Antwoord gekopieerd naar klembord';
+                setTimeout(() => { this.textContent = original; copyAnswerStatus.textContent = ''; }, 2000);
+            });
+        })();
     </script>
 </th:block>
 </html>

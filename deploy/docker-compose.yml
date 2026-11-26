@@ -47,6 +47,12 @@ services:
       STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
       STRAVA_REDIRECT_URI: ${STRAVA_REDIRECT_URI:-}
       GARMIN_PERSONAL_API_KEY: ${GARMIN_PERSONAL_API_KEY:-}
+      # Optional in-app AI answer (blank key = feature off). See docs/ai-integration.md.
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_BASE_URL: ${AI_BASE_URL:-https://openrouter.ai/api/v1}
+      AI_MODEL: ${AI_MODEL:-particle-ai/particle-1:free}
+      AI_PROVIDER_NAME: ${AI_PROVIDER_NAME:-OpenRouter}
       # Multi-user: off unless APP_MULTI_USER_ENABLED=true in .env (see MULTI_USER_PROGRESS.md before switching it on)
       APP_MULTI_USER_ENABLED: ${APP_MULTI_USER_ENABLED:-false}
       APP_SIGNUP_CODE: ${APP_SIGNUP_CODE:-}

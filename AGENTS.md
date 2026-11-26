@@ -45,6 +45,7 @@ STRAVA_CLIENT_ID=xxx STRAVA_CLIENT_SECRET=xxx ./gradlew :runner:bootRun
 | `GET /race`, `/race/history` | Race prediction, goals, pacing plan, race readiness, and the look back at past races (read-only, computed on demand; `/race/data` is the JSON). Goals: `POST /race/goal`, `POST /race/goal/{id}/delete`; `POST /race/strava-recheck` re-reads every Strava summary once |
 | `GET /admin/users` | Owner only, only with `app.multi-user.enabled=true` (404 otherwise): users, counts, last sync, disable/enable, single-use invite codes |
 | `GET /ai` | AI prompt page (copy-paste for external chatbots, no API key needed) |
+| `POST /ai/answer` | Optional in-app AI answer for the generated prompt (JSON; needs `AI_API_KEY`, see `docs/ai-integration.md`) |
 | `GET /auth/strava` | Strava OAuth initiation |
 | `GET /h2-console` | H2 console (dev only) |
 
@@ -67,7 +68,20 @@ UI rules (owner feedback, binding): `docs/ui-guidelines.md`: conclusion first, c
 
 ## AI Extension
 
-`AiAnalysisService.buildTrainingContext()` returns a formatted training history string. Feed it to any AI provider (LangChain4j, OpenAI, Gemini, etc.).
+`AiAnalysisService.buildTrainingContext()` returns a formatted training history string. The prompt pages can copy
+that prompt to an external chatbot, and (optionally) send it from inside the app.
+
+- Default provider: **OpenRouter**, default model `particle-ai/particle-1:free` (genuinely free tier).
+- Env vars (see `deploy/.env.example`): `AI_API_KEY` (blank = feature off), `AI_ENABLED`, `AI_BASE_URL`,
+  `AI_MODEL`, `AI_PROVIDER_NAME`.
+- One dependency: `dev.langchain4j:langchain4j-open-ai`. The base URL makes it provider-neutral (OpenRouter,
+  Groq, Gemini's compatibility endpoint, Mistral, Ollama/LM Studio). No provider-specific SDK.
+- Endpoint: `POST /ai/answer` (`application/x-www-form-urlencoded`, field `prompt`) → JSON. It only forwards the
+  prompt already in the page; the key stays server-side and is never logged or rendered.
+- Guardrails: 10 calls per session per rolling hour, one in-flight call, 60,000-char cap, 90 s timeout,
+  `maxRetries = 0`. No stored answers, no streaming.
+- Provider choice, free-tier limits, privacy, switching model/provider and troubleshooting:
+  `docs/ai-integration.md`.
 
 ## Database
 

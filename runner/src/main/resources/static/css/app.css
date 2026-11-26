@@ -814,6 +814,24 @@ ul.plain li + li { margin-top: var(--sp-1); }
 }
 .ext-links { display: inline-flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; font-size: var(--fs-sm); }
 .ext-links a { min-height: 32px; display: inline-flex; align-items: center; }
+.ai-status {
+    display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3);
+    font-size: var(--fs-sm); color: var(--ink-2);
+}
+.ai-status[hidden] { display: none; }
+.spinner-sm { width: 18px; height: 18px; border-width: 2px; }
+.ai-answer {
+    white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--sp-4);
+    font-size: var(--fs-sm); line-height: 1.65; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.ai-answer[hidden] { display: none; }
+.ai-error {
+    padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm);
+    border-left: 3px solid var(--bad); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--bad-soft); color: var(--bad);
+}
+.ai-error[hidden] { display: none; }
 
 /* ---------- Hero: conclusion at a glance ---------- */
 .hero { border-left: 6px solid var(--line-strong); padding: var(--sp-5) var(--sp-5) var(--sp-5) calc(var(--sp-5) - 2px); }
