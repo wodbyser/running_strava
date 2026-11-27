@@ -9,20 +9,22 @@ import dev.langchain4j.exception.ModelNotFoundException
 import dev.langchain4j.exception.RateLimitException
 import dev.langchain4j.exception.TimeoutException
 import dev.langchain4j.model.chat.ChatModel
+import dev.langchain4j.model.openai.OpenAiChatModel
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Adapter for every OpenAI-compatible endpoint (OpenRouter, Groq, Gemini's compatibility URL, Mistral,
- * Ollama/LM Studio). The model is injected so a test can replace it without a network call.
+ * Ollama/LM Studio). One client per model id is built once and kept, so switching models in the page costs
+ * no extra wiring. The factory is injected so a test can replace it without a network call.
  */
 class LangChain4jAiChat(
-    private val model: ChatModel,
-    private val properties: AiProperties,
+    private val modelFor: (String) -> ChatModel,
 ) : AiChat {
 
-    override fun complete(prompt: String): AiCompletion {
+    override fun complete(prompt: String, model: String): AiCompletion {
         val raw: String? = try {
-            model.chat(prompt)
+            modelFor(model).chat(prompt)
         } catch (e: Exception) {
             val failure = mapFailure(e)
             log.warn("AI call failed: {} ({})", failure, e.javaClass.simpleName)
@@ -36,11 +38,31 @@ class LangChain4jAiChat(
             log.warn("AI call failed: {} ({})", AiFailure.EMPTY_ANSWER, "blank answer")
             throw AiFailureException(AiFailure.EMPTY_ANSWER, AiMessages.text(AiFailure.EMPTY_ANSWER))
         }
-        return AiCompletion(answer, properties.model)
+        return AiCompletion(answer, model)
     }
 
     private companion object {
         private val log = LoggerFactory.getLogger(LangChain4jAiChat::class.java)
+    }
+}
+
+/** Builds and caches one LangChain4j client per model id, all with the same key, URL and limits. */
+class AiChatModelFactory(private val properties: AiProperties) {
+
+    private val models = ConcurrentHashMap<String, ChatModel>()
+
+    fun forModel(model: String): ChatModel = models.computeIfAbsent(model) { name ->
+        OpenAiChatModel.builder()
+            .baseUrl(properties.baseUrl)
+            .apiKey(properties.apiKey)
+            .modelName(name)
+            .temperature(properties.temperature)
+            .maxTokens(properties.maxOutputTokens)
+            .timeout(properties.timeout)
+            .maxRetries(0)
+            .logRequests(false)
+            .logResponses(false)
+            .build()
     }
 }
 

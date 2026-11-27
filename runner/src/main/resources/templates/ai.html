@@ -47,10 +47,21 @@
             Stuur deze prompt rechtstreeks naar de AI en lees het antwoord hieronder. Het blijft een interpretatie,
             geen meting of diagnose.
         </p>
-        <p class="page-meta" th:if="${aiEnabled}">
-            Model:
-            <code id="aiModelValue" th:text="${aiModel}">google/gemma-4-31b-it:free</code>
-            via <span id="aiProviderValue" th:text="${aiProvider}">OpenRouter</span>
+        <div class="ai-model-row" th:if="${aiEnabled}">
+            <div class="filter-group">
+                <label for="aiModelSelect">Model</label>
+                <select id="aiModelSelect" aria-describedby="aiModelHelp">
+                    <option th:each="m : ${aiModels}"
+                            th:value="${m.id}"
+                            th:text="${m.label}"
+                            th:selected="${m.id == aiModel}">particle-ai/particle-1:free</option>
+                </select>
+            </div>
+            <span class="field-hint">via <span id="aiProviderValue" th:text="${aiProvider}">OpenRouter</span></span>
+        </div>
+        <p id="aiModelHelp" class="field-hint" th:if="${aiEnabled and aiModels != null and #lists.size(aiModels) > 1}">
+            Alle modellen in deze lijst zijn gratis. Zegt de fout dat een model even vol zit, kies dan een ander
+            en vraag het opnieuw.
         </p>
         <p class="callout" th:unless="${aiEnabled}" data-testid="ai-not-configured">
             AI is niet ingesteld. Kopieer de prompt en gebruik een externe chatbot.
@@ -101,8 +112,21 @@
             const status = document.getElementById('aiStatus');
             const elapsed = document.getElementById('aiElapsed');
             const error = document.getElementById('aiError');
+            const modelSelect = document.getElementById('aiModelSelect');
             let running = false;
             let timer = null;
+
+            // Remember the model the user picked, so the other prompt pages and a reload keep it.
+            const MODEL_KEY = 'rc.aiModel';
+            try {
+                const saved = localStorage.getItem(MODEL_KEY);
+                if (saved && Array.prototype.some.call(modelSelect.options, o => o.value === saved)) {
+                    modelSelect.value = saved;
+                }
+            } catch (e) { /* private mode: no storage, no problem */ }
+            modelSelect.addEventListener('change', function () {
+                try { localStorage.setItem(MODEL_KEY, modelSelect.value); } catch (e) { /* ignore */ }
+            });
 
             function showError(text) {
                 error.textContent = text;
@@ -141,7 +165,10 @@
                         response = await fetch('/ai/answer', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                            body: new URLSearchParams({prompt: document.getElementById('aiPrompt').value})
+                            body: new URLSearchParams({
+                                prompt: document.getElementById('aiPrompt').value,
+                                model: modelSelect.value
+                            })
                         });
                     } catch (e) {
                         showError('Geen verbinding met de app.');
@@ -166,7 +193,6 @@
                     answer.textContent = data.answer;
                     answer.hidden = false;
                     copyAnswerBtn.hidden = false;
-                    if (data.model) document.getElementById('aiModelValue').textContent = data.model;
                     if (data.provider) document.getElementById('aiProviderValue').textContent = data.provider;
                 } finally {
                     stopBusy();

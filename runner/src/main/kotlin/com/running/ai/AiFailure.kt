@@ -8,6 +8,7 @@ enum class AiFailure {
     NOT_CONFIGURED,
     EMPTY_PROMPT,
     TOO_LARGE,
+    MODEL_NOT_FREE,
     LOCAL_RATE_LIMIT,
     IN_FLIGHT,
     PROVIDER_RATE_LIMIT,

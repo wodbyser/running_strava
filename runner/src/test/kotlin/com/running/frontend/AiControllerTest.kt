@@ -4,6 +4,8 @@ import com.running.ai.AiChat
 import com.running.ai.AiCompletion
 import com.running.ai.AiFailureException
 import com.running.ai.AiFailure
+import com.running.ai.AiModelCatalog
+import com.running.ai.AiModelOption
 import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -46,17 +48,25 @@ class AiControllerTest @Autowired constructor(private val mvc: MockMvc) {
     @MockitoBean
     lateinit var chat: AiChat
 
-    private fun ask(prompt: String, session: MockHttpSession? = null): org.springframework.test.web.servlet.ResultActions {
+    @MockitoBean
+    lateinit var catalog: AiModelCatalog
+
+    private fun ask(
+        prompt: String,
+        session: MockHttpSession? = null,
+        model: String? = null,
+    ): org.springframework.test.web.servlet.ResultActions {
         val request = post("/ai/answer")
             .contentType(MediaType.APPLICATION_FORM_URLENCODED)
             .param("prompt", prompt)
+        if (model != null) request.param("model", model)
         if (session != null) request.session(session)
         return mvc.perform(request)
     }
 
     @Test
     fun `a successful call returns the answer, the model and the provider`() {
-        given(chat.complete("Hallo")).willReturn(AiCompletion("Een rustig antwoord.", "test/model:free"))
+        given(chat.complete("Hallo", "test/model:free")).willReturn(AiCompletion("Een rustig antwoord.", "test/model:free"))
 
         ask("Hallo")
             .andExpect(status().isOk)
@@ -65,6 +75,26 @@ class AiControllerTest @Autowired constructor(private val mvc: MockMvc) {
             .andExpect(jsonPath("$.model").value("test/model:free"))
             .andExpect(jsonPath("$.provider").value("TestProvider"))
             .andExpect(jsonPath("$.error").doesNotExist())
+    }
+
+    @Test
+    fun `a model from the free list is used for the call`() {
+        given(catalog.isAllowed("free/other:free")).willReturn(true)
+        given(chat.complete("Hallo", "free/other:free")).willReturn(AiCompletion("Antwoord.", "free/other:free"))
+
+        ask("Hallo", model = "free/other:free")
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.model").value("free/other:free"))
+    }
+
+    @Test
+    fun `a model outside the free list is a 400 and never reaches the provider`() {
+        ask("Hallo", model = "openai/gpt-expensive")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error").value(containsString("gratis modellen")))
+            .andExpect(jsonPath("$.answer").doesNotExist())
+
+        Mockito.verifyNoInteractions(chat)
     }
 
     @Test
@@ -84,7 +114,7 @@ class AiControllerTest @Autowired constructor(private val mvc: MockMvc) {
 
     @Test
     fun `the local hour limit is a 429`() {
-        given(chat.complete(anyString())).willReturn(AiCompletion("ok", "test/model:free"))
+        given(chat.complete(anyString(), anyString())).willReturn(AiCompletion("ok", "test/model:free"))
         val session = MockHttpSession()
         ask("een", session).andExpect(status().isOk)
         ask("twee", session).andExpect(status().isOk)
@@ -94,21 +124,36 @@ class AiControllerTest @Autowired constructor(private val mvc: MockMvc) {
     }
 
     @Test
+    fun `a busy model does not count towards the local hour limit`() {
+        given(chat.complete(anyString(), anyString()))
+            .willThrow(AiFailureException(AiFailure.PROVIDER_RATE_LIMIT))
+        val session = MockHttpSession()
+        repeat(3) { ask("prompt", session).andExpect(status().isTooManyRequests) }
+    }
+
+    @Test
     fun `provider failures map to their own status`() {
-        given(chat.complete(anyString())).willThrow(AiFailureException(AiFailure.PROVIDER_RATE_LIMIT))
+        given(chat.complete(anyString(), anyString())).willThrow(AiFailureException(AiFailure.PROVIDER_RATE_LIMIT))
         ask("prompt").andExpect(status().isTooManyRequests)
 
         Mockito.reset(chat)
-        given(chat.complete(anyString())).willThrow(AiFailureException(AiFailure.AUTH))
+        given(chat.complete(anyString(), anyString())).willThrow(AiFailureException(AiFailure.AUTH))
         ask("prompt").andExpect(status().isBadGateway)
 
         Mockito.reset(chat)
-        given(chat.complete(anyString())).willThrow(AiFailureException(AiFailure.TIMEOUT))
+        given(chat.complete(anyString(), anyString())).willThrow(AiFailureException(AiFailure.TIMEOUT))
         ask("prompt").andExpect(status().isGatewayTimeout)
     }
 
     @Test
-    fun `the prompt page keeps its existing controls and gains the AI card`() {
+    fun `the prompt page keeps its existing controls and gains the AI card with a model list`() {
+        given(catalog.freeModels()).willReturn(
+            listOf(
+                AiModelOption("test/model:free", "Test model (free)"),
+                AiModelOption("free/other:free", "Other model (free)"),
+            ),
+        )
+
         val html = mvc.perform(get("/ai")).andExpect(status().isOk).andReturn().response.contentAsString
 
         assertTrue(html.contains("id=\"aiPrompt\""))
@@ -117,6 +162,9 @@ class AiControllerTest @Autowired constructor(private val mvc: MockMvc) {
         assertTrue(html.contains("id=\"askAiBtn\""))
         assertTrue(html.contains("id=\"aiAnswer\""))
         assertTrue(html.contains("AI-antwoord"))
+        assertTrue(html.contains("id=\"aiModelSelect\""))
+        assertTrue(html.contains("Test model (free)"))
+        assertTrue(html.contains("Other model (free)"))
         assertTrue(html.contains("test/model:free"))
         assertTrue(html.contains("TestProvider"))
         assertFalse(html.contains("\${"))
@@ -158,6 +206,7 @@ class AiControllerNotConfiguredTest @Autowired constructor(private val mvc: Mock
         assertTrue(html.contains("/ai/download"))
         assertTrue(html.contains("AI is niet ingesteld"))
         assertFalse(html.contains("id=\"askAiBtn\""))
+        assertFalse(html.contains("id=\"aiModelSelect\""))
         assertFalse(html.contains("\${"))
     }
 }

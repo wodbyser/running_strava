@@ -76,8 +76,12 @@ that prompt to an external chatbot, and (optionally) send it from inside the app
   `AI_MODEL`, `AI_PROVIDER_NAME`.
 - One dependency: `dev.langchain4j:langchain4j-open-ai`. The base URL makes it provider-neutral (OpenRouter,
   Groq, Gemini's compatibility endpoint, Mistral, Ollama/LM Studio). No provider-specific SDK.
-- Endpoint: `POST /ai/answer` (`application/x-www-form-urlencoded`, field `prompt`) → JSON. It only forwards the
+- Endpoint: `POST /ai/answer` (`application/x-www-form-urlencoded`, fields `prompt` and optional `model`) → JSON. It only forwards the
   prompt already in the page; the key stays server-side and is never logged or rendered.
+- The page has a **Model** dropdown filled from the provider's free-model list (`GET {AI_BASE_URL}/models`,
+  cached 1 h, only ids ending in `:free` with price `0`). `AI_MODEL` is the default and always selectable. A
+  `model` from the client is refused unless it is that default or on the free list, so a paid model can never be
+  billed by accident. A 429/404 attempt does not count towards the hourly limit, so switching models works.
 - Guardrails: 10 calls per session per rolling hour, one in-flight call, 60,000-char cap, 90 s timeout,
   `maxRetries = 0`. No stored answers, no streaming.
 - Provider choice, free-tier limits, privacy, switching model/provider and troubleshooting:

@@ -1,6 +1,6 @@
 package com.running.ai
 
-import dev.langchain4j.model.openai.OpenAiChatModel
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.Bindable
@@ -11,31 +11,39 @@ import org.springframework.context.annotation.ConditionContext
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.type.AnnotatedTypeMetadata
+import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.web.client.RestClient
 
 @Configuration
 @EnableConfigurationProperties(AiProperties::class)
 class AiConfig {
 
     @Bean
-    fun aiChatService(chat: ObjectProvider<AiChat>, properties: AiProperties) =
-        AiChatService(chat.ifAvailable, properties)
+    fun aiChatService(
+        chat: ObjectProvider<AiChat>,
+        catalog: ObjectProvider<AiModelCatalog>,
+        properties: AiProperties,
+    ) = AiChatService(chat.ifAvailable, properties, catalog = catalog.ifAvailable)
 
     /** Only a configured key creates an adapter: a blank AI_API_KEY leaves the whole feature off. */
     @Bean
     @Conditional(AiConfiguredCondition::class)
-    fun aiChat(properties: AiProperties): AiChat {
-        val model = OpenAiChatModel.builder()
-            .baseUrl(properties.baseUrl)
-            .apiKey(properties.apiKey)
-            .modelName(properties.model)
-            .temperature(properties.temperature)
-            .maxTokens(properties.maxOutputTokens)
-            .timeout(properties.timeout)
-            .maxRetries(0)
-            .logRequests(false)
-            .logResponses(false)
-            .build()
-        return LangChain4jAiChat(model, properties)
+    fun aiChat(factory: AiChatModelFactory): AiChat = LangChain4jAiChat(factory::forModel)
+
+    @Bean
+    @Conditional(AiConfiguredCondition::class)
+    fun aiChatModelFactory(properties: AiProperties) = AiChatModelFactory(properties)
+
+    /** The free models the page may offer. Short timeouts: a slow catalogue must not delay a page. */
+    @Bean
+    @Conditional(AiConfiguredCondition::class)
+    fun aiModelCatalog(properties: AiProperties, mapper: ObjectMapper): AiModelCatalog {
+        val requestFactory = SimpleClientHttpRequestFactory().apply {
+            setConnectTimeout(3_000)
+            setReadTimeout(8_000)
+        }
+        val client = AiModelsClient(properties, RestClient.builder().requestFactory(requestFactory).build())
+        return FreeModelList(properties, { client.fetch() }, mapper)
     }
 }
 

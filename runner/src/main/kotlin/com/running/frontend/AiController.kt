@@ -25,8 +25,9 @@ data class AiAnswerResponse(
 )
 
 /**
- * One JSON endpoint for the in-app AI card. It only forwards the prompt that is already in the page; the model
- * and the base URL are never taken from the client. A JSON endpoint never falls through to the error page.
+ * One JSON endpoint for the in-app AI card. It only forwards the prompt that is already in the page. The model
+ * is taken from the client but must be on the server-side free list (or the configured default); the base URL
+ * never is. A JSON endpoint never falls through to the error page.
  */
 @Controller
 class AiController(
@@ -43,9 +44,10 @@ class AiController(
     @ResponseBody
     fun answer(
         @RequestParam(name = "prompt", required = false) prompt: String?,
+        @RequestParam(name = "model", required = false) model: String?,
         session: HttpSession,
     ): ResponseEntity<AiAnswerResponse> = try {
-        val completion = service.complete(prompt.orEmpty(), session.id)
+        val completion = service.complete(prompt.orEmpty(), session.id, model)
         ResponseEntity.ok(
             AiAnswerResponse(answer = completion.text, model = completion.model, provider = properties.providerName),
         )
@@ -59,7 +61,7 @@ class AiController(
     }
 
     private fun status(failure: AiFailure): HttpStatus = when (failure) {
-        AiFailure.EMPTY_PROMPT, AiFailure.TOO_LARGE -> HttpStatus.BAD_REQUEST
+        AiFailure.EMPTY_PROMPT, AiFailure.TOO_LARGE, AiFailure.MODEL_NOT_FREE -> HttpStatus.BAD_REQUEST
         AiFailure.NOT_CONFIGURED -> HttpStatus.SERVICE_UNAVAILABLE
         AiFailure.LOCAL_RATE_LIMIT, AiFailure.IN_FLIGHT, AiFailure.PROVIDER_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS
         AiFailure.TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT

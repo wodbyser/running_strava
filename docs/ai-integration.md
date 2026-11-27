@@ -34,8 +34,8 @@ Put it in the environment (see below). Never commit it.
 | `AI_API_KEY` | *(blank)* | Provider key. **Blank = feature off**: no outbound call, no AI button, the prompt page is unchanged. |
 | `AI_ENABLED` | `true` | Set to `false` to switch the feature off even when a key is present. |
 | `AI_BASE_URL` | `https://openrouter.ai/api/v1` | OpenAI-compatible endpoint. |
-| `AI_MODEL` | `particle-ai/particle-1:free` | Model ID as the provider expects it. |
-| `AI_PROVIDER_NAME` | `OpenRouter` | Label shown in the page, e.g. `Model: … via OpenRouter`. |
+| `AI_MODEL` | `particle-ai/particle-1:free` | Default model ID. It is the first entry of the model list in the page. |
+| `AI_PROVIDER_NAME` | `OpenRouter` | Label shown in the page, e.g. `via OpenRouter`. |
 
 Where to put them:
 
@@ -53,6 +53,24 @@ app.ai:
   max-prompt-chars: 60000
   max-requests-per-hour: 10
 ```
+
+## Choosing the model in the page
+
+The AI card has a **Model** dropdown above the buttons. It lists the free models the provider offers, so a
+model that is temporarily busy can be swapped for another without touching `.env` and restarting.
+
+- The list comes from `GET {AI_BASE_URL}/models`, filtered to ids ending in `:free` **and** with an explicit
+  price of `0` for prompt and completion. It is cached for an hour; one failed fetch keeps the previous list
+  (or shows only the default), so a slow catalogue never blocks a page.
+- `AI_MODEL` is always the first entry and always selectable, even when the catalogue cannot be read.
+- The browser sends only a model **id**, never a URL or a key. The server refuses anything that is not the
+  configured default or on the free list (`400`, "Dat model staat niet in de lijst met gratis modellen"), so a
+  typo or a manipulated request can never bill a paid model.
+- A request that fails because the model is busy (429) or gone (404) does **not** count towards
+  `max-requests-per-hour`: otherwise a few attempts across models would exhaust the hourly budget. Other
+  failures (timeout, empty answer) do count.
+- The choice is per request, but remembered in the browser (`localStorage`, key `rc.aiModel`) so a reload or the
+  other prompt pages keep the model you picked. A stored id that is no longer in the list is ignored.
 
 ## Changing model or provider
 
@@ -85,14 +103,16 @@ Together, HuggingFace, Cohere.
 - Token limits and the list of `:free` models change without notice.
 - A free model also shares an upstream pool with everyone else. A popular model such as
   `google/gemma-4-31b-it:free` can return 429 for hours while another `:free` model answers fine, even when your own
-  daily quota is almost untouched. If the page says the free limit is reached but `/api/v1/key` shows plenty of
-  `free_model_daily_requests` left, switch `AI_MODEL` to another `:free` model instead of waiting.
+  daily quota is almost untouched. That is what the model dropdown is for: pick another entry and ask again. To check
+  your own quota, call `/api/v1/key` and read `free_model_daily_requests`.
 - The shipped default is a pragmatic pick that was verified end-to-end, not a guarantee. Change it whenever the
   catalogue shifts.
 
 ## Cost traps
 
 - Nothing is billed for a model ID that ends in `:free`.
+- A key spending limit of `$0` in the OpenRouter dashboard does not block `:free` models: they cost nothing, so
+  there is nothing to charge. A 429 with such a key is the free-tier/upstream limit, not the `$0` limit.
 - A model ID **without** `:free` can bill your account. Keep `AI_MODEL` on a `:free` model unless you deliberately
   want to pay.
 - Buying credits is optional. The default configuration never requires it.
@@ -119,31 +139,36 @@ Together, HuggingFace, Cohere.
 
 ## Endpoint
 
-`POST /ai/answer`, `application/x-www-form-urlencoded`, field `prompt`. The response is JSON:
+`POST /ai/answer`, `application/x-www-form-urlencoded`, fields `prompt` and optional `model`. The response is JSON:
 
 | Status | Body | When |
 |---|---|---|
 | 200 | `{"answer": "...", "model": "...", "provider": "OpenRouter"}` | Success |
 | 400 | `{"error": "De prompt is leeg."}` | Blank prompt |
 | 400 | `{"error": "Deze prompt is te groot om te versturen. …"}` | Longer than `max-prompt-chars` |
+| 400 | `{"error": "Dat model staat niet in de lijst met gratis modellen. …"}` | `model` is neither the default nor on the free list |
 | 429 | `{"error": "..."}` | Local hour limit, an in-flight call, or the provider's rate limit |
 | 502 | `{"error": "..."}` | Rejected key, unknown model, empty answer, other provider error |
 | 503 | `{"error": "AI is niet ingesteld op deze installatie."}` | No key / feature off |
 | 504 | `{"error": "..."}` | Timeout |
 
-The model and base URL are never accepted from the client. There is no GET variant.
+The base URL and the key are never accepted from the client, and a `model` is only honoured when it is the
+configured default or on the server-side free list. There is no GET variant.
 
 ## Troubleshooting
 
 - **401 / 403**: the key is wrong, revoked or lacks access. Create a new key and restart.
-- **429**: the free quota is used up, or several requests overlap. Wait, or copy the prompt to an external chatbot.
-- **404**: the model ID disappeared from the catalogue. Pick another `:free` model and update `AI_MODEL`.
+- **429**: the model is busy (upstream shared pool) or your free quota is used up. Pick another model in the
+  dropdown and ask again; that attempt does not count towards the hourly limit. Or copy the prompt to an
+  external chatbot.
+- **404**: the model ID disappeared from the catalogue. Pick another `:free` model in the dropdown, or update
+  `AI_MODEL` for the default.
 - **400 / 413**: the prompt is larger than the provider accepts (Groq's 8,000 TPM is the usual cause). Use
   OpenRouter's `:free` models, which have much larger context windows.
 - **504**: raise `app.ai.timeout`, or retry later.
 - **"Het model gaf een leeg antwoord"**: some free models are reasoning models that spend the whole
-  `max-output-tokens` budget on reasoning and return no text. Pick a non-reasoning `:free` model, or raise
-  `app.ai.max-output-tokens`.
+  `max-output-tokens` budget on reasoning and return no text. Pick another model in the dropdown (the
+  `nemotron-…-reasoning` entries are the usual suspects), or raise `app.ai.max-output-tokens`.
 - **Button missing**: `AI_API_KEY` is blank or `AI_ENABLED=false`. The page then shows
   "AI is niet ingesteld." and everything else keeps working.
 
@@ -152,8 +177,10 @@ The model and base URL are never accepted from the client. There is no GET varia
 1. Without a key: start the dev profile and open `/ai`. The page looks as before plus the
    "AI is niet ingesteld" note; copy and download still work.
 2. With a key: open `/ai`, click **Vraag het aan de AI**. You should see the spinner, an elapsed counter, then the
-   Dutch answer, the model line, and a **Kopieer antwoord** button that works independently of **Kopieer prompt**.
-3. Click again while a call is running: nothing extra is sent.
-4. Temporarily use a wrong key: the card shows a clear Dutch error and the page source contains no key.
-5. Check `/next-training/prompt`, `/rate-training/prompt`, `/compare/prompt` and `/compare-runs/prompt`: the same
+   Dutch answer, and a **Kopieer antwoord** button that works independently of **Kopieer prompt**.
+3. The **Model** dropdown lists the provider's free models with the default first. Pick another one, ask again and
+   check in the network tab that `model=` in the POST body is that id. A paid id pasted by hand must give a 400.
+4. Click again while a call is running: nothing extra is sent.
+5. Temporarily use a wrong key: the card shows a clear Dutch error and the page source contains no key.
+6. Check `/next-training/prompt`, `/rate-training/prompt`, `/compare/prompt` and `/compare-runs/prompt`: the same
    card appears because they share `templates/ai.html`.

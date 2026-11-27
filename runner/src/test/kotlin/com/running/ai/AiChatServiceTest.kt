@@ -15,21 +15,71 @@ class AiChatServiceTest {
     private val properties = AiProperties(apiKey = "test-key", maxPromptChars = 100, maxRequestsPerHour = 3)
 
     private class FakeChat(private val answer: String = "antwoord") : AiChat {
-        var calls = 0
-        override fun complete(prompt: String): AiCompletion {
-            calls++
-            return AiCompletion(answer, "fake-model")
+        val used = mutableListOf<String>()
+
+        override fun complete(prompt: String, model: String): AiCompletion {
+            used += model
+            return AiCompletion(answer, model)
         }
     }
 
-    private fun service(chat: AiChat?, props: AiProperties = properties, clock: Clock = Clock.systemUTC()) =
-        AiChatService(chat, props, clock)
+    private class FakeCatalog(private val free: List<String>) : AiModelCatalog {
+        override fun freeModels() = free.map { AiModelOption(it, it) }
+        override fun isAllowed(id: String) = id in free
+    }
+
+    private fun service(
+        chat: AiChat?,
+        props: AiProperties = properties,
+        clock: Clock = Clock.systemUTC(),
+        catalog: AiModelCatalog? = null,
+    ) = AiChatService(chat, props, clock, catalog)
 
     @Test
     fun `a successful call returns the text and the model`() {
         val completion = service(FakeChat("  Goed getraind.  ")).complete("prompt", "session-1")
         assertEquals("Goed getraind.", completion.text)
-        assertEquals("fake-model", completion.model)
+        assertEquals(properties.model, completion.model)
+    }
+
+    @Test
+    fun `the chosen model is the one that is called`() {
+        val chat = FakeChat()
+        val svc = service(chat, catalog = FakeCatalog(listOf("b/model:free")))
+        svc.complete("prompt", "session-1", "b/model:free")
+        assertEquals(listOf("b/model:free"), chat.used)
+    }
+
+    @Test
+    fun `a model outside the free list is refused before any provider call`() {
+        val chat = FakeChat()
+        val svc = service(chat, catalog = FakeCatalog(listOf("b/model:free")))
+        val error = assertThrows(AiFailureException::class.java) {
+            svc.complete("prompt", "session-1", "openai/gpt-expensive")
+        }
+        assertEquals(AiFailure.MODEL_NOT_FREE, error.failure)
+        assertTrue(chat.used.isEmpty())
+    }
+
+    @Test
+    fun `the configured default is allowed even when the catalogue is empty`() {
+        val chat = FakeChat()
+        service(chat, catalog = FakeCatalog(emptyList())).complete("prompt", "session-1", properties.model)
+        assertEquals(listOf(properties.model), chat.used)
+    }
+
+    @Test
+    fun `a busy model does not use up the hourly budget`() {
+        val busy = object : AiChat {
+            override fun complete(prompt: String, model: String): AiCompletion =
+                throw AiFailureException(AiFailure.PROVIDER_RATE_LIMIT)
+        }
+        val svc = service(busy, properties.copy(maxRequestsPerHour = 1), catalog = FakeCatalog(listOf("a:free")))
+
+        repeat(3) {
+            val error = assertThrows(AiFailureException::class.java) { svc.complete("prompt", "session-1", "a:free") }
+            assertEquals(AiFailure.PROVIDER_RATE_LIMIT, error.failure)
+        }
     }
 
     @Test
@@ -37,7 +87,7 @@ class AiChatServiceTest {
         val chat = FakeChat()
         val error = assertThrows(AiFailureException::class.java) { service(chat).complete("   ", "session-1") }
         assertEquals(AiFailure.EMPTY_PROMPT, error.failure)
-        assertEquals(0, chat.calls)
+        assertTrue(chat.used.isEmpty())
     }
 
     @Test
@@ -47,7 +97,7 @@ class AiChatServiceTest {
             service(chat).complete("x".repeat(101), "session-1")
         }
         assertEquals(AiFailure.TOO_LARGE, error.failure)
-        assertEquals(0, chat.calls)
+        assertTrue(chat.used.isEmpty())
     }
 
     @Test
@@ -57,11 +107,11 @@ class AiChatServiceTest {
         repeat(3) { svc.complete("prompt", "session-1") }
         val error = assertThrows(AiFailureException::class.java) { svc.complete("prompt", "session-1") }
         assertEquals(AiFailure.LOCAL_RATE_LIMIT, error.failure)
-        assertEquals(3, chat.calls)
+        assertEquals(3, chat.used.size)
 
         // Another session has its own budget.
         svc.complete("prompt", "session-2")
-        assertEquals(4, chat.calls)
+        assertEquals(4, chat.used.size)
     }
 
     @Test
@@ -74,7 +124,7 @@ class AiChatServiceTest {
 
         clock.now = clock.now.plusSeconds(3601)
         svc.complete("prompt", "session-1")
-        assertEquals(2, chat.calls)
+        assertEquals(2, chat.used.size)
     }
 
     @Test
@@ -82,10 +132,10 @@ class AiChatServiceTest {
         val entered = CountDownLatch(1)
         val release = CountDownLatch(1)
         val slow = object : AiChat {
-            override fun complete(prompt: String): AiCompletion {
+            override fun complete(prompt: String, model: String): AiCompletion {
                 entered.countDown()
                 release.await(5, TimeUnit.SECONDS)
-                return AiCompletion("klaar", "fake-model")
+                return AiCompletion("klaar", model)
             }
         }
         val svc = service(slow)
@@ -114,7 +164,7 @@ class AiChatServiceTest {
             service(chat, properties.copy(apiKey = "")).complete("prompt", "session-1")
         }
         assertEquals(AiFailure.NOT_CONFIGURED, error.failure)
-        assertEquals(0, chat.calls)
+        assertTrue(chat.used.isEmpty())
     }
 
     private class MutableClock(var now: Instant) : Clock() {

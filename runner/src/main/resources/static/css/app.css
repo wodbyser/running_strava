@@ -336,6 +336,13 @@ html[data-theme="dark"] .theme-toggle .icon-sun { opacity: 1; transform: rotate(
 .page-head > p, .page-head > div:first-child > p:not(.page-meta) { color: var(--ink-2); max-width: 72ch; margin-top: var(--sp-2); font-size: 0.95rem; }
 .page-head h1 { overflow-wrap: anywhere; }
 .page-meta { font-size: var(--fs-sm); color: var(--muted); margin-top: var(--sp-1); display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+/* Model choice above the ask buttons on /ai: label, select and the provider name on one line. */
+.ai-model-row {
+    display: flex; align-items: flex-end; gap: var(--sp-2) var(--sp-3); flex-wrap: wrap;
+    margin-bottom: var(--sp-3);
+}
+.ai-model-row select { min-width: min(26rem, 100%); max-width: 100%; }
+.ai-model-row + .field-hint { margin-top: calc(-1 * var(--sp-2)); margin-bottom: var(--sp-3); display: block; }
 .page-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); margin-left: auto; }
 .page-actions .field-label { white-space: nowrap; }
 
